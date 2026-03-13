@@ -3,6 +3,10 @@
 pub mod config;
 pub mod d_iwad;
 pub mod d_mode;
+pub mod d_ticcmd;
+pub mod doomdata;
+pub mod doomdef;
+pub mod doomstat;
 pub mod doomfeatures;
 pub mod doomtype;
 pub mod i_swap;

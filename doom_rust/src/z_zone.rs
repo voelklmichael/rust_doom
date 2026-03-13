@@ -132,7 +132,7 @@ pub fn z_malloc(size: usize, tag: i32, user: *mut *mut u8) -> *mut u8 {
         }
 
         let mut base = (*MAINZONE).rover;
-        if (*base).prev != null_mut() && (*(*base).prev).tag == PU_FREE {
+        if !(*base).prev.is_null() && (*(*base).prev).tag == PU_FREE {
             base = (*base).prev;
         }
         let mut rover = base;
@@ -197,7 +197,10 @@ fn z_change_tag2(_ptr: *mut u8, tag: i32, file: &str, line: u32) {
         }
         let block = block_from_ptr(_ptr);
         if (*block).id != ZONEID {
-            i_system::i_error(&format!("{}:{}: Z_ChangeTag: block without a ZONEID!", file, line));
+            i_system::i_error(&format!(
+                "{}:{}: Z_ChangeTag: block without a ZONEID!",
+                file, line
+            ));
         }
         if tag >= PU_PURGELEVEL && (*block).user.is_null() {
             i_system::i_error(&format!(
@@ -231,10 +234,7 @@ pub fn z_free_tags(lowtag: i32, hightag: i32) {
         let mut block = (*MAINZONE).blocklist.next;
         while block != blocklist_addr {
             let next = (*block).next;
-            if (*block).tag != PU_FREE
-                && (*block).tag >= lowtag
-                && (*block).tag <= hightag
-            {
+            if (*block).tag != PU_FREE && (*block).tag >= lowtag && (*block).tag <= hightag {
                 z_free(ptr_from_block(block));
             }
             block = next;
