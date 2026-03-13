@@ -8,7 +8,7 @@
 // Original: d_main.h + d_main.c (stub)
 
 use crate::doomdef::Gameaction;
-use crate::d_event::d_pop_event;
+use super::d_event::d_pop_event;
 
 /// Current game action. Original: gameaction
 pub static mut GAMEACTION: Gameaction = Gameaction::Nothing;

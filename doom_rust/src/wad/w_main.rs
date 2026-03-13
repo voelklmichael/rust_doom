@@ -8,7 +8,7 @@
 // Original: w_main.h (public) + w_main.c (private)
 
 use crate::doomfeatures;
-use crate::d_iwad;
+use crate::game::d_iwad;
 use crate::m_argv;
 use crate::wad::w_merge;
 use crate::wad::w_wad;

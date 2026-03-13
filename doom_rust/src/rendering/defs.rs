@@ -43,7 +43,7 @@ pub struct Vertex {
     pub y: Fixed,
 }
 
-pub use crate::d_think::Thinker;
+pub use crate::game::d_think::Thinker;
 
 /// Degen mobj for sector sound origin.
 #[repr(C)]

@@ -7,7 +7,7 @@
 //
 // Original: d_loop.h + d_loop.c (stub - single-player only)
 
-use crate::d_ticcmd::Ticcmd;
+use super::d_ticcmd::Ticcmd;
 use std::ptr;
 
 /// Callback: run one game tic with given ticcmds.

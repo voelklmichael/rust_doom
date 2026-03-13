@@ -7,7 +7,7 @@
 //
 // Original: p_tick.h / p_tick.c (partial - thinker list stubs)
 
-use crate::d_think::Thinker;
+use crate::game::d_think::Thinker;
 use std::ptr;
 
 /// Both the head and tail of the thinker list.
@@ -15,8 +15,8 @@ use std::ptr;
 pub static mut THINKERCAP: Thinker = Thinker {
     prev: ptr::null_mut(),
     next: ptr::null_mut(),
-    function: crate::d_think::ActionF {
-        acv: crate::d_think::no_op,
+    function: crate::game::d_think::ActionF {
+        acv: crate::game::d_think::no_op,
     },
 };
 

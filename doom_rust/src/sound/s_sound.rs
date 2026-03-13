@@ -10,7 +10,7 @@
 use std::sync::{Mutex, OnceLock};
 
 use crate::doomfeatures::FEATURE_SOUND;
-use crate::d_mode::GameMode;
+use crate::game::d_mode::GameMode;
 use crate::doomstat;
 use crate::m_fixed::{fixed_mul, Fixed, FRACBITS, FRACUNIT};
 use crate::player::p_mobj::Mobj;

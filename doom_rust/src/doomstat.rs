@@ -9,11 +9,11 @@
 
 use std::sync::atomic::AtomicI32;
 
-use crate::d_mode::{GameMission, GameMode, GameVersion, Skill};
+use crate::game::d_mode::{GameMission, GameMode, GameVersion, Skill};
 use crate::doomdata::MapThing;
 use crate::doomdef::{Gamestate, MAXPLAYERS};
 use crate::doomtype::Boolean;
-use crate::d_ticcmd::Ticcmd;
+use crate::game::d_ticcmd::Ticcmd;
 
 // Stub for player_t - full definition in p_mobj/d_player when ported.
 #[derive(Debug, Clone, Copy, Default)]

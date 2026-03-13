@@ -40,9 +40,16 @@ These modules have been ported from C with full or near-full functionality.
 | ↳ w_merge | w_merge.h/c | W_MergeFile, NWT merge |
 | ↳ w_file_stdc | w_file_stdc.c | Stdio-based file I/O |
 | **sha1_mod** | sha1.c | SHA1 hashing |
-| **d_think** | d_think.h | Thinker, ActionF, thinker_t |
-| **d_event** | d_event.h/c | Event, EvType, d_post_event, d_pop_event |
-| **d_items** | d_items.h/c | Weaponinfo, WEAPONINFO table |
+| **game/** | | Game loop, events, thinkers |
+| ↳ d_think | d_think.h | Thinker, ActionF, thinker_t |
+| ↳ d_event | d_event.h/c | Event, EvType, d_post_event, d_pop_event |
+| ↳ d_items | d_items.h/c | Weaponinfo, WEAPONINFO table |
+| ↳ d_mode | d_mode.h | GameMission, GameMode, Skill |
+| ↳ d_ticcmd | d_ticcmd.h | Ticcmd |
+| ↳ d_iwad | d_iwad.h/c | D_TryFindWADByName, D_SuggestGameName |
+| ↳ d_main | d_main.h/c | D_ProcessEvents, GAMEACTION |
+| ↳ d_loop | d_loop.h/c | TryRunTics, LoopInterface |
+| ↳ g_game | g_game.h/c | G_Ticker, G_Responder, G_BuildTiccmd |
 | **i_timer** | i_timer.h/c | i_get_time, i_sleep, i_init_timer |
 | **rendering/** | | Scene rendering (BSP, visplanes, sprites) |
 | ↳ defs | r_defs.h | vertex_t, sector_t, line_t, seg_t, node_t, subsector_t, etc. |
@@ -66,10 +73,6 @@ These modules exist but have minimal or stub implementations.
 
 | Rust Module | C Source(s) | Status |
 |-------------|-------------|--------|
-| **d_iwad** | d_iwad.h/c | Stub: D_TryFindWADByName, D_SuggestGameName (minimal logic) |
-| **d_main** | d_main.h/c | Stub: D_ProcessEvents, GAMEACTION |
-| **d_loop** | d_loop.h/c | Stub: TryRunTics, LoopInterface (single-player) |
-| **g_game** | g_game.h/c | Stub: G_Ticker → P_Ticker, G_Responder, G_BuildTiccmd |
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
 | **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player/WbStartStruct stubs |
 | **player/** | p_*.h / p_*.c | Scaffolded; see below |

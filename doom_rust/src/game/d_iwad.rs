@@ -6,7 +6,7 @@
 //
 // Original: d_iwad.h / d_iwad.c (stub implementation)
 
-use crate::d_mode::{GameMission, GameMode};
+use super::d_mode::{GameMission, GameMode};
 
 /// Try to find a WAD file by name. Returns the path if found, otherwise returns filename as-is.
 /// Stub: just returns the filename (assumes it's a valid path).

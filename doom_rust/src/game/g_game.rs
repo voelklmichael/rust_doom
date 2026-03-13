@@ -7,8 +7,8 @@
 //
 // Original: g_game.h + g_game.c (stub)
 
-use crate::d_event::Event;
-use crate::d_ticcmd::Ticcmd;
+use super::d_event::Event;
+use super::d_ticcmd::Ticcmd;
 use crate::player::p_tick;
 
 /// Advance game one tic. Calls P_Ticker.

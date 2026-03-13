@@ -7,8 +7,8 @@
 //
 // Original: w_wad.h (public) + w_wad.c (private)
 
-use crate::d_iwad;
-use crate::d_mode::GameMission;
+use crate::game::d_iwad;
+use crate::game::d_mode::GameMission;
 use crate::i_system;
 use crate::m_misc;
 use crate::z_zone::{z_change_tag, z_free, z_malloc, PU_CACHE, PU_STATIC};
@@ -388,7 +388,7 @@ pub fn w_check_correct_iwad(mission: GameMission) {
             if lumpnum >= 0 {
                 i_system::i_error(&format!(
                     "\nYou are trying to use a {} IWAD file with the doomgeneric binary.\nThis isn't going to work.\n",
-                    d_iwad::d_suggest_game_name(lump_mission, crate::d_mode::GameMode::Indetermined)
+                    d_iwad::d_suggest_game_name(lump_mission, crate::game::d_mode::GameMode::Indetermined)
                 ));
             }
         }
