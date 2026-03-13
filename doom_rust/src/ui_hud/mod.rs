@@ -25,7 +25,7 @@ pub use controls::{
     m_bind_heretic_controls, m_bind_map_controls, m_bind_menu_controls, m_bind_strife_controls,
     m_bind_weapon_controls,
 };
-pub use hu_stuff::{hu_dequeue_chat_char, hu_drawer, hu_erase, hu_init, hu_responder, hu_start, hu_ticker};
+pub use hu_stuff::{hu_dequeue_chat_char, hu_drawer, hu_erase, hu_init, hu_responder, hu_set_message, hu_start, hu_ticker};
 pub use menu::{m_drawer, m_init, m_responder, m_start_control_panel, m_ticker};
 pub use st_stuff::{st_drawer, st_init, st_responder, st_start, st_ticker};
 pub use wi_stuff::{wi_drawer, wi_end, wi_start, wi_ticker};

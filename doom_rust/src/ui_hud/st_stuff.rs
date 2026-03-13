@@ -9,6 +9,8 @@ use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
 use crate::doomtype::Boolean;
 use crate::game::d_event::Event;
 use crate::ui_hud::cheat::CheatSeq;
+use crate::ui_hud::st_lib::stlib_init;
+use crate::z_zone::{z_malloc, PU_STATIC};
 
 // =============================================================================
 // Public API (from st_stuff.h)
@@ -46,19 +48,22 @@ pub static mut CHEAT_CLEV: CheatSeq = CheatSeq::EMPTY;
 pub static mut CHEAT_MYPOS: CheatSeq = CheatSeq::EMPTY;
 
 // =============================================================================
-// Implementation (from st_stuff.c) — stubs
+// Implementation (from st_stuff.c)
 // =============================================================================
 
 pub fn st_init() {
-    // Stub
+    stlib_init();
+    let size = (ST_WIDTH * ST_HEIGHT) as usize;
+    unsafe {
+        ST_BACKING_SCREEN = z_malloc(size, PU_STATIC, std::ptr::null_mut());
+    }
 }
 
 pub fn st_start() {
-    // Stub
+    // Stub: would call ST_initData, ST_createWidgets
 }
 
 pub fn st_responder(_ev: &Event) -> Boolean {
-    // Stub
     false
 }
 
