@@ -407,9 +407,18 @@ pub fn r_precache_level() {
     }
 }
 
+/// Check whether flat is available. Returns -1 if not found.
+pub fn r_check_flat_num_for_name(name: &str) -> i32 {
+    let i = w_check_num_for_name(name);
+    if i < 0 {
+        return -1;
+    }
+    unsafe { i - FIRSTFLAT }
+}
+
 /// Get flat number for a flat name.
 pub fn r_flat_num_for_name(name: &str) -> i32 {
-    let i = w_check_num_for_name(name);
+    let i = r_check_flat_num_for_name(name);
     if i < 0 {
         let namet = if name.len() >= 8 {
             &name[..8]
@@ -418,7 +427,7 @@ pub fn r_flat_num_for_name(name: &str) -> i32 {
         };
         i_system::i_error(&format!("R_FlatNumForName: {} not found", namet));
     }
-    unsafe { i - FIRSTFLAT }
+    i
 }
 
 /// Check whether texture is available. Returns -1 if not found.

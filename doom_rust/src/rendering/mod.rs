@@ -2,17 +2,17 @@
 //!
 //! Original: r_*, v_* modules from Doom.
 
-mod defs;
+pub(crate) mod defs;
 mod m_bbox;
 mod r_bsp;
-mod r_data;
+pub(crate) mod r_data;
 mod r_draw;
 mod r_main;
 mod r_plane;
 mod r_segs;
 mod r_sky;
 mod r_things;
-mod state;
+pub(crate) mod state;
 mod v_patch;
 mod v_video;
 
@@ -38,8 +38,8 @@ pub use r_main::{
     LIGHTLEVELS, MAXLIGHTSCALE, MAXLIGHTZ, NF_SUBSECTOR, NUMCOLORMAPS,
 };
 pub use r_data::{
-    r_check_texture_num_for_name, r_flat_num_for_name, r_get_column, r_init_data,
-    r_precache_level, r_texture_num_for_name,
+    r_check_flat_num_for_name, r_check_texture_num_for_name, r_flat_num_for_name, r_get_column,
+    r_init_data, r_precache_level, r_texture_num_for_name,
 };
 pub use r_bsp::{r_clear_clip_segs, r_clear_draw_segs, r_render_bsp_node};
 pub use r_segs::{r_render_masked_seg_range, r_store_wall_range};
@@ -52,5 +52,5 @@ pub use v_video::{
     v_draw_patch_flipped, v_draw_raw_screen, v_draw_shadowed_patch, v_draw_tl_patch,
     v_draw_vert_line, v_draw_xla_patch, v_init, v_load_tint_table, v_load_xla_table,
     v_mark_rect, v_restore_buffer, v_screen_shot, v_set_patch_clip_callback, v_use_buffer,
-    CENTERY, DIRTYBOX, TINTTABLE,
+    CENTERY, DIRTYBOX, TINTTABLE, VIEWIMAGE,
 };
