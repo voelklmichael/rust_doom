@@ -13,9 +13,9 @@ Plan for porting the next set of C modules that unblock the player module and en
 | Phase | Status | Notes |
 |-------|--------|-------|
 | **Phase 1** | ✅ Done | d_think, d_event |
-| **Phase 2** | Partial | d_items done; info not started |
+| **Phase 2** | ✅ Done | d_items, info (minimal) |
 | **Phase 3** | ✅ Done | i_timer, doomdef extension |
-| **Phase 4** | ✅ Done | d_main, d_loop, g_game (stubs) |
+| **Phase 4** | ✅ Done | d_main, d_loop, g_game (stubs + G_PlayerReborn) |
 | **Phase 5** | ✅ Done | dstrings |
 
 ---
@@ -172,9 +172,10 @@ Check existing `doomdef.rs`; add `gameaction_t`, `gamestate_t` if missing.
 | Dependencies | doomdef, d_event, d_ticcmd, p_setup, p_tick, doomstat, s_sound, ... | many | Core game logic |
 
 **Key functions:**
-- `G_Ticker` – calls `P_Ticker`, updates level
-- `G_Responder` – handles events (keys, menu)
-- `G_BuildTiccmd` – builds ticcmd from input
+- `G_Ticker` – calls `P_Ticker`, updates level ✅
+- `G_Responder` – handles events (keys, menu) – stub ✅
+- `G_BuildTiccmd` – builds ticcmd from input – stub ✅
+- `G_PlayerReborn` – reset player for respawn ✅
 - `G_InitNew` – starts new game, calls `P_SetupLevel`
 
 **Complexity:** g_game.c is large (~1500+ lines). Implement incrementally: start with `G_Ticker` (calls P_Ticker), `G_Responder` (stub), `G_BuildTiccmd` (stub).
@@ -185,9 +186,10 @@ Check existing `doomdef.rs`; add `gameaction_t`, `gamestate_t` if missing.
 
 | Module | Purpose | When |
 |--------|---------|------|
-| Blockmap in p_setup | P_BlockLinesIterator, P_BlockThingsIterator | When p_map needs collision |
-| deh_* | DeHackEd | When mod support needed |
+| Blockmap in p_setup | P_BlockLinesIterator, P_BlockThingsIterator | ✅ Done |
+| deh_* | DeHackEd | Stubs done; full impl when mod support needed |
 | i_input | Keyboard/mouse → events | When D_ProcessEvents needs real input |
+| z_zone | Fix purge/corruption bug (base=null) | Blocks example_render_scene ⏳ |
 
 ---
 

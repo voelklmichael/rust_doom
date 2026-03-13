@@ -6,7 +6,7 @@ Plan for porting the Doom `p_*.c` / `p_*.h` files from C to Rust. All files go i
 
 ---
 
-## Current Status (as of scaffold completion)
+## Current Status
 
 | Phase | Status | Notes |
 |-------|--------|-------|
@@ -16,11 +16,11 @@ Plan for porting the Doom `p_*.c` / `p_*.h` files from C to Rust. All files go i
 | **Phase 3** | ✅ Done | p_spec, p_switch, p_inter |
 | **Phase 4** | ✅ Done | p_pspr, p_user, p_enemy, p_saveg |
 
-**Working:** `p_load_level` (scene rendering), `p_maputl` line/divline utilities, `get_next_sector`, thinker list stubs.
+**Working:** `p_load_level` (blockmap, REJECT, P_LoadThings), `p_maputl` (BlockLinesIterator, BlockThingsIterator, PathTraverse, P_SetThingPosition, P_UnsetThingPosition), `p_map` (P_CheckPosition, P_TryMove, P_TeleportMove, P_SlideMove), `p_sight` (P_CheckSight with REJECT+BSP), `p_tick` (P_RunThinkers, P_Ticker), `p_mobj` (P_SpawnMobj, P_RemoveMobj, P_SpawnMapThing, P_SpawnPlayer, P_MobjThinker with XY/Z movement and state tics), `get_next_sector`.
 
-**Stubs:** Most modules have API stubs; full logic requires g_game, d_think, info, blockmap, etc.
+**Stubs:** p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept, p_switch, p_inter, p_pspr, p_user, p_enemy, p_saveg.
 
-**Missing:** None – all 20 modules scaffolded (p_map added).
+**Missing:** None – all 20 modules scaffolded; core movement/collision/spawn logic implemented.
 
 ---
 
@@ -185,10 +185,10 @@ These must exist or be stubbed before player:
 
 **Done.** Both are in `player/`:
 
-- **p_setup.rs**: `p_load_level` for scene rendering (works; differs from C `P_SetupLevel` which also does blockmap/reject).
-- **p_mobj.rs**: Minimal `Mobj` (x, y, z, angle, snext, sprite, frame, flags) for sound/rendering.
+- **p_setup.rs**: `p_load_level` with blockmap, REJECT, P_LoadThings, sector.lines, playeringame init.
+- **p_mobj.rs**: Full `Mobj` (thinker, floorz, ceilingz, momx/momy/momz, radius, height, type, info, state, health, player ptr, etc.), P_SpawnMobj, P_RemoveMobj, P_SpawnMapThing, P_SpawnPlayer, P_MobjThinker (XY/Z movement, state tics).
 
-**Next:** Extend with full C logic as prerequisites (d_think, info, blockmap, g_game) are ported.
+**Next:** Fix z_zone corruption; add monster AI (p_enemy); fill specials stubs.
 
 ---
 
@@ -205,12 +205,15 @@ These must exist or be stubbed before player:
 
 ## Next Steps (implementation order)
 
-1. **Implement p_map** – P_CheckPosition, P_TryMove, P_TeleportMove (needs blockmap from p_setup).
-2. **Blockmap in p_setup** – extend `p_load_level` to build blockmap, sector.lines; required for p_map, twoSided, getSector.
-3. **d_think** – full `thinker_t` with function pointer; required for P_Ticker, mobj thinkers.
-4. **info** – `mobjinfo_t`, `state_t`, thing/state tables; required for full p_mobj, p_enemy.
-5. **g_game** – game loop, G_Ticker; required for p_switch, p_inter, p_enemy.
-6. **Fill stubs** – p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept, p_spec, p_switch, p_inter, p_pspr, p_user, p_enemy, p_saveg.
+1. ~~**Implement p_map**~~ ✅ Done – P_CheckPosition, P_TryMove, P_TeleportMove, P_SlideMove.
+2. ~~**Blockmap in p_setup**~~ ✅ Done – blockmap, sector.lines, blocklinks, P_LoadBlockMap, P_GroupLines.
+3. ~~**d_think**~~ ✅ Done – thinker_t linkage in mobj, P_RunThinkers.
+4. ~~**info**~~ ✅ Done – minimal mobjinfo_t, state_t, states(), MOBJINFO for player/imp/shotgun.
+5. ~~**g_game**~~ ✅ Done – G_Ticker, G_PlayerReborn, G_BuildTiccmd stub.
+6. **z_zone** – Fix base=null corruption during purge (blocks example_render_scene).
+7. **Real states** – Add states with positive tics for animations.
+8. **Monster AI** – p_enemy (A_Look, A_Chase, etc.).
+9. **Fill stubs** – p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept, p_spec, p_switch, p_inter, p_pspr, p_user, p_saveg.
 
 ---
 

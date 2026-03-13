@@ -31,7 +31,7 @@ These modules have been ported from C with full or near-full functionality.
 | ↳ memio | memio.h/c | MemFileRead, MemFileWrite, memory streams |
 | ↳ mus2mid | mus2mid.h/c | MUS→MIDI conversion |
 | ↳ r_angle | r_main.c (partial) | R_PointToAngle2 for stereo positioning |
-| **z_zone** | z_zone.h/c | Z_Init, Z_Malloc, Z_Free, Z_ChangeTag, purge tags |
+| **z_zone** | z_zone.h/c | Z_Init, Z_Malloc, Z_Free, Z_ChangeTag, purge tags. Known: base=null during purge (corruption) |
 | **wad/** | | |
 | ↳ w_wad | w_wad.h/c | W_AddFile, W_ReadLump, W_CacheLump*, hash table |
 | ↳ w_file | w_file.h/c | WadFile, W_OpenFile |
@@ -75,7 +75,7 @@ These modules exist but have minimal or stub implementations.
 | Rust Module | C Source(s) | Status |
 |-------------|-------------|--------|
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
-| **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player/WbStartStruct stubs |
+| **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player (mo, viewz, viewheight, extralight, fixedcolormap, playerstate, health), PlayerState enum, PLAYERS, PLAYERINGAME, PLAYERSTARTS |
 | **player/** | p_*.h / p_*.c | Scaffolded; see below |
 
 ### player/ module (src/player/)
@@ -84,12 +84,12 @@ All p_* C modules are scaffolded in `player/`. See `docs/PLAYER_TRANSLATION_PLAN
 
 | Submodule | Status | Notes |
 |-----------|--------|-------|
-| **p_setup** | Working | p_load_level for scene rendering (no blockmap yet) |
-| **p_mobj** | Partial | Mobj (x, y, z, angle, sprite, frame, flags) for sound/rendering |
-| **p_maputl** | Partial | P_AproxDistance, P_PointOnLineSide, P_LineOpening, etc. (no blockmap iterators) |
-| **p_tick** | Stub | P_InitThinkers, P_AddThinker, P_RemoveThinker |
-| **p_map** | Stub | API only; P_CheckPosition, P_TryMove, etc. need blockmap |
-| **p_sight** | Stub | P_CheckSight always returns true |
+| **p_setup** | Working | p_load_level, blockmap, REJECT, P_LoadThings, playeringame init |
+| **p_mobj** | Working | Mobj full, P_SpawnMobj, P_RemoveMobj, P_SpawnMapThing, P_SpawnPlayer, P_MobjThinker (XY/Z movement, state tics) |
+| **p_maputl** | Working | BlockLinesIterator, BlockThingsIterator, PathTraverse, P_SetThingPosition, P_UnsetThingPosition |
+| **p_tick** | Working | P_InitThinkers, P_AddThinker, P_RemoveThinker, P_RunThinkers, P_Ticker |
+| **p_map** | Working | P_CheckPosition, P_TryMove, P_TeleportMove, P_SlideMove |
+| **p_sight** | Working | P_CheckSight (REJECT + BSP traversal) |
 | **p_spec** | Partial | get_next_sector |
 | **p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept** | Stub | Module structure only |
 | **p_switch, p_inter** | Stub | API stubs |
@@ -104,10 +104,10 @@ C modules with no Rust equivalent yet.
 ### Game Core
 | C Module | Purpose |
 |----------|---------|
-| d_main (stub) | D_ProcessEvents, gameaction; D_DoomMain not ported |
-| d_loop (stub) | TryRunTics, LoopInterface; netgame not ported |
+| d_main (partial) | D_ProcessEvents, gameaction; D_DoomMain not ported |
+| d_loop (partial) | TryRunTics, LoopInterface; netgame not ported |
 | d_net | Networking |
-| g_game (stub) | G_Ticker, G_Responder, G_BuildTiccmd; full logic not ported |
+| g_game (partial) | G_Ticker, G_PlayerReborn, G_BuildTiccmd stub; G_InitNew, save/load not ported |
 
 ### UI / HUD
 | C Module | Purpose |
@@ -125,7 +125,7 @@ C modules with no Rust equivalent yet.
 ### Other
 | C Module | Purpose |
 |----------|---------|
-| info | Thing/mobjs info tables (mobjinfo_t, state_t) |
+| info | Thing/mobjs info tables – minimal done (State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD) |
 | f_finale | End-game screens |
 | f_wipe | Screen wipe |
 | i_timer | Timing |
@@ -157,6 +157,6 @@ C modules with no Rust equivalent yet.
 | **Not started** | ~45 C modules |
 
 **Foundation:** WAD, zone, sound, geometry, types, rendering (scene rendering works).  
-**Player:** All p_* modules scaffolded; blockmap, d_think, info, g_game needed for full game logic.
+**Player:** p_setup, p_mobj, p_map, p_sight, p_maputl, p_tick working; P_SpawnPlayer, G_PlayerReborn done. example_render_scene blocked by z_zone corruption.
 
-See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `NEXT_PHASE_TRANSLATION_PLAN.md`
+See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `NEXT_PHASE_TRANSLATION_PLAN.md`, `UI_HUD_TRANSLATION_PLAN.md`
