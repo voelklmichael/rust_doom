@@ -115,10 +115,10 @@ These must exist or be stubbed before player:
 
 | Step | File | Dependencies | Notes |
 |------|------|--------------|-------|
-| 1 | **p_local / mod.rs** | r_local, p_spec | Constants, types, re-exports. Start with minimal stub. |
+| 1 | **p_local / mod.rs** | r_local, p_spec | Constants, types, re-exports. Start with minimal stub. ✅ Constants, Divline |
 | 2 | **p_mobj.rs** | d_think, doomdata, info, tables, m_fixed | Full `mobj_t`, flags, spawn/remove |
-| 3 | **p_maputl.rs** | p_local, m_bbox, r_state | Blockmap, divline, intercept, path traverse |
-| 4 | **p_tick.rs** | p_local, z_zone, doomstat | Thinker list, P_Ticker |
+| 3 | **p_maputl.rs** | p_local, m_bbox, r_state | Blockmap, divline, intercept, path traverse. ✅ P_AproxDistance |
+| 4 | **p_tick.rs** | p_local, z_zone, doomstat | Thinker list, P_Ticker. ✅ P_InitThinkers, P_AddThinker, P_RemoveThinker stubs |
 | 5 | **p_setup.rs** | p_local, z_zone, w_wad, m_bbox, g_game, s_sound | Level load, blockmap, reject |
 
 ### Phase 2: Movement & Collision
