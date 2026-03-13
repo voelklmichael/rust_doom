@@ -22,13 +22,23 @@ use crate::rendering::r_main::{
 use crate::rendering::r_segs::r_render_masked_seg_range;
 use crate::rendering::state;
 use crate::rendering::v_patch::{patch_t, post_t};
-use crate::wad::w_cache_lump_num;
-use crate::z_zone::PU_CACHE;
+use crate::wad::{w_cache_lump_num, with_lumpinfo};
+use crate::z_zone::{z_malloc, PU_CACHE, PU_STATIC};
+use std::collections::BTreeSet;
 use std::ptr;
 
 const MINZ: Fixed = FRACUNIT * 4;
 const MAXVISSPRITES: usize = 128;
 const LIGHTSEGSHIFT: i32 = 4;
+
+fn sprite_name_upper4(src: &[u8]) -> [u8; 4] {
+    let mut out = [0u8; 4];
+    for i in 0..4 {
+        let b = src.get(i).copied().unwrap_or(0);
+        out[i] = if (b'a'..=b'z').contains(&b) { b - 32 } else { b };
+    }
+    out
+}
 
 // =============================================================================
 // State
@@ -37,6 +47,9 @@ const LIGHTSEGSHIFT: i32 = 4;
 static mut VISSPRITES: [Vissprite; MAXVISSPRITES] = unsafe { std::mem::zeroed() };
 static mut VISSPRITE_P: *mut Vissprite = ptr::null_mut();
 static mut VSPRSORTEDHEAD: Vissprite = unsafe { std::mem::zeroed() };
+
+/// Sprite names in index order (filled by r_init_sprites).
+static mut SPRITE_NAMES: Option<Vec<[u8; 4]>> = None;
 
 /// Clipping arrays for sprite drawing - set by R_DrawSprite.
 static mut MFLOORCLIP: *const i16 = ptr::null();
@@ -50,6 +63,136 @@ static mut MCEILINGCLIP: *const i16 = ptr::null();
 pub fn r_clear_sprites() {
     unsafe {
         VISSPRITE_P = VISSPRITES.as_mut_ptr();
+    }
+}
+
+/// Load sprite definitions from WAD. Call from R_InitData after R_InitSpriteLumps.
+pub fn r_init_sprites() {
+    let (first, last, numlumps) = unsafe {
+        (
+            state::FIRSTSPRITELUMP,
+            state::LASTSPRITELUMP,
+            state::NUMSPRITELUMPS,
+        )
+    };
+    if numlumps <= 0 || first < 0 {
+        return;
+    }
+
+    let sprite_names: BTreeSet<[u8; 4]> = with_lumpinfo(|lumpinfo| {
+        let mut names = BTreeSet::new();
+        let first_u = first as usize;
+        let last_u = last as usize;
+        if last_u >= lumpinfo.len() {
+            return names;
+        }
+        for i in first_u..=last_u {
+            let lump = &lumpinfo[i];
+            if lump.name[4] == 0 {
+                continue;
+            }
+            names.insert(sprite_name_upper4(&lump.name[0..4]));
+        }
+        names
+    });
+
+    let numsprites = sprite_names.len() as i32;
+    if numsprites == 0 {
+        return;
+    }
+
+    let sprites_ptr = unsafe {
+        z_malloc(
+            numsprites as usize * std::mem::size_of::<Spritedef>(),
+            PU_STATIC,
+            ptr::null_mut(),
+        ) as *mut Spritedef
+    };
+
+    let sprite_vec: Vec<[u8; 4]> = sprite_names.into_iter().collect();
+
+    for (sprite_idx, name) in sprite_vec.iter().enumerate() {
+        use std::collections::BTreeMap;
+        let mut frame_lumps: BTreeMap<u8, (bool, [i16; 8])> = BTreeMap::new();
+        with_lumpinfo(|lumpinfo| {
+            let first_u = first as usize;
+            let last_u = last.min(lumpinfo.len() as i32 - 1) as usize;
+            for i in first_u..=last_u {
+                let lump = &lumpinfo[i];
+                if lump.name[0..4] != name[..] {
+                    continue;
+                }
+                let frame_char = lump.name[4];
+                let rot_char = lump.name[5];
+                if frame_char == 0 {
+                    continue;
+                }
+                let lump_offset = (i as i32 - first) as i16;
+                let entry = frame_lumps.entry(frame_char).or_insert((false, [0i16; 8]));
+                if rot_char == b'[' {
+                    entry.0 = false;
+                    entry.1[0] = lump_offset;
+                } else if rot_char >= b'0' && rot_char <= b'7' {
+                    let rot = (rot_char - b'0') as usize;
+                    entry.0 = true;
+                    entry.1[rot] = lump_offset;
+                }
+            }
+        });
+
+        for (_, (_, lumps)) in frame_lumps.iter_mut() {
+            let fill = lumps.iter().find(|&&x| x != 0).copied().unwrap_or(0);
+            for i in 0..8 {
+                if lumps[i] == 0 {
+                    lumps[i] = fill;
+                }
+            }
+        }
+
+        let frame_list: Vec<_> = frame_lumps.into_iter().collect();
+        let numframes = frame_list.len() as i32;
+        let spriteframes_ptr = unsafe {
+            z_malloc(
+                numframes as usize * std::mem::size_of::<SpriteFrame>(),
+                PU_STATIC,
+                ptr::null_mut(),
+            ) as *mut SpriteFrame
+        };
+        for (fi, (_, (rotate, lump))) in frame_list.iter().enumerate() {
+            unsafe {
+                let sf = spriteframes_ptr.add(fi);
+                (*sf).rotate = *rotate;
+                (*sf).lump = *lump;
+                (*sf).flip = [0u8; 8];
+            }
+        }
+        unsafe {
+            let spd = sprites_ptr.add(sprite_idx);
+            (*spd).numframes = numframes;
+            (*spd).spriteframes = spriteframes_ptr;
+        }
+    }
+
+    unsafe {
+        state::NUMSPRITES = numsprites;
+        state::SPRITES = sprites_ptr;
+        SPRITE_NAMES = Some(sprite_vec.clone());
+    }
+}
+
+/// Lookup sprite index by 4-char name (e.g. "TROO", "PLAY"). Returns -1 if not found.
+/// Case-insensitive to match Doom lump name convention.
+pub fn r_sprite_num_for_name(name: &str) -> i32 {
+    let name_bytes = name.as_bytes();
+    if name_bytes.len() < 4 {
+        return -1;
+    }
+    let key = sprite_name_upper4(name_bytes);
+    unsafe {
+        SPRITE_NAMES
+            .as_ref()
+            .and_then(|names| names.iter().position(|n| n[..] == key[..]))
+            .map_or(-1, |i| i as i32)
     }
 }
 

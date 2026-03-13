@@ -5,3 +5,4 @@ edition = "2021"
 
 [dependencies]
 sha1 = "0.10"
+image = "0.25"

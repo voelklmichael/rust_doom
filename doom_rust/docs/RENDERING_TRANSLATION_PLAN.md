@@ -181,8 +181,8 @@ Rendering depends on (must exist or be stubbed):
 - [x] **r_main** – R_Init, R_RenderPlayerView, R_SetViewSize, R_PointToAngle, R_PointInSubsector, R_ScaleFromGlobalAngle, lighting LUTs
 - [x] **r_bsp** – R_RenderBSPNode, R_ClearClipSegs, R_ClearDrawSegs, R_AddLine, R_CheckBBox, R_Subsector
 - [x] **r_plane** – R_FindPlane, R_CheckPlane, R_ClearPlanes, R_MapPlane, R_MakeSpans, R_DrawPlanes
-- [x] **r_things** – R_AddSprites, R_DrawMasked, R_ProjectSprite, R_SortVisSprites, R_DrawSprite, R_DrawVisSprite, R_DrawMaskedColumn
+- [x] **r_things** – R_InitSprites, R_AddSprites, R_DrawMasked, R_ProjectSprite, R_SortVisSprites, R_DrawSprite, R_DrawVisSprite, R_DrawMaskedColumn
 - [x] **r_segs** – R_StoreWallRange, R_RenderSegLoop (wall drawing, floor/ceiling marks)
 
 ### Next Steps
-1. **R_InitSprites** – sprite definition loading (for full sprite support)
+1. **Level loading** – populate sector thinglist with mobjs that have sprite, frame, snext set

@@ -327,6 +327,7 @@ pub fn r_init_data() {
         state::SPRITETOPOFFSET = SPRITETOPOFFSET;
         state::COLORMAPS = COLORMAPS;
     }
+    crate::rendering::r_things::r_init_sprites();
 }
 
 /// Preloads all relevant graphics for the level.
