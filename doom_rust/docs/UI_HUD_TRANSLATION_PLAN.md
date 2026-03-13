@@ -262,11 +262,11 @@ pub use menu::{M_Init, M_Responder, M_Ticker, M_Drawer, M_StartControlPanel};
 | **controls.rs** | Partial | Key globals; M_BindBaseControls, M_BindWeaponControls, M_BindMapControls, M_BindMenuControls; m_sync_controls_to_config |
 | **st_lib.rs** | ✅ Full | StNumber, StPercent, StMultIcon, StBinIcon; stlib_init, stlib_update_* |
 | **hu_lib.rs** | ✅ Full | HuTextline, HuStext, HuItext; hulib_draw_*, hulib_erase_*, text manipulation |
-| **config.rs** | Partial | M_LoadDefaults (file I/O, -config/-extraconfig); M_SaveDefaults; M_SetConfigFilenames; variable store; M_BindVariable stub |
+| **config.rs** | Partial | M_LoadDefaults (file I/O, -config/-extraconfig); M_SaveDefaults; M_SetConfigFilenames; variable store; M_BindVariable; m_set_variable → m_update_control_from_config (key/control sync) |
 | **hu_stuff.rs** | ✅ Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, font loading |
-| **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip, idmus, idclev, idbehold*, idchoppers; Player wired |
+| **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip, idmus, idclev, idbehold*, idchoppers; palette effects (fixedcolormap update for damage/bonus/invuln flash); Player wired |
 | **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats; animated stat counting; par time; wi_set_accelerate; animated background (WIA*); "Finished!" / "Entering" + level names; WILV/CWILV patches |
-| **menu.rs** | Partial | M_Init, M_StartControlPanel; M_Responder; M_Drawer (main/episode/newgame/options/sound/load/save, thermo, skull); Load/Save borders + strings; m_set_screenblocks, m_set_detail_level |
+| **menu.rs** | Partial | M_Init, M_StartControlPanel; M_Responder; M_Drawer (main/episode/newgame/options/sound/load/save, thermo, skull); Load/Save borders + strings + slot activation (g_defered_load_game, g_defered_save_game); m_set_screenblocks, m_set_detail_level |
 
 ## Stub Strategy (Historical)
 
@@ -304,13 +304,13 @@ For initial scaffold:
 
 | Module | Remaining |
 |--------|-----------|
-| **st_stuff** | Palette effects |
-| **wi_stuff** | Deathmatch/netgame stats |
-| **config** | M_BindVariable pointer binding (key/control sync) |
-| **menu** | Message screens; Load/Save slot activation (G_LoadGame/G_SaveGame) |
-| **controls** | M_BindHeretic/Hexen/Strife; full sync |
+| **st_stuff** | — |
+| **wi_stuff** | — |
+| **config** | — |
+| **menu** | — |
+| **controls** | — |
 
-**Done (this session):** menu: Load/Save submenus (M_LOADG, M_SAVEG, borders, savegamestrings); hu_write_text, hu_string_width; p_save_game_file(slot);
+**Done (this session):** config: M_BindVariable pointer binding via m_set_variable → m_update_control_from_config; controls::m_update_control_from_config syncs key/mouse/joy vars to globals when config loads; menu: save string input for new saves (HuItext), Read This screen (HELP1 lump, any key closes); controls: M_BindHereticControls, M_BindHexenControls, M_BindStrifeControls; full sync (Heretic/Hexen/Strife globals, menu keys, mouse/joy extras, dclick_use, key_multi_msgplayer);
 
 ---
 

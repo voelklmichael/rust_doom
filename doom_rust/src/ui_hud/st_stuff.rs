@@ -8,9 +8,11 @@
 use crate::deh::deh_string;
 use crate::doomdef::{Ammotype, SCREENHEIGHT, SCREENWIDTH};
 use crate::doomdef::Weapontype;
+use crate::doomdef::Powertype;
 use crate::doomstat::{
     CF_GODMODE, CF_NOCLIP, CONSOLEPLAYER, DEATHMATCH, GAMEMODE, GAMESKILL, NETGAME, PLAYERS,
 };
+use crate::player::p_user::INVERSECOLORMAP;
 use crate::doomtype::Boolean;
 use crate::game::d_event::Event;
 use crate::game::d_items::WEAPONINFO;
@@ -618,10 +620,35 @@ pub fn st_responder(ev: &Event) -> Boolean {
 
 pub fn st_ticker() {
     st_update_widgets();
+    st_update_palette_effects();
     unsafe {
         ST_CLOCK = ST_CLOCK.wrapping_add(1);
         let idx = CONSOLEPLAYER as usize;
         ST_OLDHEALTH = PLAYERS[idx].health;
+    }
+}
+
+/// Update player fixedcolormap for damage/bonus/invulnerability flash. Original: P_PlayerThink palette part
+fn st_update_palette_effects() {
+    unsafe {
+        let idx = CONSOLEPLAYER as usize;
+        if idx >= crate::doomdef::MAXPLAYERS {
+            return;
+        }
+        let plyr = &mut PLAYERS[idx];
+        let invuln = (plyr.cheats & CF_GODMODE) != 0 || plyr.powers[Powertype::Invulnerability as usize] > 0;
+
+        if invuln {
+            plyr.fixedcolormap = INVERSECOLORMAP;
+        } else if plyr.damagecount > 0 {
+            plyr.fixedcolormap = 1 + (plyr.damagecount - 1) / 2;
+            plyr.damagecount -= 1;
+        } else if plyr.bonuscount > 0 {
+            plyr.fixedcolormap = 1;
+            plyr.bonuscount -= 1;
+        } else {
+            plyr.fixedcolormap = 0;
+        }
     }
 }
 

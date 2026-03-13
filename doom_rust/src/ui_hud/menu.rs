@@ -21,7 +21,7 @@ use crate::ui_hud::controls::{
 use crate::game::dstrings::EMPTYSTRING;
 use crate::player::p_saveg::{p_save_game_file, SAVESTRINGSIZE};
 use crate::sound::{s_set_music_volume, s_set_sfx_volume};
-use crate::ui_hud::hu_stuff::{hu_string_width, hu_write_text};
+use crate::ui_hud::hu_stuff::{hu_draw_save_string, hu_save_string_active, hu_save_string_key, hu_save_string_slot, hu_start_save_string, hu_write_text, SaveStringKeyResult};
 use crate::wad::w_cache_lump_name;
 use crate::z_zone::PU_CACHE;
 
@@ -49,6 +49,7 @@ enum MenuKind {
     Sound,
     Load,
     Save,
+    ReadThis,
 }
 
 static mut CURRENT_MENU: MenuKind = MenuKind::Main;
@@ -111,6 +112,15 @@ static mut SAVEGAME_STRINGS: [[u8; SAVESTRINGSIZE]; LOAD_SLOTS] =
 // =============================================================================
 // Implementation (from m_menu.c)
 // =============================================================================
+
+fn slot_is_empty(slot: usize) -> bool {
+    if slot >= LOAD_SLOTS {
+        return true;
+    }
+    let s = unsafe { std::str::from_utf8_unchecked(&SAVEGAME_STRINGS[slot]) };
+    let trimmed = s.trim_matches('\0').trim();
+    trimmed.is_empty() || trimmed.eq_ignore_ascii_case(EMPTYSTRING)
+}
 
 fn m_read_save_strings() {
     for i in 0..LOAD_SLOTS {
@@ -196,12 +206,17 @@ fn m_draw_save_menu() {
             v_draw_patch_direct(72, 28, title as *const _);
         }
         m_read_save_strings();
+        let editing_slot = hu_save_string_active().then(|| hu_save_string_slot());
         for i in 0..LOAD_SLOTS {
             m_draw_save_load_border(LOAD_X, LOAD_Y + LINEHEIGHT * (i as i32));
-            let s = std::str::from_utf8_unchecked(&SAVEGAME_STRINGS[i])
-                .trim_matches('\0');
-            let s = if s.is_empty() { EMPTYSTRING } else { s };
-            hu_write_text(LOAD_X, LOAD_Y + LINEHEIGHT * (i as i32), s);
+            if editing_slot == Some(i) {
+                // Slot text drawn by hu_draw_save_string
+            } else {
+                let s = std::str::from_utf8_unchecked(&SAVEGAME_STRINGS[i])
+                    .trim_matches('\0');
+                let s = if s.is_empty() { EMPTYSTRING } else { s };
+                hu_write_text(LOAD_X, LOAD_Y + LINEHEIGHT * (i as i32), s);
+            }
         }
         let skull_name = if WHICH_SKULL == 0 { "M_SKULL1" } else { "M_SKULL2" };
         let skull = w_cache_lump_name(deh_string(skull_name), PU_CACHE);
@@ -212,10 +227,14 @@ fn m_draw_save_menu() {
                 skull as *const _,
             );
         }
+        if hu_save_string_active() {
+            hu_draw_save_string();
+        }
     }
 }
 
 pub fn m_init() {
+    crate::ui_hud::hu_stuff::hu_init();
     m_load_defaults();
     m_bind_base_controls();
     m_bind_weapon_controls();
@@ -254,8 +273,39 @@ pub fn m_responder(ev: &Event) -> Boolean {
         return false;
     }
     let key = ev.data2;
+    if hu_save_string_active() {
+        if let Some(result) = hu_save_string_key(key as u8) {
+            match result {
+                SaveStringKeyResult::Consumed => return true,
+                SaveStringKeyResult::Commit { slot, desc } => {
+                    let desc_str: &str = if desc.is_empty() {
+                        "Doom Save"
+                    } else {
+                        &desc
+                    };
+                    crate::game::d_main::set_savegame_description(desc_str.as_bytes());
+                    crate::game::g_game::g_defered_save_game(slot as i32);
+                    unsafe {
+                        CURRENT_MENU = MenuKind::Main;
+                        ITEM_ON = 3;
+                        MENUACTIVE = false;
+                    }
+                    return true;
+                }
+                SaveStringKeyResult::Cancel => {
+                    crate::ui_hud::hu_stuff::hu_cancel_save_string();
+                    return true;
+                }
+            }
+        }
+    }
     unsafe {
         if MENUACTIVE {
+            // Read This: any key closes and returns to main menu
+            if CURRENT_MENU == MenuKind::ReadThis {
+                m_go_back();
+                return true;
+            }
             if key == KEY_MENU_ABORT {
                 MENUACTIVE = false;
                 return true;
@@ -451,6 +501,7 @@ fn m_current_num_items() -> usize {
             MenuKind::Options => OPTIONS_NUM_ITEMS,
             MenuKind::Sound => SOUND_NUM_ITEMS,
             MenuKind::Load | MenuKind::Save => MAIN_NUM_ITEMS,
+            MenuKind::ReadThis => 1, // no selectable items; any key closes
         }
     }
 }
@@ -481,7 +532,7 @@ fn m_activate_item() {
                 }
                 4 => {
                     if GAMEMODE != GameMode::Commercial {
-                        // Read This - stub
+                        CURRENT_MENU = MenuKind::ReadThis;
                     }
                 }
                 5 => MENUACTIVE = false,
@@ -524,11 +575,27 @@ fn m_activate_item() {
                 }
             }
             MenuKind::Load => {
-                // M_LoadSelect - would call G_LoadGame; stub for now
+                if !slot_is_empty(ITEM_ON) {
+                    crate::game::g_game::g_defered_load_game(ITEM_ON as i32);
+                    CURRENT_MENU = MenuKind::Main;
+                    ITEM_ON = 2;
+                    MENUACTIVE = false;
+                }
             }
             MenuKind::Save => {
-                // M_SaveSelect - would start string input; stub for now
+                let slot = ITEM_ON;
+                if slot_is_empty(slot) {
+                    hu_start_save_string(slot, LOAD_X, LOAD_Y + LINEHEIGHT * (slot as i32));
+                } else {
+                    let desc = &SAVEGAME_STRINGS[slot];
+                    crate::game::d_main::set_savegame_description(desc);
+                    crate::game::g_game::g_defered_save_game(slot as i32);
+                    CURRENT_MENU = MenuKind::Main;
+                    ITEM_ON = 3;
+                    MENUACTIVE = false;
+                }
             }
+            MenuKind::ReadThis => {} // any key handled in m_responder; go_back closes
         }
     }
 }
@@ -557,6 +624,10 @@ fn m_go_back() {
                 CURRENT_MENU = MenuKind::Main;
                 ITEM_ON = 3;
             }
+            MenuKind::ReadThis => {
+                CURRENT_MENU = MenuKind::Main;
+                ITEM_ON = 4;
+            }
         }
     }
 }
@@ -570,6 +641,16 @@ pub fn m_ticker() {
         if SKULL_ANIM_COUNTER <= 0 {
             WHICH_SKULL ^= 1;
             SKULL_ANIM_COUNTER = 8;
+        }
+    }
+}
+
+fn m_draw_read_this() {
+    unsafe {
+        // Draw HELP1 lump full-screen (Read This / message screen)
+        let p = w_cache_lump_name(deh_string("HELP1"), PU_CACHE);
+        if !p.is_null() {
+            v_draw_patch_direct(0, 0, p as *const _);
         }
     }
 }
@@ -774,6 +855,9 @@ pub fn m_drawer() {
             }
             MenuKind::Save => {
                 m_draw_save_menu();
+            }
+            MenuKind::ReadThis => {
+                m_draw_read_this();
             }
         }
     }

@@ -72,6 +72,44 @@ static mut WI_PAR: *mut crate::rendering::patch_t = ptr::null_mut();
 static mut WI_COLON: *mut crate::rendering::patch_t = ptr::null_mut();
 static mut WI_SUCKS: *mut crate::rendering::patch_t = ptr::null_mut();
 
+// Deathmatch/netgame patches
+static mut WI_KILLERS: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_VICTIMS: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_TOTAL: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_FRAGS: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_STAR: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_BSTAR: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_P: [*mut crate::rendering::patch_t; crate::doomdef::MAXPLAYERS] =
+    [ptr::null_mut(); crate::doomdef::MAXPLAYERS];
+
+// Deathmatch state
+const DM_MATRIXX: i32 = 42;
+const DM_MATRIXY: i32 = 68;
+const DM_SPACINGX: i32 = 40;
+const DM_TOTALSX: i32 = 269;
+const DM_KILLERSX: i32 = 10;
+const DM_KILLERSY: i32 = 100;
+const DM_VICTIMSX: i32 = 5;
+const DM_VICTIMSY: i32 = 50;
+const WI_SPACINGY: i32 = 33;
+
+static mut WI_DM_STATE: i32 = 1;
+static mut WI_DM_FRAGS: [[i32; crate::doomdef::MAXPLAYERS]; crate::doomdef::MAXPLAYERS] =
+    [[0; crate::doomdef::MAXPLAYERS]; crate::doomdef::MAXPLAYERS];
+static mut WI_DM_TOTALS: [i32; crate::doomdef::MAXPLAYERS] = [0; crate::doomdef::MAXPLAYERS];
+
+// Netgame state
+const NG_STATSX: i32 = 32;
+const NG_STATSY: i32 = 50;
+const NG_SPACINGX: i32 = 64;
+const NG_SPACINGY: i32 = 33;
+
+static mut WI_NG_STATE: i32 = 1;
+static mut WI_NG_CNT_KILLS: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
+static mut WI_NG_CNT_ITEMS: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
+static mut WI_NG_CNT_SECRET: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
+static mut WI_NG_CNT_FRAGS: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
+
 // Level name patches (WILVxx or CWILVxx)
 const NUMMAPS: usize = 9;
 const NUMCMAPS: usize = 34;
@@ -405,6 +443,18 @@ fn wi_load_data(wbs: &crate::doomstat::WbStartStruct) {
         WI_COLON = w_cache_lump_name(deh_string("WICOLON"), PU_STATIC) as *mut crate::rendering::patch_t;
         WI_SUCKS = w_cache_lump_name(deh_string("WISUCKS"), PU_STATIC) as *mut crate::rendering::patch_t;
 
+        // Deathmatch/netgame patches
+        WI_KILLERS = w_cache_lump_name(deh_string("WIKILRS"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_VICTIMS = w_cache_lump_name(deh_string("WIVCTMS"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_TOTAL = w_cache_lump_name(deh_string("WIMSTT"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_FRAGS = w_cache_lump_name(deh_string("WIFRGS"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_STAR = w_cache_lump_name(deh_string("STFST01"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_BSTAR = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC) as *mut crate::rendering::patch_t;
+        for i in 0..crate::doomdef::MAXPLAYERS {
+            let lump = format!("WIP{}", i);
+            WI_P[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
+        }
+
         // Level names
         if GAMEMODE == GameMode::Commercial {
             WI_NUM_LNAMES = NUMCMAPS;
@@ -638,6 +688,328 @@ fn wi_init_stats() {
     }
 }
 
+fn wi_frag_sum(playernum: usize) -> i32 {
+    unsafe {
+        let wbs = &WMINFO;
+        let mut sum = 0i32;
+        if playernum < crate::doomdef::MAXPLAYERS {
+            for j in 0..crate::doomdef::MAXPLAYERS {
+                sum += wbs.plyr[playernum].frags[j];
+            }
+        }
+        sum
+    }
+}
+
+fn wi_init_deathmatch_stats() {
+    unsafe {
+        let wbs = &WMINFO;
+        WI_DM_STATE = 1;
+        WI_CNT_PAUSE = TICRATE;
+        for i in 0..crate::doomdef::MAXPLAYERS {
+            for j in 0..crate::doomdef::MAXPLAYERS {
+                WI_DM_FRAGS[i][j] = 0;
+            }
+            WI_DM_TOTALS[i] = 0;
+        }
+    }
+}
+
+fn wi_update_deathmatch_stats() {
+    wi_update_animated_back();
+    unsafe {
+        let wbs = &WMINFO;
+        let me = wbs.pnum as usize;
+        if WI_ACCELERATE && WI_DM_STATE != 4 {
+            WI_ACCELERATE = false;
+            for i in 0..crate::doomdef::MAXPLAYERS {
+                if wbs.plyr[i].in_game != 0 {
+                    for j in 0..crate::doomdef::MAXPLAYERS {
+                        WI_DM_FRAGS[i][j] = wbs.plyr[i].frags[j];
+                    }
+                    WI_DM_TOTALS[i] = wi_frag_sum(i);
+                }
+            }
+            s_start_sound(None, SfxEnum::Barexp as i32, None);
+            WI_DM_STATE = 4;
+        }
+        if WI_DM_STATE == 2 {
+            let mut still_ticking = false;
+            for i in 0..crate::doomdef::MAXPLAYERS {
+                if wbs.plyr[i].in_game == 0 {
+                    continue;
+                }
+                let mut tot = 0i32;
+                for j in 0..crate::doomdef::MAXPLAYERS {
+                    let target = wbs.plyr[i].frags[j];
+                    if WI_DM_FRAGS[i][j] < target {
+                        WI_DM_FRAGS[i][j] = (WI_DM_FRAGS[i][j] + 1).min(target);
+                        still_ticking = true;
+                    }
+                    WI_DM_FRAGS[i][j] = WI_DM_FRAGS[i][j].clamp(-99, 99);
+                    tot += WI_DM_FRAGS[i][j];
+                }
+                WI_DM_TOTALS[i] = tot.clamp(-99, 99);
+            }
+            if !still_ticking {
+                s_start_sound(None, SfxEnum::Barexp as i32, None);
+                WI_DM_STATE += 1;
+            }
+        } else if WI_DM_STATE == 4 {
+            if WI_ACCELERATE {
+                WI_ACCELERATE = false;
+                s_start_sound(None, SfxEnum::Slop as i32, None);
+                if GAMEMODE == GameMode::Commercial {
+                    WI_STATE = WiStateEnum::NoState;
+                } else {
+                    WI_STATE = WiStateEnum::ShowNextLoc;
+                    WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
+                    wi_init_animated_back();
+                }
+            }
+        } else if (WI_DM_STATE & 1) != 0 {
+            WI_CNT_PAUSE -= 1;
+            if WI_CNT_PAUSE <= 0 {
+                WI_DM_STATE += 1;
+                WI_CNT_PAUSE = TICRATE;
+            }
+        }
+    }
+}
+
+fn wi_draw_deathmatch_stats() {
+    unsafe {
+        let wbs = &WMINFO;
+        let me = wbs.pnum as usize;
+        let p0 = WI_NUM[0];
+        if p0.is_null() {
+            return;
+        }
+
+        wi_slam_background();
+        wi_draw_animated_back();
+        wi_draw_lf();
+
+        if !WI_TOTAL.is_null() {
+            let tw = (*WI_TOTAL).width as i32;
+            v_draw_patch(DM_TOTALSX - tw / 2, DM_MATRIXY - WI_SPACINGY + 10, WI_TOTAL);
+        }
+        if !WI_KILLERS.is_null() {
+            v_draw_patch(DM_KILLERSX, DM_KILLERSY, WI_KILLERS);
+        }
+        if !WI_VICTIMS.is_null() {
+            v_draw_patch(DM_VICTIMSX, DM_VICTIMSY, WI_VICTIMS);
+        }
+
+        let mut x = DM_MATRIXX + DM_SPACINGX;
+        let mut y = DM_MATRIXY;
+        for i in 0..crate::doomdef::MAXPLAYERS {
+            if wbs.plyr[i].in_game == 0 {
+                x += DM_SPACINGX;
+                y += WI_SPACINGY;
+                continue;
+            }
+            let pi = WI_P[i];
+            if !pi.is_null() {
+                let pw = (*pi).width as i32;
+                v_draw_patch(x - pw / 2, DM_MATRIXY - WI_SPACINGY, pi);
+                v_draw_patch(DM_MATRIXX - pw / 2, y, pi);
+                if i == me {
+                    if !WI_BSTAR.is_null() {
+                        let bw = (*WI_BSTAR).width as i32;
+                        v_draw_patch(x - bw / 2, DM_MATRIXY - WI_SPACINGY, WI_BSTAR);
+                    }
+                    if !WI_STAR.is_null() {
+                        let sw = (*WI_STAR).width as i32;
+                        v_draw_patch(DM_MATRIXX - sw / 2, y, WI_STAR);
+                    }
+                }
+            }
+            x += DM_SPACINGX;
+            y += WI_SPACINGY;
+        }
+
+        y = DM_MATRIXY + 10;
+        for i in 0..crate::doomdef::MAXPLAYERS {
+            if wbs.plyr[i].in_game == 0 {
+                continue;
+            }
+            x = DM_MATRIXX + DM_SPACINGX;
+            for j in 0..crate::doomdef::MAXPLAYERS {
+                if wbs.plyr[j].in_game == 0 {
+                    x += DM_SPACINGX;
+                    continue;
+                }
+                wi_draw_num(x, y, WI_DM_FRAGS[i][j], -1);
+                x += DM_SPACINGX;
+            }
+            wi_draw_num(DM_TOTALSX, y, WI_DM_TOTALS[i], -1);
+            y += WI_SPACINGY;
+        }
+    }
+}
+
+fn wi_init_netgame_stats() {
+    wi_init_animated_back();
+    unsafe {
+        let wbs = &WMINFO;
+        WI_NG_STATE = 1;
+        WI_CNT_PAUSE = TICRATE;
+        for i in 0..crate::doomdef::MAXPLAYERS {
+            WI_NG_CNT_KILLS[i] = -1;
+            WI_NG_CNT_ITEMS[i] = -1;
+            WI_NG_CNT_SECRET[i] = -1;
+            WI_NG_CNT_FRAGS[i] = -1;
+        }
+        for i in 0..crate::doomdef::MAXPLAYERS {
+            if wbs.plyr[i].in_game != 0 {
+                let maxk = wbs.maxkills.max(1);
+                let maxi = wbs.maxitems.max(1);
+                let maxs = wbs.maxsecret.max(1);
+                WI_NG_CNT_KILLS[i] = (wbs.plyr[i].kills * 100) / maxk;
+                WI_NG_CNT_ITEMS[i] = (wbs.plyr[i].items * 100) / maxi;
+                WI_NG_CNT_SECRET[i] = (wbs.plyr[i].secret * 100) / maxs;
+                WI_NG_CNT_FRAGS[i] = wi_frag_sum(i);
+            }
+        }
+    }
+}
+
+fn wi_update_netgame_stats() {
+    wi_update_animated_back();
+    unsafe {
+        let wbs = &WMINFO;
+        if WI_ACCELERATE && WI_NG_STATE != 10 {
+            WI_ACCELERATE = false;
+            for i in 0..crate::doomdef::MAXPLAYERS {
+                if wbs.plyr[i].in_game != 0 {
+                    let maxk = wbs.maxkills.max(1);
+                    let maxi = wbs.maxitems.max(1);
+                    let maxs = wbs.maxsecret.max(1);
+                    WI_NG_CNT_KILLS[i] = (wbs.plyr[i].kills * 100) / maxk;
+                    WI_NG_CNT_ITEMS[i] = (wbs.plyr[i].items * 100) / maxi;
+                    WI_NG_CNT_SECRET[i] = (wbs.plyr[i].secret * 100) / maxs;
+                    WI_NG_CNT_FRAGS[i] = wi_frag_sum(i);
+                }
+            }
+            s_start_sound(None, SfxEnum::Barexp as i32, None);
+            WI_NG_STATE = 10;
+        }
+        if WI_NG_STATE == 2 {
+            let mut still_ticking = false;
+            for i in 0..crate::doomdef::MAXPLAYERS {
+                if wbs.plyr[i].in_game == 0 {
+                    continue;
+                }
+                let maxk = wbs.maxkills.max(1);
+                let maxi = wbs.maxitems.max(1);
+                let maxs = wbs.maxsecret.max(1);
+                let tk = (wbs.plyr[i].kills * 100) / maxk;
+                let ti = (wbs.plyr[i].items * 100) / maxi;
+                let ts = (wbs.plyr[i].secret * 100) / maxs;
+                if WI_NG_CNT_KILLS[i] < tk {
+                    WI_NG_CNT_KILLS[i] = (WI_NG_CNT_KILLS[i] + 2).min(tk);
+                    still_ticking = true;
+                }
+                if WI_NG_CNT_ITEMS[i] < ti {
+                    WI_NG_CNT_ITEMS[i] = (WI_NG_CNT_ITEMS[i] + 2).min(ti);
+                    still_ticking = true;
+                }
+                if WI_NG_CNT_SECRET[i] < ts {
+                    WI_NG_CNT_SECRET[i] = (WI_NG_CNT_SECRET[i] + 2).min(ts);
+                    still_ticking = true;
+                }
+                WI_NG_CNT_FRAGS[i] = wi_frag_sum(i);
+            }
+            if !still_ticking {
+                s_start_sound(None, SfxEnum::Barexp as i32, None);
+                WI_NG_STATE += 1;
+            }
+        } else if WI_NG_STATE == 10 {
+            if WI_ACCELERATE {
+                WI_ACCELERATE = false;
+                s_start_sound(None, SfxEnum::Sgcock as i32, None);
+                if GAMEMODE == GameMode::Commercial {
+                    WI_STATE = WiStateEnum::NoState;
+                } else {
+                    WI_STATE = WiStateEnum::ShowNextLoc;
+                    WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
+                    wi_init_animated_back();
+                }
+            }
+        } else if (WI_NG_STATE & 1) != 0 {
+            WI_CNT_PAUSE -= 1;
+            if WI_CNT_PAUSE <= 0 {
+                WI_NG_STATE += 1;
+                WI_CNT_PAUSE = TICRATE;
+            }
+        }
+    }
+}
+
+fn wi_draw_netgame_stats() {
+    unsafe {
+        let wbs = &WMINFO;
+        let me = wbs.pnum as usize;
+        let p0 = WI_NUM[0];
+        if p0.is_null() || WI_PERCENT.is_null() {
+            return;
+        }
+        let lh = (3 * (*p0).height as i32) / 2;
+        let pwidth = (*WI_PERCENT).width as i32;
+
+        wi_slam_background();
+        wi_draw_animated_back();
+        wi_draw_lf();
+
+        if !WI_KILLS.is_null() {
+            v_draw_patch(NG_STATSX + NG_SPACINGX - (*WI_KILLS).width as i32, NG_STATSY, WI_KILLS);
+        }
+        if !WI_ITEMS.is_null() {
+            v_draw_patch(NG_STATSX + 2 * NG_SPACINGX - (*WI_ITEMS).width as i32, NG_STATSY, WI_ITEMS);
+        }
+        if !WI_SP_SECRET.is_null() {
+            v_draw_patch(NG_STATSX + 3 * NG_SPACINGX - (*WI_SP_SECRET).width as i32, NG_STATSY, WI_SP_SECRET);
+        }
+        if !WI_FRAGS.is_null() {
+            v_draw_patch(NG_STATSX + 4 * NG_SPACINGX - (*WI_FRAGS).width as i32, NG_STATSY, WI_FRAGS);
+        }
+
+        let mut y = NG_STATSY + lh;
+        for i in 0..crate::doomdef::MAXPLAYERS {
+            if wbs.plyr[i].in_game == 0 {
+                continue;
+            }
+            let mut x = NG_STATSX;
+            let pi = WI_P[i];
+            if !pi.is_null() {
+                v_draw_patch(x, y, pi);
+                if i == me && !WI_STAR.is_null() {
+                    v_draw_patch(x - (*WI_STAR).width as i32, y, WI_STAR);
+                }
+                x += (*pi).width as i32;
+            }
+            x += NG_SPACINGX - (if pi.is_null() { 0 } else { (*pi).width as i32 });
+            if WI_NG_CNT_KILLS[i] >= 0 {
+                wi_draw_percent(x - pwidth, y + 10, WI_NG_CNT_KILLS[i]);
+            }
+            x += NG_SPACINGX;
+            if WI_NG_CNT_ITEMS[i] >= 0 {
+                wi_draw_percent(x - pwidth, y + 10, WI_NG_CNT_ITEMS[i]);
+            }
+            x += NG_SPACINGX;
+            if WI_NG_CNT_SECRET[i] >= 0 {
+                wi_draw_percent(x - pwidth, y + 10, WI_NG_CNT_SECRET[i]);
+            }
+            x += NG_SPACINGX;
+            if WI_NG_CNT_FRAGS[i] >= 0 {
+                wi_draw_num(x, y + 10, WI_NG_CNT_FRAGS[i], -1);
+            }
+            y += NG_SPACINGY;
+        }
+    }
+}
+
 fn wi_update_stats() {
     wi_update_animated_back();
     unsafe {
@@ -743,7 +1115,11 @@ pub fn wi_start(wbstartstruct: &crate::doomstat::WbStartStruct) {
         wi_load_data(wbstartstruct);
         let deathmatch = DEATHMATCH != 0;
         let netgame = NETGAME;
-        if !deathmatch && !netgame {
+        if deathmatch {
+            wi_init_deathmatch_stats();
+        } else if netgame {
+            wi_init_netgame_stats();
+        } else {
             wi_init_stats();
         }
     }
@@ -763,15 +1139,12 @@ pub fn wi_ticker() {
             WiStateEnum::StatCount => {
                 let deathmatch = DEATHMATCH != 0;
                 let netgame = NETGAME;
-                if !deathmatch && !netgame {
-                    wi_update_stats();
+                if deathmatch {
+                    wi_update_deathmatch_stats();
+                } else if netgame {
+                    wi_update_netgame_stats();
                 } else {
-                    // Deathmatch/netgame: simple countdown (not yet implemented)
-                    WI_CNT -= 1;
-                    if WI_CNT <= 0 {
-                        WI_STATE = WiStateEnum::ShowNextLoc;
-                        WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
-                    }
+                    wi_update_stats();
                 }
             }
             WiStateEnum::ShowNextLoc => {
@@ -786,9 +1159,16 @@ pub fn wi_ticker() {
 }
 
 pub fn wi_drawer() {
-    match unsafe { WI_STATE } {
+    let (state, deathmatch, netgame) = unsafe { (WI_STATE, DEATHMATCH != 0, NETGAME) };
+    match state {
         WiStateEnum::StatCount => {
-            wi_draw_stats();
+            if deathmatch {
+                wi_draw_deathmatch_stats();
+            } else if netgame {
+                wi_draw_netgame_stats();
+            } else {
+                wi_draw_stats();
+            }
         }
         WiStateEnum::ShowNextLoc => {
             wi_slam_background();

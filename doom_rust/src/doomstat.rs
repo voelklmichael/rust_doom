@@ -71,6 +71,10 @@ pub struct Player {
     pub cheats: i32,
     /// Hint message (e.g. "Picked up the armor").
     pub message: Option<String>,
+    /// Tics of damage flash (red palette). Decremented each tic.
+    pub damagecount: i32,
+    /// Tics of bonus/pickup flash. Decremented each tic.
+    pub bonuscount: i32,
 }
 
 impl Default for Player {
@@ -106,6 +110,8 @@ impl Default for Player {
             maxammo: [200, 50, 300, 50],
             cheats: 0,
             message: None,
+            damagecount: 0,
+            bonuscount: 0,
         }
     }
 }
@@ -118,6 +124,8 @@ pub struct WbPlayerStruct {
     pub items: i32,
     pub secret: i32,
     pub time: i32,
+    /// Frags per opponent (deathmatch). frags[i] = frags on player i.
+    pub frags: [i32; crate::doomdef::MAXPLAYERS],
 }
 
 /// Intermission parameters (wbstartstruct_t in C).
@@ -237,6 +245,8 @@ const DEFAULT_PLAYER: Player = Player {
     maxammo: [200, 50, 300, 50],
     cheats: 0,
     message: None,
+    damagecount: 0,
+    bonuscount: 0,
 };
 
 pub static mut PLAYERS: [Player; MAXPLAYERS] = [DEFAULT_PLAYER; MAXPLAYERS];
@@ -252,6 +262,7 @@ const DEFAULT_WBPLAYER: WbPlayerStruct = WbPlayerStruct {
     items: 0,
     secret: 0,
     time: 0,
+    frags: [0; crate::doomdef::MAXPLAYERS],
 };
 
 pub static mut WMINFO: WbStartStruct = WbStartStruct {

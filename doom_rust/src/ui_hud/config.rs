@@ -78,8 +78,24 @@ fn set_defaults() {
     ints.insert("key_menu_right".to_string(), doomkeys::KEY_RIGHTARROW);
     ints.insert("key_menu_back".to_string(), doomkeys::KEY_BACKSPACE);
     ints.insert("key_menu_forward".to_string(), doomkeys::KEY_ENTER);
-    ints.insert("key_menu_confirm".to_string(), doomkeys::KEY_ENTER);
-    ints.insert("key_menu_abort".to_string(), doomkeys::KEY_ESCAPE);
+    ints.insert("key_menu_confirm".to_string(), b'y' as i32);
+    ints.insert("key_menu_abort".to_string(), b'n' as i32);
+    ints.insert("key_menu_help".to_string(), doomkeys::KEY_F1);
+    ints.insert("key_menu_save".to_string(), doomkeys::KEY_F2);
+    ints.insert("key_menu_load".to_string(), doomkeys::KEY_F3);
+    ints.insert("key_menu_volume".to_string(), doomkeys::KEY_F4);
+    ints.insert("key_menu_detail".to_string(), doomkeys::KEY_F5);
+    ints.insert("key_menu_qsave".to_string(), doomkeys::KEY_F6);
+    ints.insert("key_menu_endgame".to_string(), doomkeys::KEY_F7);
+    ints.insert("key_menu_messages".to_string(), doomkeys::KEY_F8);
+    ints.insert("key_menu_qload".to_string(), doomkeys::KEY_F9);
+    ints.insert("key_menu_quit".to_string(), doomkeys::KEY_F10);
+    ints.insert("key_menu_gamma".to_string(), doomkeys::KEY_F11);
+    ints.insert("key_menu_incscreen".to_string(), doomkeys::KEY_EQUALS);
+    ints.insert("key_menu_decscreen".to_string(), doomkeys::KEY_MINUS);
+    ints.insert("key_menu_screenshot".to_string(), 0);
+    ints.insert("key_demo_quit".to_string(), b'q' as i32);
+    ints.insert("key_spy".to_string(), doomkeys::KEY_F12);
 
     // Mouse/joy (base)
     ints.insert("mouseb_fire".to_string(), 0);
@@ -107,6 +123,43 @@ fn set_defaults() {
     ints.insert("mouseb_nextweapon".to_string(), -1);
     ints.insert("joyb_prevweapon".to_string(), -1);
     ints.insert("joyb_nextweapon".to_string(), -1);
+    ints.insert("joyb_menu_activate".to_string(), -1);
+    ints.insert("joyb_strafeleft".to_string(), -1);
+    ints.insert("joyb_straferight".to_string(), -1);
+    ints.insert("mouseb_strafeleft".to_string(), -1);
+    ints.insert("mouseb_straferight".to_string(), -1);
+    ints.insert("mouseb_use".to_string(), -1);
+    ints.insert("mouseb_backward".to_string(), -1);
+    ints.insert("mouseb_jump".to_string(), -1);
+    ints.insert("joyb_jump".to_string(), -1);
+    ints.insert("dclick_use".to_string(), 1);
+    ints.insert("key_flyup".to_string(), doomkeys::KEY_PGUP);
+    ints.insert("key_flydown".to_string(), doomkeys::KEY_INS);
+    ints.insert("key_flycenter".to_string(), doomkeys::KEY_HOME);
+    ints.insert("key_lookup".to_string(), doomkeys::KEY_PGDN);
+    ints.insert("key_lookdown".to_string(), doomkeys::KEY_DEL);
+    ints.insert("key_lookcenter".to_string(), doomkeys::KEY_END);
+    ints.insert("key_invleft".to_string(), b'[' as i32);
+    ints.insert("key_invright".to_string(), b']' as i32);
+    ints.insert("key_useartifact".to_string(), doomkeys::KEY_ENTER);
+    ints.insert("key_jump".to_string(), b'/' as i32);
+    ints.insert("key_arti_all".to_string(), doomkeys::KEY_BACKSPACE);
+    ints.insert("key_arti_health".to_string(), b'\\' as i32);
+    ints.insert("key_arti_poisonbag".to_string(), b'0' as i32);
+    ints.insert("key_arti_blastradius".to_string(), b'9' as i32);
+    ints.insert("key_arti_teleport".to_string(), b'8' as i32);
+    ints.insert("key_arti_teleportother".to_string(), b'7' as i32);
+    ints.insert("key_arti_egg".to_string(), b'6' as i32);
+    ints.insert("key_arti_invulnerability".to_string(), b'5' as i32);
+    ints.insert("key_usehealth".to_string(), b'h' as i32);
+    ints.insert("key_invquery".to_string(), b'q' as i32);
+    ints.insert("key_mission".to_string(), b'w' as i32);
+    ints.insert("key_invpop".to_string(), b'z' as i32);
+    ints.insert("key_invkey".to_string(), b'k' as i32);
+    ints.insert("key_invhome".to_string(), doomkeys::KEY_HOME);
+    ints.insert("key_invend".to_string(), doomkeys::KEY_END);
+    ints.insert("key_invuse".to_string(), doomkeys::KEY_ENTER);
+    ints.insert("key_invdrop".to_string(), doomkeys::KEY_BACKSPACE);
 }
 
 fn config_path(filename: &str) -> String {
@@ -210,14 +263,18 @@ pub fn m_set_config_dir(dir: &str) {
     *CONFIG_DIR.lock().unwrap() = Some(dir.to_string());
 }
 
+/// Register variable for config read/write. In C, passes a pointer; config writes to it on load.
+/// In Rust, key/control sync is handled by m_set_variable -> m_update_control_from_config
+/// for known control names. Custom bindings can use m_get_int_variable/m_set_variable.
 pub fn m_bind_variable(_name: &str, _variable: *mut std::ffi::c_void) {
-    // Stub: would register variable for config
+    // No-op: control vars are bound implicitly via m_update_control_from_config in m_set_variable
 }
 
 pub fn m_set_variable(name: &str, value: &str) -> Boolean {
     let name = name.to_lowercase();
     if let Ok(i) = value.parse::<i32>() {
         int_vars().lock().unwrap().insert(name.clone(), i);
+        crate::ui_hud::controls::m_update_control_from_config(&name, i);
         return true;
     }
     if let Ok(f) = value.parse::<f32>() {

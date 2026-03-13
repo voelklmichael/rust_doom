@@ -328,6 +328,13 @@ pub fn hulib_draw_itext(it: &HuItext) {
     hulib_draw_text_line(&it.l, true);
 }
 
+/// Get current itext content as string.
+pub fn hulib_itext_to_string(it: &HuItext) -> String {
+    let len = it.l.len as usize;
+    let s = std::str::from_utf8(&it.l.l[..len]).unwrap_or("");
+    s.to_string()
+}
+
 pub fn hulib_erase_itext(it: &mut HuItext) {
     hulib_erase_text_line(&mut it.l);
 }

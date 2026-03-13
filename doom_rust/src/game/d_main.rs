@@ -13,6 +13,23 @@ use super::d_event::d_pop_event;
 /// Current game action. Original: gameaction
 pub static mut GAMEACTION: Gameaction = Gameaction::Nothing;
 
+/// Save/load slot when GAMEACTION is LoadGame or SaveGame. Original: savegameslot
+pub static mut SAVEGAMESLOT: i32 = 0;
+
+/// Save description for SaveGame. Original: savegamestrings[slot] or user input
+pub static mut SAVEGAMEDESCRIPTION: [u8; 24] = [0; 24];
+
+/// Set save description before G_SaveGame. Called by menu.
+pub fn set_savegame_description(desc: &[u8]) {
+    unsafe {
+        let len = desc.len().min(24);
+        SAVEGAMEDESCRIPTION[..len].copy_from_slice(&desc[..len]);
+        for i in len..24 {
+            SAVEGAMEDESCRIPTION[i] = 0;
+        }
+    }
+}
+
 /// Read events from all input devices.
 /// Original: D_ProcessEvents
 pub fn d_process_events() {

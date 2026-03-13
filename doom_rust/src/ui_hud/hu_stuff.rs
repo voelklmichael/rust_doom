@@ -11,7 +11,7 @@ use crate::doomstat::{logical_gamemission, GAMEMAP, GAMEEPISODE, CONSOLEPLAYER, 
 use crate::doomtype::Boolean;
 use crate::game::d_event::Event;
 use crate::game::d_mode::GameMission;
-use crate::ui_hud::hu_lib::{hulib_add_char_to_text_line, hulib_draw_itext, hulib_draw_stext, hulib_draw_text_line, hulib_erase_itext, hulib_erase_stext, hulib_erase_text_line, hulib_init_itext, hulib_init_stext, hulib_init_text_line, hulib_add_message_to_stext, HuItext, HuStext, HuTextline, HU_MAXLINELENGTH};
+use crate::ui_hud::hu_lib::{hulib_add_char_to_text_line, hulib_draw_itext, hulib_draw_stext, hulib_draw_text_line, hulib_erase_itext, hulib_erase_stext, hulib_erase_text_line, hulib_init_itext, hulib_init_stext, hulib_init_text_line, hulib_add_message_to_stext, hulib_reset_itext, HuItext, HuStext, HuTextline, HU_MAXLINELENGTH};
 use crate::wad::w_cache_lump_name;
 use crate::z_zone::PU_STATIC;
 
@@ -76,6 +76,17 @@ static mut W_CHAT: HuItext = HuItext {
 };
 static mut ALWAYS_OFF: Boolean = false;
 static mut HEADSUPACTIVE: Boolean = false;
+
+// Save string input (menu Save to empty slot)
+static mut W_SAVESTRING: HuItext = HuItext {
+    l: HuTextline { x: 0, y: 0, f: std::ptr::null_mut(), sc: 0, l: [0; HU_MAXLINELENGTH + 1], len: 0, needsupdate: 0 },
+    lm: 0,
+    on: std::ptr::null_mut(),
+    laston: false,
+};
+static mut SAVE_STRING_ACTIVE: bool = false;
+static mut SAVE_STRING_SLOT: usize = 0;
+static mut SAVE_STRING_ON: Boolean = false;
 
 pub static mut MESSAGE_DONTFUCKWITHME_EXTERN: Boolean = false;
 
@@ -283,6 +294,98 @@ pub fn hu_drawer() {
 
 pub fn hu_dequeue_chat_char() -> u8 {
     0
+}
+
+/// Result of save string key handling.
+#[derive(Debug, Clone)]
+pub enum SaveStringKeyResult {
+    Consumed,
+    Commit { slot: usize, desc: String },
+    Cancel,
+}
+
+/// Start save string input for slot at (x, y). Call hu_init first.
+pub fn hu_start_save_string(slot: usize, x: i32, y: i32) {
+    unsafe {
+        SAVE_STRING_ACTIVE = true;
+        SAVE_STRING_SLOT = slot;
+        SAVE_STRING_ON = true;
+        let font_ptr = HU_FONT.as_mut_ptr();
+        hulib_init_itext(
+            &mut W_SAVESTRING,
+            x,
+            y,
+            font_ptr,
+            HU_FONTSTART as i32,
+            &mut SAVE_STRING_ON,
+        );
+        hulib_reset_itext(&mut W_SAVESTRING);
+    }
+}
+
+/// Handle key for save string input. Returns Some(result) when in save string mode.
+pub fn hu_save_string_key(ch: u8) -> Option<SaveStringKeyResult> {
+    use crate::ui_hud::hu_lib::hulib_key_in_itext;
+    use crate::doomkeys;
+    unsafe {
+        if !SAVE_STRING_ACTIVE {
+            return None;
+        }
+        if ch == doomkeys::KEY_ESCAPE as u8 {
+            SAVE_STRING_ACTIVE = false;
+            return Some(SaveStringKeyResult::Cancel);
+        }
+        if ch == doomkeys::KEY_ENTER as u8 {
+            let slot = SAVE_STRING_SLOT;
+            let desc = hu_save_string_desc_inner();
+            SAVE_STRING_ACTIVE = false;
+            return Some(SaveStringKeyResult::Commit { slot, desc });
+        }
+        if hulib_key_in_itext(&mut W_SAVESTRING, ch) {
+            return Some(SaveStringKeyResult::Consumed);
+        }
+        Some(SaveStringKeyResult::Consumed)
+    }
+}
+
+pub fn hu_save_string_active() -> bool {
+    unsafe { SAVE_STRING_ACTIVE }
+}
+
+pub fn hu_save_string_slot() -> usize {
+    unsafe { SAVE_STRING_SLOT }
+}
+
+fn hu_save_string_desc_inner() -> String {
+    use crate::ui_hud::hu_lib::hulib_itext_to_string;
+    unsafe {
+        let s = hulib_itext_to_string(&W_SAVESTRING);
+        s.chars().take(crate::player::p_saveg::SAVESTRINGSIZE).collect::<String>()
+    }
+}
+
+/// Get current save string text. Truncate to SAVESTRINGSIZE (24).
+pub fn hu_save_string_desc() -> String {
+    unsafe {
+        if !SAVE_STRING_ACTIVE {
+            return String::new();
+        }
+        hu_save_string_desc_inner()
+    }
+}
+
+pub fn hu_draw_save_string() {
+    unsafe {
+        if SAVE_STRING_ACTIVE {
+            hulib_draw_itext(&W_SAVESTRING);
+        }
+    }
+}
+
+pub fn hu_cancel_save_string() {
+    unsafe {
+        SAVE_STRING_ACTIVE = false;
+    }
 }
 
 pub fn hu_erase() {
