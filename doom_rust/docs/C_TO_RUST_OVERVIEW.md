@@ -152,4 +152,4 @@ C modules with no Rust equivalent yet.
 **Foundation:** WAD, zone, sound, geometry, types, rendering (scene rendering works).  
 **Player:** All p_* modules scaffolded; blockmap, d_think, info, g_game needed for full game logic.
 
-See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`
+See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`
