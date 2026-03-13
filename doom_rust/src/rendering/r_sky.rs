@@ -18,10 +18,12 @@ pub const ANGLETOSKYSHIFT: i32 = 22;
 
 pub static mut SKYTEXTURE: i32 = 0;
 pub static mut SKYTEXTUREMID: i32 = 0;
+pub static mut SKYFLATNUM: i32 = 0;
 
 /// Called whenever the view size changes.
 pub fn r_init_sky_map() {
     unsafe {
         SKYTEXTUREMID = 100 * FRACUNIT;
+        SKYFLATNUM = crate::rendering::r_data::r_flat_num_for_name(SKYFLATNAME);
     }
 }

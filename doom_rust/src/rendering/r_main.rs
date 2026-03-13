@@ -510,6 +510,7 @@ pub fn r_init() {
     r_init_light_tables();
     r_init_translation_tables();
 
+    crate::rendering::r_plane::r_init_planes();
     r_set_view_size(10, 0); // default: screenblocks=10, detail=0
     r_execute_set_view_size();
 
@@ -568,15 +569,24 @@ pub fn r_setup_frame(player: &ViewPlayerStub) {
 // R_RenderPlayerView - main entry, called by G_Drawer
 // =============================================================================
 
-/// Render player view. Stub until r_bsp, r_plane, r_things, r_draw are ported.
+/// Render player view.
 pub fn r_render_player_view(player: &ViewPlayerStub) {
+    use crate::rendering::r_bsp;
+    use crate::rendering::r_plane;
+    use crate::rendering::r_things;
+
     r_setup_frame(player);
 
-    // R_ClearClipSegs, R_ClearDrawSegs - r_bsp
-    // R_ClearPlanes - r_plane
-    // R_ClearSprites - r_things
-    // R_RenderBSPNode - r_bsp
-    // R_DrawPlanes - r_plane
-    // R_DrawMasked - r_things
-    // NetUpdate - d_net
+    r_bsp::r_clear_clip_segs();
+    r_bsp::r_clear_draw_segs();
+    r_plane::r_clear_planes();
+    r_things::r_clear_sprites();
+
+    let numnodes = unsafe { state::NUMNODES };
+    if numnodes > 0 {
+        r_bsp::r_render_bsp_node((numnodes - 1) as i32);
+    }
+
+    // R_DrawPlanes - r_plane (stub)
+    // R_DrawMasked - r_things (stub)
 }

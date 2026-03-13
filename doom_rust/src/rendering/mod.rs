@@ -4,9 +4,13 @@
 
 mod defs;
 mod m_bbox;
+mod r_bsp;
 mod r_data;
 mod r_main;
+mod r_plane;
+mod r_segs;
 mod r_sky;
+mod r_things;
 mod state;
 mod v_patch;
 mod v_video;
@@ -36,6 +40,7 @@ pub use r_data::{
     r_check_texture_num_for_name, r_flat_num_for_name, r_get_column, r_init_data,
     r_precache_level, r_texture_num_for_name,
 };
+pub use r_bsp::{r_clear_clip_segs, r_clear_draw_segs, r_render_bsp_node};
 pub use r_sky::{r_init_sky_map, ANGLETOSKYSHIFT, SKYFLATNAME, SKYTEXTURE, SKYTEXTUREMID};
 pub use v_video::{
     v_copy_rect, v_draw_alt_tl_patch, v_draw_block, v_draw_box, v_draw_filled_box,
