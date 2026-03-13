@@ -16,8 +16,8 @@ pub fn p_temp_save_game_file() -> String {
 }
 
 /// Filename for save slot. Original: P_SaveGameFile
-pub fn p_save_game_file(_slot: i32) -> String {
-    crate::game::dstrings::SAVEGAMENAME.to_string()
+pub fn p_save_game_file(slot: i32) -> String {
+    format!("{}{}.dsg", crate::game::dstrings::SAVEGAMENAME, slot)
 }
 
 /// Read savegame header. Original: P_ReadSaveGameHeader

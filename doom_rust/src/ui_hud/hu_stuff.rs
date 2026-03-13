@@ -116,6 +116,69 @@ fn map_title() -> &'static str {
 // Implementation (from hu_stuff.c)
 // =============================================================================
 
+/// Draw string at x,y using HU_FONT. Used by menu Load/Save.
+pub fn hu_write_text(x: i32, y: i32, s: &str) {
+    unsafe {
+        if HU_FONT[0].is_null() {
+            return;
+        }
+        let sc = HU_FONTSTART as i32;
+        let mut cx = x;
+        let cy = y;
+        for b in s.bytes() {
+            let c = if b == b'\n' {
+                continue;
+            } else if b >= b'a' && b <= b'z' {
+                b - 32
+            } else {
+                b
+            };
+            let idx = (c as i32) - sc;
+            if idx < 0 || idx >= HU_FONTSIZE as i32 {
+                cx += 4;
+                continue;
+            }
+            let patch = HU_FONT[idx as usize];
+            if patch.is_null() {
+                cx += 4;
+                continue;
+            }
+            let w = (*patch).width as i32;
+            if cx + w > crate::doomdef::SCREENWIDTH {
+                break;
+            }
+            crate::rendering::v_draw_patch_direct(cx, cy, patch);
+            cx += w;
+        }
+    }
+}
+
+/// String width in pixels using HU_FONT.
+pub fn hu_string_width(s: &str) -> i32 {
+    unsafe {
+        if HU_FONT[0].is_null() {
+            return (s.len() as i32) * 4;
+        }
+        let sc = HU_FONTSTART as i32;
+        let mut w = 0i32;
+        for b in s.bytes() {
+            let c = if b >= b'a' && b <= b'z' { b - 32 } else { b };
+            let idx = (c as i32) - sc;
+            if idx < 0 || idx >= HU_FONTSIZE as i32 {
+                w += 4;
+            } else {
+                let patch = HU_FONT[idx as usize];
+                if patch.is_null() {
+                    w += 4;
+                } else {
+                    w += (*patch).width as i32;
+                }
+            }
+        }
+        w
+    }
+}
+
 pub fn hu_init() {
     let mut j = HU_FONTSTART;
     for i in 0..HU_FONTSIZE {
