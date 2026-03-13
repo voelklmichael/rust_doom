@@ -14,10 +14,48 @@ use crate::doomdata::MapThing;
 use crate::doomdef::{Gamestate, MAXPLAYERS};
 use crate::doomtype::Boolean;
 use crate::game::d_ticcmd::Ticcmd;
+use crate::m_fixed::Fixed;
 
-// Stub for player_t - full definition in p_mobj/d_player when ported.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct Player;
+/// Player state.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[repr(i32)]
+pub enum PlayerState {
+    /// Playing or camping.
+    Live,
+    /// Dead on the ground.
+    Dead,
+    /// Ready to restart/respawn.
+    #[default]
+    Reborn,
+}
+
+/// Player internal state. Full player_t in d_player.h.
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct Player {
+    /// Player mobj (Mobj*).
+    pub mo: *mut std::ffi::c_void,
+    pub playerstate: PlayerState,
+    pub viewz: Fixed,
+    pub viewheight: Fixed,
+    pub extralight: i32,
+    pub fixedcolormap: i32,
+    pub health: i32,
+}
+
+impl Default for Player {
+    fn default() -> Self {
+        Self {
+            mo: std::ptr::null_mut(),
+            playerstate: PlayerState::Reborn,
+            viewz: 0,
+            viewheight: 0,
+            extralight: 0,
+            fixedcolormap: 0,
+            health: 100,
+        }
+    }
+}
 
 // Stub for wbstartstruct_t - intermission parameters.
 #[derive(Debug, Clone, Copy, Default)]
@@ -94,7 +132,17 @@ pub static mut GAMESTATE: Gamestate = Gamestate::Level;
 // Internal parameters
 pub const MAX_DM_STARTS: usize = 10;
 
-pub static mut PLAYERS: [Player; MAXPLAYERS] = [Player; MAXPLAYERS];
+const DEFAULT_PLAYER: Player = Player {
+    mo: std::ptr::null_mut(),
+    playerstate: PlayerState::Reborn,
+    viewz: 0,
+    viewheight: 0,
+    extralight: 0,
+    fixedcolormap: 0,
+    health: 100,
+};
+
+pub static mut PLAYERS: [Player; MAXPLAYERS] = [DEFAULT_PLAYER; MAXPLAYERS];
 pub static mut PLAYERINGAME: [Boolean; MAXPLAYERS] = [false; MAXPLAYERS];
 pub static mut DEATHMATCHSTARTS: [MapThing; MAX_DM_STARTS] =
     [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAX_DM_STARTS];

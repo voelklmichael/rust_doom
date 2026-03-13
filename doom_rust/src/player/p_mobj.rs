@@ -55,6 +55,8 @@ pub const MF_SKULLFLY: i32 = 0x1000000;
 pub const FF_FRAMEMASK: i32 = 0x7fff;
 /// FF_FULLBRIGHT - full bright sprite.
 pub const FF_FULLBRIGHT: i32 = 0x8000;
+/// MF_TRANSSHIFT - shift for player color translation (multiplayer).
+pub const MF_TRANSSHIFT: i32 = 26;
 
 // =============================================================================
 // Mobj struct - Thinker must be first for P_AddThinker cast
@@ -466,9 +468,63 @@ pub fn p_remove_mobj(mobj: *mut Mobj) {
     super::p_tick::p_remove_thinker(unsafe { &mut (*mobj).thinker as *mut Thinker });
 }
 
+/// Spawn player at map thing (type 1-4). Original: P_SpawnPlayer
+pub fn p_spawn_player(mthing: &MapThing) {
+    use crate::doomstat::{PlayerState, PLAYERINGAME, PLAYERS};
+    use crate::game::g_game::g_player_reborn;
+    use crate::info::MT_PLAYER;
+
+    let mt_type = mthing.type_ as i32;
+    if mt_type == 0 {
+        return;
+    }
+    let idx = (mt_type - 1) as usize;
+    if idx >= crate::doomdef::MAXPLAYERS {
+        return;
+    }
+    if !unsafe { PLAYERINGAME[idx] } {
+        return;
+    }
+
+    let x = (mthing.x as i32) * FRACUNIT;
+    let y = (mthing.y as i32) * FRACUNIT;
+    let z = crate::player::ONFLOORZ;
+
+    let mobj = p_spawn_mobj(x, y, z, MT_PLAYER);
+    if mobj.is_null() {
+        return;
+    }
+
+    unsafe {
+        let p = &mut PLAYERS[idx];
+        if p.playerstate == PlayerState::Reborn {
+            g_player_reborn(idx);
+        }
+        let p = &mut PLAYERS[idx];
+
+        if mt_type > 1 {
+            (*mobj).flags |= ((mt_type - 1) as i32) << MF_TRANSSHIFT;
+        }
+        (*mobj).angle =
+            (crate::geometry::ANG45 as u32).wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
+        (*mobj).player = p as *mut crate::doomstat::Player as *mut std::ffi::c_void;
+        (*mobj).health = p.health;
+
+        p.mo = mobj as *mut std::ffi::c_void;
+        p.playerstate = PlayerState::Live;
+        p.viewheight = super::VIEWHEIGHT;
+        p.viewz = (*mobj).z + super::VIEWHEIGHT;
+        p.extralight = 0;
+        p.fixedcolormap = 0;
+    }
+
+    super::p_pspr::p_setup_psprites(unsafe { &mut PLAYERS[idx] as *mut crate::doomstat::Player as *mut std::ffi::c_void });
+}
+
 /// Spawn a map thing (from THINGS lump). Original: P_SpawnMapThing
-/// Skips player starts (1-4), deathmatch (11), unknown types. Spawns monsters/items by doomednum.
+/// Handles player starts (1-4), deathmatch (11). Spawns monsters/items by doomednum.
 pub fn p_spawn_map_thing(mthing: &MapThing) {
+    use crate::doomstat::{DEATHMATCH, PLAYERSTARTS};
     use crate::geometry::ANG45;
     use crate::info::{MOBJINFO, NUMMOBJTYPES};
 
@@ -482,8 +538,18 @@ pub fn p_spawn_map_thing(mthing: &MapThing) {
     if mt_type <= 0 {
         return;
     }
-    // Player starts (1-4) - skip for now (no P_SpawnPlayer)
+    // Player starts (1-4)
     if mt_type <= 4 {
+        let idx = (mt_type - 1) as usize;
+        if idx < crate::doomdef::MAXPLAYERS {
+            unsafe {
+                PLAYERSTARTS[idx] = *mthing;
+            }
+            let deathmatch = unsafe { DEATHMATCH };
+            if deathmatch == 0 {
+                p_spawn_player(mthing);
+            }
+        }
         return;
     }
 

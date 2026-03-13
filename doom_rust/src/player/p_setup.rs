@@ -458,6 +458,10 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
 
     // Initialize thinkers and spawn map things
     super::p_tick::p_init_thinkers();
+    // Single player: ensure player 1 is in game
+    unsafe {
+        crate::doomstat::PLAYERINGAME[0] = true;
+    }
     let things_lump = (map_lump + 1) as usize;
     p_load_things(things_lump);
 
