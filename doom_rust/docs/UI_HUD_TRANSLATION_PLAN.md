@@ -4,7 +4,7 @@ Plan for porting the Doom UI and HUD C modules to Rust. All files go into the `u
 
 **Source:** `doomgeneric/doomgeneric/m_*.c`, `hu_*.c`, `st_*.c`, `wi_*.c` and corresponding `.h` files
 
-**Current status:** cheat, st_lib, hu_lib full (incl. hulib_draw_*, hulib_erase_*); hu_stuff (HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, hu_set_message); st_stuff (ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder, load graphics, w_health/w_armor widgets); wi_stuff (WI_Start, WI_Ticker, WI_Drawer, WI_End, load INTERPIC/WIMAP, WbStartStruct); v_video v_copy_rect, v_draw_patch, v_use_buffer, v_restore_buffer; r_draw r_video_erase; controls, config, menu stubs.
+**Current status:** cheat, st_lib, hu_lib full; hu_stuff (HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker); st_stuff (ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder, w_health/w_armor); wi_stuff (WI_Start, WI_Ticker, WI_Drawer, WI_End, INTERPIC/WIMAP); config (M_LoadDefaults, variable store, M_SetVariable, M_GetIntVariable); menu (M_Init syncs from config, m_set_screenblocks, m_set_detail_level); v_video, r_draw; controls stubs.
 
 ---
 
