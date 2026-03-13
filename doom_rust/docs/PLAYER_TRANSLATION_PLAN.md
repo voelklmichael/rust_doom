@@ -138,9 +138,9 @@ These must exist or be stubbed before player:
 
 | Step | File | Dependencies | Notes |
 |------|------|--------------|-------|
-| 14 | **p_spec.rs** | p_local, r_local, w_wad, g_game | Special sectors, line specials |
-| 15 | **p_switch.rs** | p_local, g_game, s_sound, deh_main | Switches, buttons |
-| 16 | **p_inter.rs** | p_local, am_map, s_sound | P_TouchSpecialThing, P_DamageMobj |
+| 14 | **p_spec.rs** | p_local, r_local, w_wad, g_game | Special sectors, line specials. ✅ getNextSector, MO_TELEPORTMAN |
+| 15 | **p_switch.rs** | p_local, g_game, s_sound, deh_main | Switches, buttons. ✅ Stub |
+| 16 | **p_inter.rs** | p_local, am_map, s_sound | P_TouchSpecialThing, P_DamageMobj. ✅ Stub with API |
 
 ### Phase 4: Player & Enemies
 
