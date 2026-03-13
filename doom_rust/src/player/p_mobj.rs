@@ -111,7 +111,23 @@ pub unsafe extern "C" fn p_mobj_thinker(mobj: *mut ()) {
     if (*mo).momx != 0 || (*mo).momy != 0 || ((*mo).flags & MF_SKULLFLY) != 0 {
         p_xy_movement(mo);
     }
-    p_z_movement(mo);
+    if (*mo).z != (*mo).floorz || (*mo).momz != 0 {
+        p_z_movement(mo);
+    }
+    // State tic countdown and advancement
+    if (*mo).tics != -1 {
+        (*mo).tics -= 1;
+        if (*mo).tics == 0 {
+            let state = (*mo).state;
+            if state.is_null() {
+                return;
+            }
+            let nextstate = (*state).nextstate;
+            if !p_set_mobj_state(mo, nextstate) {
+                return; // freed itself
+            }
+        }
+    }
 }
 
 const STOPSPEED: Fixed = 0x1000;
