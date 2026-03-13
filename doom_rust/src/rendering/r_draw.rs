@@ -94,6 +94,26 @@ pub fn colfunc() {
     }
 }
 
+/// Erase a horizontal run of pixels (for HUD text when view is reduced).
+/// offset = byte offset into screen buffer; count = number of bytes.
+/// Without background_buffer we clear to 0 (black).
+pub fn r_video_erase(offset: usize, count: i32) {
+    use crate::rendering::v_video::VIEWIMAGE;
+    unsafe {
+        if VIEWIMAGE.is_null() || count <= 0 {
+            return;
+        }
+        let screen_size = (SCREENWIDTH * SCREENHEIGHT) as usize;
+        if offset >= screen_size {
+            return;
+        }
+        let count = count.min(screen_size as i32 - offset as i32) as usize;
+        if count > 0 {
+            std::ptr::write_bytes(VIEWIMAGE.add(offset), 0, count);
+        }
+    }
+}
+
 /// Draw a horizontal flat span. Uses ds_y, ds_x1, ds_x2, ds_xfrac, ds_yfrac, ds_xstep, ds_ystep, ds_colormap, ds_source.
 pub fn spanfunc() {
     unsafe {

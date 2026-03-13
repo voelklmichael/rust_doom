@@ -147,8 +147,10 @@ pub fn v_draw_shadowed_patch(_x: i32, _y: i32, _patch: *const patch_t) {}
 /// Draw XLA patch (Strife). Stub: no-op.
 pub fn v_draw_xla_patch(_x: i32, _y: i32, _patch: *const patch_t) {}
 
-/// Draw patch direct. Stub: no-op.
-pub fn v_draw_patch_direct(_x: i32, _y: i32, _patch: *const patch_t) {}
+/// Draw patch direct. Same as v_draw_patch (C: V_DrawPatchDirect calls V_DrawPatch).
+pub fn v_draw_patch_direct(x: i32, y: i32, patch: *const patch_t) {
+    v_draw_patch(x, y, patch);
+}
 
 /// Draw block of pixels.
 pub fn v_draw_block(x: i32, y: i32, width: i32, height: i32, src: *const u8) {

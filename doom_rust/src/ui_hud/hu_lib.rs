@@ -5,8 +5,12 @@
 // DESCRIPTION: Heads-up text and input widget library.
 // Original: hu_lib.h + hu_lib.c
 
+use crate::doomdef::SCREENWIDTH;
+use crate::doomstat::AUTOMAPACTIVE;
 use crate::doomtype::Boolean;
-use crate::rendering::patch_t;
+use crate::rendering::{VIEWWINDOWX, VIEWWINDOWY};
+use crate::rendering::state::{VIEWHEIGHT, VIEWWIDTH};
+use crate::rendering::{patch_t, r_video_erase, v_draw_patch_direct};
 
 // =============================================================================
 // Public API (from hu_lib.h)
@@ -115,12 +119,78 @@ pub fn hulib_del_char_from_text_line(t: &mut HuTextline) -> bool {
     }
 }
 
-pub fn hulib_draw_text_line(_l: &HuTextline, _drawcursor: bool) {
-    // Stub
+pub fn hulib_draw_text_line(l: &HuTextline, drawcursor: bool) {
+    unsafe {
+        if l.f.is_null() {
+            return;
+        }
+        let sc = l.sc;
+        let mut x = l.x;
+        for i in 0..l.len as usize {
+            let c = l.l[i];
+            let c_upper = if c >= b'a' && c <= b'z' { c - 32 } else { c };
+            if c_upper == b' ' {
+                x += 4;
+                if x >= SCREENWIDTH {
+                    break;
+                }
+            } else if (c_upper as i32) >= sc && c_upper <= b'_' {
+                let idx = (c_upper as i32 - sc) as usize;
+                let patch = *l.f.add(idx);
+                if !patch.is_null() {
+                    let w = (*patch).width as i32;
+                    if x + w > SCREENWIDTH {
+                        break;
+                    }
+                    v_draw_patch_direct(x, l.y, patch);
+                    x += w;
+                } else {
+                    x += 4;
+                    if x >= SCREENWIDTH {
+                        break;
+                    }
+                }
+            } else {
+                x += 4;
+                if x >= SCREENWIDTH {
+                    break;
+                }
+            }
+        }
+        if drawcursor {
+            let underscore_idx = (b'_' as i32 - sc) as usize;
+            let patch = *l.f.add(underscore_idx);
+            if !patch.is_null() && x + (*patch).width as i32 <= SCREENWIDTH {
+                v_draw_patch_direct(x, l.y, patch);
+            }
+        }
+    }
 }
 
-pub fn hulib_erase_text_line(_l: &HuTextline) {
-    // Stub
+pub fn hulib_erase_text_line(l: &mut HuTextline) {
+    unsafe {
+        if !AUTOMAPACTIVE && VIEWWINDOWX != 0 && l.needsupdate != 0 {
+            if !l.f.is_null() {
+                let lh = (*(*l.f.add(0))).height as i32 + 1;
+                let screen_width = SCREENWIDTH as usize;
+                for y in l.y..(l.y + lh) {
+                    let yoffset = (y as usize) * screen_width;
+                    if y < VIEWWINDOWY || y >= VIEWWINDOWY + VIEWHEIGHT {
+                        r_video_erase(yoffset, SCREENWIDTH);
+                    } else {
+                        r_video_erase(yoffset, VIEWWINDOWX);
+                        r_video_erase(
+                            yoffset + (VIEWWINDOWX + VIEWWIDTH) as usize,
+                            VIEWWINDOWX,
+                        );
+                    }
+                }
+            }
+        }
+        if l.needsupdate != 0 {
+            l.needsupdate -= 1;
+        }
+    }
 }
 
 pub fn hulib_init_stext(
@@ -175,12 +245,33 @@ pub fn hulib_add_message_to_stext(s: &mut HuStext, prefix: &str, msg: &str) {
     }
 }
 
-pub fn hulib_draw_stext(_s: &HuStext) {
-    // Stub
+pub fn hulib_draw_stext(s: &HuStext) {
+    unsafe {
+        if s.on.is_null() || !(*s.on) {
+            return;
+        }
+        for i in 0..s.h as usize {
+            let mut idx = s.cl as i32 - i as i32;
+            if idx < 0 {
+                idx += s.h;
+            }
+            let l = &s.l[idx as usize];
+            hulib_draw_text_line(l, false);
+        }
+    }
 }
 
-pub fn hulib_erase_stext(_s: &mut HuStext) {
-    // Stub
+pub fn hulib_erase_stext(s: &mut HuStext) {
+    unsafe {
+        let on_val = if s.on.is_null() { false } else { *s.on };
+        for i in 0..s.h as usize {
+            if s.laston && !on_val {
+                s.l[i].needsupdate = 4;
+            }
+            hulib_erase_text_line(&mut s.l[i]);
+        }
+        s.laston = on_val;
+    }
 }
 
 pub fn hulib_init_itext(
@@ -233,10 +324,10 @@ pub fn hulib_key_in_itext(it: &mut HuItext, ch: u8) -> bool {
     true
 }
 
-pub fn hulib_draw_itext(_it: &HuItext) {
-    // Stub
+pub fn hulib_draw_itext(it: &HuItext) {
+    hulib_draw_text_line(&it.l, true);
 }
 
-pub fn hulib_erase_itext(_it: &mut HuItext) {
-    // Stub
+pub fn hulib_erase_itext(it: &mut HuItext) {
+    hulib_erase_text_line(&mut it.l);
 }

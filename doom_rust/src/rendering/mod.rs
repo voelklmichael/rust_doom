@@ -36,6 +36,7 @@ pub use r_main::{
     r_point_to_angle, r_point_to_angle2, r_point_to_dist, r_render_player_view,
     r_scale_from_global_angle, r_set_view_size, r_setup_frame, ViewPlayerStub,
     LIGHTLEVELS, MAXLIGHTSCALE, MAXLIGHTZ, NF_SUBSECTOR, NUMCOLORMAPS, VALIDCOUNT,
+    VIEWWINDOWX, VIEWWINDOWY,
 };
 pub use r_data::{
     r_check_flat_num_for_name, r_check_texture_num_for_name, r_flat_num_for_name, r_get_column,
@@ -46,6 +47,7 @@ pub use r_segs::{r_render_masked_seg_range, r_store_wall_range};
 pub use r_plane::{r_check_plane, r_clear_planes, r_draw_planes, r_find_plane, r_init_planes};
 pub use r_things::{r_init_sprites, r_sprite_num_for_name};
 pub use r_sky::{r_init_sky_map, ANGLETOSKYSHIFT, SKYFLATNAME, SKYTEXTURE, SKYTEXTUREMID};
+pub use r_draw::r_video_erase;
 pub use v_video::{
     v_copy_rect, v_draw_alt_tl_patch, v_draw_block, v_draw_box, v_draw_filled_box,
     v_draw_horiz_line, v_draw_mouse_speed_box, v_draw_patch, v_draw_patch_direct,
