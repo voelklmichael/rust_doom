@@ -83,3 +83,13 @@ pub static mut SSCOUNT: i32 = 0;
 
 pub static mut FLOORPLANE: *mut Visplane = std::ptr::null_mut();
 pub static mut CEILINGPLANE: *mut Visplane = std::ptr::null_mut();
+
+// BSP/seg state (set by r_bsp, read/written by r_segs)
+pub static mut CURLINE: *mut Seg = std::ptr::null_mut();
+pub static mut SIDEDEF: *mut SideDef = std::ptr::null_mut();
+pub static mut LINEDEF: *mut Line = std::ptr::null_mut();
+pub static mut FRONTSECTOR: *mut Sector = std::ptr::null_mut();
+pub static mut BACKSECTOR: *mut Sector = std::ptr::null_mut();
+pub static mut DRAWSEGS: [DrawSeg; crate::rendering::defs::MAXDRAWSEGS] =
+    unsafe { std::mem::zeroed() };
+pub static mut DS_P: *mut DrawSeg = std::ptr::null_mut();

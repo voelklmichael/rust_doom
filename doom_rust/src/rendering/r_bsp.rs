@@ -8,7 +8,7 @@
 // Original: r_bsp.h + r_bsp.c
 
 use crate::geometry::{FINEANGLES, ANG90, ANG180, ANGLETOFINESHIFT};
-use crate::rendering::defs::{DrawSeg, Line, Seg, Sector, SideDef, MAXDRAWSEGS};
+use crate::rendering::defs::{Line, Seg, Sector, SideDef};
 use crate::rendering::m_bbox::{BOXLEFT, BOXRIGHT, BOXBOTTOM, BOXTOP};
 use crate::rendering::r_main::{r_point_on_side, r_point_to_angle, NF_SUBSECTOR};
 use crate::rendering::r_plane;
@@ -36,14 +36,6 @@ const MAXSEGS: usize = 32;
 // State (from r_bsp.c)
 // =============================================================================
 
-pub static mut CURLINE: *mut Seg = ptr::null_mut();
-pub static mut SIDEDEF: *mut SideDef = ptr::null_mut();
-pub static mut LINEDEF: *mut Line = ptr::null_mut();
-pub static mut FRONTSECTOR: *mut Sector = ptr::null_mut();
-pub static mut BACKSECTOR: *mut Sector = ptr::null_mut();
-
-pub static mut DRAWSEGS: [DrawSeg; MAXDRAWSEGS] = unsafe { std::mem::zeroed() };
-pub static mut DS_P: *mut DrawSeg = ptr::null_mut();
 
 static mut SOLIDSEGS: [ClipRange; MAXSEGS] = [ClipRange { first: 0, last: 0 }; MAXSEGS];
 static mut NEWEND: *mut ClipRange = ptr::null_mut();
@@ -163,7 +155,7 @@ pub fn r_clear_clip_segs() {
 
 pub fn r_clear_draw_segs() {
     unsafe {
-        DS_P = DRAWSEGS.as_mut_ptr();
+        state::DS_P = state::DRAWSEGS.as_mut_ptr();
     }
 }
 
@@ -176,7 +168,7 @@ fn r_add_line(line: *mut Seg) {
     let clipangle = unsafe { state::CLIPANGLE };
 
     unsafe {
-        CURLINE = line;
+        state::CURLINE = line;
 
         let angle1 = r_point_to_angle((*(*line).v1).x, (*(*line).v1).y);
         let angle2 = r_point_to_angle((*(*line).v2).x, (*(*line).v2).y);
@@ -218,15 +210,15 @@ fn r_add_line(line: *mut Seg) {
             return;
         }
 
-        BACKSECTOR = (*line).backsector;
+        state::BACKSECTOR = (*line).backsector;
 
         if BACKSECTOR.is_null() {
             r_clip_solid_wall_segment(x1, x2 - 1);
             return;
         }
 
-        let front = FRONTSECTOR;
-        let back = BACKSECTOR;
+        let front = state::FRONTSECTOR;
+        let back = state::BACKSECTOR;
 
         if (*back).ceilingheight <= (*front).floorheight
             || (*back).floorheight >= (*front).ceilingheight
@@ -382,17 +374,18 @@ fn r_subsector(num: usize) {
         }
 
         let sub = &*subsectors.add(num);
-        FRONTSECTOR = (*sub).sector;
+        state::FRONTSECTOR = (*sub).sector;
 
         let count = (*sub).numlines as usize;
         let mut line = segs.add((*sub).firstline as usize);
 
         let viewz = state::VIEWZ;
-        let floorplane = if (*FRONTSECTOR).floorheight < viewz {
+        let frontsector = state::FRONTSECTOR;
+        let floorplane = if (*frontsector).floorheight < viewz {
             r_plane::r_find_plane(
-                (*FRONTSECTOR).floorheight,
-                (*FRONTSECTOR).floorpic as i32,
-                (*FRONTSECTOR).lightlevel as i32,
+                (*frontsector).floorheight,
+                (*frontsector).floorpic as i32,
+                (*frontsector).lightlevel as i32,
             )
         } else {
             std::ptr::null_mut()
@@ -400,20 +393,20 @@ fn r_subsector(num: usize) {
         state::FLOORPLANE = floorplane;
 
         let skyflatnum = r_sky::SKYFLATNUM;
-        let ceilingplane = if (*FRONTSECTOR).ceilingheight > viewz
-            || (*FRONTSECTOR).ceilingpic as i32 == skyflatnum
+        let ceilingplane = if (*frontsector).ceilingheight > viewz
+            || (*frontsector).ceilingpic as i32 == skyflatnum
         {
             r_plane::r_find_plane(
-                (*FRONTSECTOR).ceilingheight,
-                (*FRONTSECTOR).ceilingpic as i32,
-                (*FRONTSECTOR).lightlevel as i32,
+                (*frontsector).ceilingheight,
+                (*frontsector).ceilingpic as i32,
+                (*frontsector).lightlevel as i32,
             )
         } else {
             std::ptr::null_mut()
         };
         state::CEILINGPLANE = ceilingplane;
 
-        r_things::r_add_sprites(FRONTSECTOR);
+        r_things::r_add_sprites(frontsector);
 
         for _ in 0..count {
             r_add_line(line);
