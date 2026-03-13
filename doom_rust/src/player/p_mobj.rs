@@ -43,6 +43,8 @@ pub const MF_DROPOFF: i32 = 0x400;
 pub const MF_FLOAT: i32 = 0x4000;
 /// MF_MISSILE - projectile.
 pub const MF_MISSILE: i32 = 0x10000;
+/// MF_SPAWNCEILING - spawn on ceiling.
+pub const MF_SPAWNCEILING: i32 = 256;
 /// FF_FRAMEMASK - frame index mask.
 pub const FF_FRAMEMASK: i32 = 0x7fff;
 /// FF_FULLBRIGHT - full bright sprite.
@@ -200,4 +202,70 @@ pub fn p_remove_mobj(mobj: *mut Mobj) {
     }
     super::p_maputl::p_unset_thing_position(mobj);
     super::p_tick::p_remove_thinker(unsafe { &mut (*mobj).thinker as *mut Thinker });
+}
+
+/// Spawn a map thing (from THINGS lump). Original: P_SpawnMapThing
+/// Skips player starts (1-4), deathmatch (11), unknown types. Spawns monsters/items by doomednum.
+pub fn p_spawn_map_thing(mthing: &MapThing) {
+    use crate::geometry::ANG45;
+    use crate::info::{MOBJINFO, NUMMOBJTYPES};
+
+    let mt_type = mthing.type_ as i32;
+
+    // Deathmatch start (type 11)
+    if mt_type == 11 {
+        return;
+    }
+    // Thing type 0 = "player -1" - ignore
+    if mt_type <= 0 {
+        return;
+    }
+    // Player starts (1-4) - skip for now (no P_SpawnPlayer)
+    if mt_type <= 4 {
+        return;
+    }
+
+    // Find mobj type by doomednum
+    let mut mobj_type: Option<Mobjtype> = None;
+    for i in 0..NUMMOBJTYPES {
+        if mt_type == MOBJINFO[i].doomednum {
+            mobj_type = Some(i as Mobjtype);
+            break;
+        }
+    }
+
+    let mobj_type = match mobj_type {
+        Some(t) => t,
+        None => return, // Unknown type - skip
+    };
+
+    let info = &MOBJINFO[mobj_type as usize];
+
+    // options & 16 = don't spawn in single player
+    if (mthing.options as i32 & 16) != 0 {
+        return;
+    }
+    // Skill: bits 1=easy, 2=normal, 4=hard, 8=nightmare. Spawn if any skill bit set.
+    let skill_bits = mthing.options as i32 & 0xF;
+    if skill_bits == 0 {
+        return;
+    }
+
+    let x = (mthing.x as i32) * FRACUNIT;
+    let y = (mthing.y as i32) * FRACUNIT;
+    let z = if (info.flags & MF_SPAWNCEILING) != 0 {
+        crate::player::ONCEILINGZ
+    } else {
+        crate::player::ONFLOORZ
+    };
+
+    let mobj = p_spawn_mobj(x, y, z, mobj_type);
+    if mobj.is_null() {
+        return;
+    }
+
+    unsafe {
+        (*mobj).spawnpoint = *mthing;
+        (*mobj).angle = (ANG45 as u32).wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
+    }
 }

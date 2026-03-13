@@ -7,6 +7,7 @@
 //
 // Original: p_setup.h / p_setup.c (minimal subset for scene rendering)
 
+use crate::doomdata::MapThing;
 use crate::i_swap;
 use crate::m_fixed::{Fixed, FRACBITS, FRACUNIT};
 use crate::rendering::defs::{Line, Node, Seg, Sector, SideDef, SlopeType, Subsector, Vertex};
@@ -455,7 +456,36 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
     // Build sector line lists and blockboxes
     p_group_lines(num_sectors, num_linedefs, sectors_ptr, lines_ptr);
 
+    // Initialize thinkers and spawn map things
+    super::p_tick::p_init_thinkers();
+    let things_lump = (map_lump + 1) as usize;
+    p_load_things(things_lump);
+
     Ok(())
+}
+
+/// Load THINGS lump and spawn map things. Original: P_LoadThings
+fn p_load_things(lump: usize) {
+    const MAPTHING_SIZE: usize = 10; // 5 x i16
+    let lumplen = w_lump_length(lump) as usize;
+    if lumplen < MAPTHING_SIZE {
+        return;
+    }
+    let numthings = lumplen / MAPTHING_SIZE;
+    let mut buf = vec![0u8; lumplen];
+    w_read_lump(lump, &mut buf);
+
+    for i in 0..numthings {
+        let off = i * MAPTHING_SIZE;
+        let mthing = MapThing {
+            x: read_i16(&buf, off),
+            y: read_i16(&buf, off + 2),
+            angle: read_i16(&buf, off + 4),
+            type_: read_i16(&buf, off + 6),
+            options: read_i16(&buf, off + 8),
+        };
+        super::p_mobj::p_spawn_map_thing(&mthing);
+    }
 }
 
 /// Load REJECT lump for fast sight rejection. Original: P_LoadReject
