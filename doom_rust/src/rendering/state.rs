@@ -65,6 +65,16 @@ pub static mut LINES: *mut Line = std::ptr::null_mut();
 pub static mut NUMSIDES: i32 = 0;
 pub static mut SIDES: *mut SideDef = std::ptr::null_mut();
 
+// Blockmap (from p_setup, used by p_maputl)
+pub static mut BMAPORGX: Fixed = 0;
+pub static mut BMAPORGY: Fixed = 0;
+pub static mut BMAPWIDTH: i32 = 0;
+pub static mut BMAPHEIGHT: i32 = 0;
+pub static mut BLOCKMAP: *mut i16 = std::ptr::null_mut();
+pub static mut BLOCKMAPLUMP: *mut i16 = std::ptr::null_mut();
+/// Thing chains per block (mobj_t** in C). Cast to *mut *mut Mobj when used.
+pub static mut BLOCKLINKS: *mut *mut std::ffi::c_void = std::ptr::null_mut();
+
 // POV data (viewplayer is from d_player - stub for now)
 pub static mut VIEWX: Fixed = 0;
 pub static mut VIEWY: Fixed = 0;

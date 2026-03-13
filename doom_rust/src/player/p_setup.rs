@@ -8,13 +8,16 @@
 // Original: p_setup.h / p_setup.c (minimal subset for scene rendering)
 
 use crate::i_swap;
-use crate::m_fixed::{Fixed, FRACUNIT};
+use crate::m_fixed::{Fixed, FRACBITS, FRACUNIT};
 use crate::rendering::defs::{Line, Node, Seg, Sector, SideDef, SlopeType, Subsector, Vertex};
+use crate::rendering::{m_add_to_box, m_clear_box, BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 use crate::rendering::r_data::{r_check_flat_num_for_name, r_check_texture_num_for_name};
 use crate::rendering::state;
-use crate::wad::{w_get_num_for_name, w_read_lump};
-use crate::z_zone::{z_malloc, PU_LEVEL, PU_STATIC};
+use crate::wad::{w_get_num_for_name, w_read_lump, w_lump_length};
+use crate::z_zone::{z_malloc, PU_LEVEL};
 use std::ptr;
+
+use super::{MAPBLOCKSHIFT, MAXRADIUS};
 
 fn read_i16(data: &[u8], offset: usize) -> i16 {
     i_swap::short([data[offset], data[offset + 1]])
@@ -348,7 +351,12 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
 
         let seg_idx = firstline as usize;
         let sector = if seg_idx < num_segs {
-            unsafe { (*segs_ptr.add(seg_idx)).frontsector }
+            let seg = unsafe { &*segs_ptr.add(seg_idx) };
+            if seg.sidedef.is_null() {
+                seg.frontsector
+            } else {
+                unsafe { (*seg.sidedef).sector }
+            }
         } else {
             ptr::null_mut()
         };
@@ -427,5 +435,167 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
         state::SIDES = sides_ptr;
     }
 
+    // Load blockmap (lump 10)
+    let blockmap_lump = (map_lump + 10) as usize;
+    p_load_blockmap(blockmap_lump);
+
+    // Build sector line lists and blockboxes
+    p_group_lines(num_sectors, num_linedefs, sectors_ptr, lines_ptr);
+
     Ok(())
+}
+
+/// Load blockmap from WAD. Original: P_LoadBlockMap
+fn p_load_blockmap(lump: usize) {
+    let lumplen = w_lump_length(lump) as usize;
+    if lumplen < 8 {
+        return;
+    }
+    let count = lumplen / 2;
+    let blockmaplump_ptr = z_malloc(count * 2, PU_LEVEL, ptr::null_mut()) as *mut i16;
+    let mut buf = vec![0u8; lumplen];
+    w_read_lump(lump, &mut buf);
+    for i in 0..count {
+        unsafe {
+            *blockmaplump_ptr.add(i) = read_i16(&buf, i * 2) as i16;
+        }
+    }
+    let blockmap_ptr = unsafe { blockmaplump_ptr.add(4) };
+    let bmaporgx = (unsafe { *blockmaplump_ptr } as i32) << FRACBITS;
+    let bmaporgy = (unsafe { *blockmaplump_ptr.add(1) } as i32) << FRACBITS;
+    let bmapwidth = unsafe { *blockmaplump_ptr.add(2) } as i32;
+    let bmapheight = unsafe { *blockmaplump_ptr.add(3) } as i32;
+    let blocklinks_count = (bmapwidth * bmapheight) as usize;
+    let blocklinks_ptr =
+        z_malloc(blocklinks_count * std::mem::size_of::<*mut std::ffi::c_void>(), PU_LEVEL, ptr::null_mut())
+            as *mut *mut std::ffi::c_void;
+    unsafe {
+        ptr::write_bytes(blocklinks_ptr, 0, blocklinks_count);
+    }
+    unsafe {
+        state::BLOCKMAPLUMP = blockmaplump_ptr;
+        state::BLOCKMAP = blockmap_ptr;
+        state::BMAPORGX = bmaporgx;
+        state::BMAPORGY = bmaporgy;
+        state::BMAPWIDTH = bmapwidth;
+        state::BMAPHEIGHT = bmapheight;
+        state::BLOCKLINKS = blocklinks_ptr;
+    }
+}
+
+/// Build sector line lists and blockboxes. Original: P_GroupLines
+fn p_group_lines(
+    num_sectors: usize,
+    num_lines: usize,
+    sectors_ptr: *mut Sector,
+    lines_ptr: *mut Line,
+) {
+    // Count lines per sector
+    for i in 0..num_lines {
+        let li = unsafe { &*lines_ptr.add(i) };
+        if !li.frontsector.is_null() {
+            unsafe {
+                (*li.frontsector).linecount += 1;
+            }
+        }
+        if !li.backsector.is_null() && li.backsector != li.frontsector {
+            unsafe {
+                (*li.backsector).linecount += 1;
+            }
+        }
+    }
+
+    let totallines: i32 = (0..num_sectors)
+        .map(|i| unsafe { (*sectors_ptr.add(i)).linecount })
+        .sum();
+
+    let linebuffer_ptr = z_malloc(
+        (totallines as usize) * std::mem::size_of::<*mut Line>(),
+        PU_LEVEL,
+        ptr::null_mut(),
+    ) as *mut *mut Line;
+
+    let mut linebuffer_offset = 0usize;
+    for i in 0..num_sectors {
+        let sec = unsafe { sectors_ptr.add(i) };
+        let linecount = unsafe { (*sec).linecount } as usize;
+        unsafe {
+            (*sec).lines = linebuffer_ptr.add(linebuffer_offset);
+            (*sec).linecount = 0;
+        }
+        linebuffer_offset += linecount;
+    }
+
+    for i in 0..num_lines {
+        let li = unsafe { lines_ptr.add(i) };
+        let line = unsafe { &*li };
+        if !line.frontsector.is_null() {
+            let sector = line.frontsector;
+            let idx = unsafe { (*sector).linecount } as usize;
+            unsafe {
+                *((*sector).lines.add(idx)) = li;
+                (*sector).linecount += 1;
+            }
+        }
+        if !line.backsector.is_null() && line.backsector != line.frontsector {
+            let sector = line.backsector;
+            let idx = unsafe { (*sector).linecount } as usize;
+            unsafe {
+                *((*sector).lines.add(idx)) = li;
+                (*sector).linecount += 1;
+            }
+        }
+    }
+
+    let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = unsafe {
+        (
+            state::BMAPORGX,
+            state::BMAPORGY,
+            state::BMAPWIDTH,
+            state::BMAPHEIGHT,
+        )
+    };
+
+    for i in 0..num_sectors {
+        let sector = unsafe { sectors_ptr.add(i) };
+        let mut bbox: [Fixed; 4] = [0; 4];
+        m_clear_box(&mut bbox);
+        let linecount = unsafe { (*sector).linecount } as usize;
+        for j in 0..linecount {
+            let li = unsafe { *((*sector).lines.add(j)) };
+            if !li.is_null() {
+                let line = unsafe { &*li };
+                if !line.v1.is_null() {
+                    let v = unsafe { &*line.v1 };
+                    m_add_to_box(&mut bbox, v.x, v.y);
+                }
+                if !line.v2.is_null() {
+                    let v = unsafe { &*line.v2 };
+                    m_add_to_box(&mut bbox, v.x, v.y);
+                }
+            }
+        }
+        let (bx_top, bx_bottom, bx_left, bx_right) = (
+            bbox[BOXTOP],
+            bbox[BOXBOTTOM],
+            bbox[BOXLEFT],
+            bbox[BOXRIGHT],
+        );
+        unsafe {
+            (*sector).soundorg.x = (bx_right + bx_left) / 2;
+            (*sector).soundorg.y = (bx_top + bx_bottom) / 2;
+        }
+        let mut block = (bx_top - bmaporgy + MAXRADIUS) >> MAPBLOCKSHIFT;
+        block = if block >= bmapheight { bmapheight - 1 } else { block };
+        unsafe { (*sector).blockbox[BOXTOP] = block };
+        let mut block = (bx_bottom - bmaporgy - MAXRADIUS) >> MAPBLOCKSHIFT;
+        block = if block < 0 { 0 } else { block };
+        unsafe { (*sector).blockbox[BOXBOTTOM] = block };
+        let mut block = (bx_right - bmaporgx + MAXRADIUS) >> MAPBLOCKSHIFT;
+        block = if block >= bmapwidth { bmapwidth - 1 } else { block };
+        unsafe { (*sector).blockbox[BOXRIGHT] = block };
+        let mut block = (bx_left - bmaporgx - MAXRADIUS) >> MAPBLOCKSHIFT;
+        block = if block < 0 { 0 } else { block };
+        unsafe { (*sector).blockbox[BOXLEFT] = block };
+    }
 }
