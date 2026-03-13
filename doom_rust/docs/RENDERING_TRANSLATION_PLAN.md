@@ -38,12 +38,12 @@ These must exist or be stubbed before rendering:
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| p_mobj | Started (stub) | Full mobj_t needed for sector_t.thinglist, etc. |
-| d_think | Not started | thinker_t in degenmobj_t, sector_t.specialdata |
-| p_local | Not started | Used by r_data.c for level data |
-| i_video | Not started | SCREENWIDTH, SCREENHEIGHT, videomode_t |
-| doomdef | Started | SCREENWIDTH may be in doomdef or i_video |
-| deh_main | Not started | DeHackEd – R_TextureNumForName, etc. |
+| p_mobj | ✅ Done | Full mobj_t for sector_t.thinglist, etc. |
+| d_think | ✅ Done | thinker_t in degenmobj_t, sector_t.specialdata |
+| p_local | ✅ Done | Level data (vertexes, segs, sectors) |
+| i_video | Stub | SCREENWIDTH, SCREENHEIGHT, videomode_t |
+| doomdef | ✅ Done | SCREENWIDTH in doomdef |
+| deh_main | Stub | DeHackEd – R_TextureNumForName, etc. |
 
 ### Phase 1: Foundation (no game data)
 

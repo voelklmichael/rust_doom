@@ -152,7 +152,7 @@ doomkeys ───────────────────────�
 
 ## Out of Scope (Later)
 
-- m_menu, hu_stuff, st_stuff, wi_stuff – UI/HUD (partial: cheat, st_lib, hu_lib, hu_stuff, st_stuff, wi_stuff, config, menu init done; see UI_HUD_TRANSLATION_PLAN.md)
+- m_menu, hu_stuff, st_stuff, wi_stuff – UI/HUD (complete: all 9 modules done; see UI_HUD_TRANSLATION_PLAN.md)
 - f_finale, f_wipe – End-game, screen wipe
 - am_map – Automap
 - net_* – Networking

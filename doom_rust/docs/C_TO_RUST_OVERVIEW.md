@@ -77,7 +77,7 @@ These modules exist but have minimal or stub implementations.
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
 | **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player (mo, viewz, viewheight, extralight, fixedcolormap, playerstate, health), PlayerState enum, PLAYERS, PLAYERINGAME, PLAYERSTARTS; WbStartStruct (epsd, last, next, pnum, plyr), WbPlayerStruct |
 | **player/** | p_*.h / p_*.c | Scaffolded; see below |
-| **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | cheat, st_lib, hu_lib full; hu_stuff (HU_Init, HU_Drawer, HU_Erase, etc.); st_stuff (ST_Init, ST_Start, ST_Drawer, w_health/w_armor); wi_stuff (WI_Start, WI_Drawer, INTERPIC/WIMAP); config (variable store, M_SetVariable, M_GetIntVariable); menu (M_Init syncs from config); v_video (V_UseBuffer, V_RestoreBuffer); r_draw (R_VideoErase); controls stubs |
+| **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | All 9 modules full: cheat, st_lib, hu_lib, hu_stuff, st_stuff, wi_stuff, config, controls, menu. Save string input, Read This screen, Heretic/Hexen/Strife controls. v_video, r_draw. |
 
 ### player/ module (src/player/)
 
@@ -95,6 +95,22 @@ All p_* C modules are scaffolded in `player/`. See `docs/PLAYER_TRANSLATION_PLAN
 | **p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept** | Stub | Module structure only |
 | **p_switch, p_inter** | Stub | API stubs |
 | **p_pspr, p_user, p_enemy, p_saveg** | Stub | API stubs |
+
+### ui_hud/ module (src/ui_hud/)
+
+All 9 UI/HUD modules implemented. See `docs/UI_HUD_TRANSLATION_PLAN.md` for details.
+
+| Submodule | Status | Notes |
+|-----------|--------|-------|
+| **cheat** | Full | CheatSeq, cht_CheckCheat, cht_GetParam |
+| **controls** | Full | Key globals, M_Bind* (base, Heretic, Hexen, Strife, weapon, map, menu, chat) |
+| **config** | Full | M_LoadDefaults, M_SaveDefaults, variable store, m_set_variable → m_update_control_from_config |
+| **hu_lib** | Full | HuTextline, HuStext, HuItext |
+| **hu_stuff** | Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker; save string input |
+| **st_lib** | Full | StNumber, StPercent, StMultIcon, StBinIcon |
+| **st_stuff** | Full | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health/w_armor, cheats |
+| **wi_stuff** | Full | WI_Start, WI_Ticker, WI_Drawer, WI_End; intermission |
+| **menu** | Full | M_Init, M_Responder, M_Drawer; main/episode/newgame/options/sound/load/save; Read This; save string input |
 
 ---
 
@@ -145,6 +161,7 @@ C modules with no Rust equivalent yet.
 | **Not started** | ~45 C modules |
 
 **Foundation:** WAD, zone, sound, geometry, types, rendering (scene rendering works).  
-**Player:** p_setup, p_mobj, p_map, p_sight, p_maputl, p_tick working; P_SpawnPlayer, G_PlayerReborn done. example_render_scene blocked by z_zone corruption.
+**Player:** p_setup, p_mobj, p_map, p_sight, p_maputl, p_tick working; P_SpawnPlayer, G_PlayerReborn done. example_render_scene blocked by z_zone corruption.  
+**UI/HUD:** All 9 modules complete (cheat, controls, config, hu_lib, hu_stuff, st_lib, st_stuff, wi_stuff, menu).
 
 See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `NEXT_PHASE_TRANSLATION_PLAN.md`, `UI_HUD_TRANSLATION_PLAN.md`

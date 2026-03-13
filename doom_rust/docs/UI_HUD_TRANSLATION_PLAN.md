@@ -4,7 +4,7 @@ Plan for porting the Doom UI and HUD C modules to Rust. All files go into the `u
 
 **Source:** `doomgeneric/doomgeneric/m_*.c`, `hu_*.c`, `st_*.c`, `wi_*.c` and corresponding `.h` files
 
-**Current status:** cheat, st_lib, hu_lib full; hu_stuff (HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker); st_stuff (ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder, w_health/w_armor); wi_stuff (WI_Start, WI_Ticker, WI_Drawer, WI_End, INTERPIC/WIMAP); config (M_LoadDefaults, variable store, M_SetVariable, M_GetIntVariable); menu (M_Init syncs from config, m_set_screenblocks, m_set_detail_level); v_video, r_draw; controls stubs.
+**Current status:** All 9 modules implemented. cheat, st_lib, hu_lib, hu_stuff full; st_stuff (ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder, w_health/w_armor, cheats); wi_stuff (WI_Start, WI_Ticker, WI_Drawer, WI_End, INTERPIC/WIMAP); config (M_LoadDefaults, M_SaveDefaults, variable store, m_set_variable → m_update_control_from_config); controls (M_BindBaseControls, M_BindHereticControls, M_BindHexenControls, M_BindStrifeControls, M_BindWeaponControls, M_BindMapControls, M_BindMenuControls, m_sync_controls_to_config); menu (M_Init, M_Responder, M_Drawer, main/episode/newgame/options/sound/load/save, Read This screen, save string input for new saves); v_video, r_draw.
 
 ---
 
@@ -259,28 +259,28 @@ pub use menu::{M_Init, M_Responder, M_Ticker, M_Drawer, M_StartControlPanel};
 | Module | Status | Implemented |
 |--------|--------|-------------|
 | **cheat.rs** | ✅ Full | CheatSeq, cht_CheckCheat, cht_GetParam |
-| **controls.rs** | Partial | Key globals; M_BindBaseControls, M_BindWeaponControls, M_BindMapControls, M_BindMenuControls; m_sync_controls_to_config |
+| **controls.rs** | ✅ Full | Key globals (incl. Heretic/Hexen/Strife); M_BindBaseControls, M_BindHereticControls, M_BindHexenControls, M_BindStrifeControls, M_BindWeaponControls, M_BindMapControls, M_BindMenuControls, M_BindChatControls; m_sync_controls_to_config; m_update_control_from_config |
 | **st_lib.rs** | ✅ Full | StNumber, StPercent, StMultIcon, StBinIcon; stlib_init, stlib_update_* |
 | **hu_lib.rs** | ✅ Full | HuTextline, HuStext, HuItext; hulib_draw_*, hulib_erase_*, text manipulation |
-| **config.rs** | Partial | M_LoadDefaults (file I/O, -config/-extraconfig); M_SaveDefaults; M_SetConfigFilenames; variable store; M_BindVariable; m_set_variable → m_update_control_from_config (key/control sync) |
-| **hu_stuff.rs** | ✅ Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, font loading |
-| **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip, idmus, idclev, idbehold*, idchoppers; palette effects (fixedcolormap update for damage/bonus/invuln flash); Player wired |
-| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats; animated stat counting; par time; wi_set_accelerate; animated background (WIA*); "Finished!" / "Entering" + level names; WILV/CWILV patches |
-| **menu.rs** | Partial | M_Init, M_StartControlPanel; M_Responder; M_Drawer (main/episode/newgame/options/sound/load/save, thermo, skull); Load/Save borders + strings + slot activation (g_defered_load_game, g_defered_save_game); m_set_screenblocks, m_set_detail_level |
+| **config.rs** | ✅ Full | M_LoadDefaults (file I/O, -config/-extraconfig); M_SaveDefaults; M_SetConfigFilenames; variable store; M_BindVariable; m_set_variable → m_update_control_from_config (key/control sync) |
+| **hu_stuff.rs** | ✅ Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, font loading; save string input (HuItext) |
+| **st_stuff.rs** | ✅ Full | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip, idmus, idclev, idbehold*, idchoppers; palette effects; Player wired |
+| **wi_stuff.rs** | ✅ Full | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats; animated stat counting; par time; wi_set_accelerate; animated background (WIA*); "Finished!" / "Entering" + level names; WILV/CWILV patches |
+| **menu.rs** | ✅ Full | M_Init, M_StartControlPanel; M_Responder; M_Drawer (main/episode/newgame/options/sound/load/save, thermo, skull); Load/Save borders + strings + slot activation; save string input for new saves; Read This screen (HELP1); m_set_screenblocks, m_set_detail_level |
 
 ## Stub Strategy (Historical)
 
 For initial scaffold:
 
 1. **cheat.rs** — Full impl (small). ✅
-2. **controls.rs** — Struct with key values; `M_Bind*` no-ops.
+2. **controls.rs** — Key globals; M_Bind* read from config. ✅
 3. **st_lib.rs** — Types + impls. ✅
 4. **hu_lib.rs** — Types + impls. ✅
 5. **config.rs** — Variable store; M_LoadDefaults sets defaults. ✅
 6. **hu_stuff.rs** — Full impl. ✅
-7. **st_stuff.rs** — Partial: load graphics, w_health/w_armor, cheat handling. ✅
-8. **wi_stuff.rs** — Partial: load background, draw. ✅
-9. **menu.rs** — M_Init syncs from config. ✅
+7. **st_stuff.rs** — Full impl. ✅
+8. **wi_stuff.rs** — Full impl. ✅
+9. **menu.rs** — Full impl. ✅
 
 ---
 
@@ -304,13 +304,7 @@ For initial scaffold:
 
 | Module | Remaining |
 |--------|-----------|
-| **st_stuff** | — |
-| **wi_stuff** | — |
-| **config** | — |
-| **menu** | — |
-| **controls** | — |
-
-**Done (this session):** config: M_BindVariable pointer binding via m_set_variable → m_update_control_from_config; controls::m_update_control_from_config syncs key/mouse/joy vars to globals when config loads; menu: save string input for new saves (HuItext), Read This screen (HELP1 lump, any key closes); controls: M_BindHereticControls, M_BindHexenControls, M_BindStrifeControls; full sync (Heretic/Hexen/Strife globals, menu keys, mouse/joy extras, dclick_use, key_multi_msgplayer);
+| **All** | — (UI/HUD translation complete) |
 
 ---
 
@@ -320,6 +314,7 @@ For initial scaffold:
 |----------|-------|
 | Submodules | 9 |
 | C lines (approx) | ~9,257 |
+| Rust lines (approx) | ~4,775 |
 | Merge pattern | .h = public, .c = private per file |
 
 See also: `PLAYER_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `C_TO_RUST_OVERVIEW.md`

@@ -117,18 +117,18 @@ These must exist or be stubbed before player:
 
 | Module | Status | Notes |
 |--------|--------|-------|
-| d_think | Not started | `thinker_t` |
-| doomdata | Started | `mapthing_t` |
-| doomdef | Started | `skill_t`, etc. |
-| doomstat | Partial | `player_t`, `GAMEMODE`, etc. |
-| info | Not started | `mobjinfo_t`, `state_t`, `mobjtype_t`, `statenum_t` |
-| r_local / rendering | Started | `line_t`, `sector_t`, `subsector_t`, `side_t`, etc. |
+| d_think | ✅ Done | `thinker_t` |
+| doomdata | ✅ Done | `mapthing_t` |
+| doomdef | ✅ Done | `skill_t`, etc. |
+| doomstat | ✅ Done | `player_t`, `GAMEMODE`, etc. |
+| info | ✅ Done | `mobjinfo_t`, `state_t`, `mobjtype_t`, `statenum_t` |
+| r_local / rendering | ✅ Done | `line_t`, `sector_t`, `subsector_t`, `side_t`, etc. |
 | m_bbox | ✅ In `rendering/m_bbox` | M_ClearBox, M_AddToBox; shared by rendering and p_maputl |
-| g_game | Not started | Game logic calls |
-| s_sound | Started | Sound playback |
-| deh_main, deh_misc | Not started | DeHackEd |
+| g_game | ✅ Done | G_Ticker, G_PlayerReborn, G_BuildTiccmd |
+| s_sound | ✅ Done | Sound playback |
+| deh_main, deh_misc | Stub | DeHackEd – stubs for compatibility |
 | am_map | Not started | Automap (p_inter) |
-| st_stuff, hu_stuff | Not started | Status bar, HUD (p_mobj) |
+| st_stuff, hu_stuff | ✅ Done | Status bar, HUD (p_mobj) |
 
 ### Phase 1: Foundation
 

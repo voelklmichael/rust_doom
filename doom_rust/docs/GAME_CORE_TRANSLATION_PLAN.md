@@ -17,6 +17,7 @@ Plan for porting the next set of C modules that unblock the player module and en
 | **Phase 3** | ✅ Done | i_timer, doomdef extension |
 | **Phase 4** | ✅ Done | d_main, d_loop, g_game (stubs + G_PlayerReborn) |
 | **Phase 5** | ✅ Done | dstrings |
+| **Phase 6** | ✅ Done | g_game (G_InitNew, G_DeferedInitNew, G_LoadGame, G_SaveGame stubs; g_defered_load_game, g_defered_save_game) |
 
 ---
 
