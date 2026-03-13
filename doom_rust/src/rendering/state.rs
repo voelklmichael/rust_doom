@@ -75,6 +75,9 @@ pub static mut BLOCKMAPLUMP: *mut i16 = std::ptr::null_mut();
 /// Thing chains per block (mobj_t** in C). Cast to *mut *mut Mobj when used.
 pub static mut BLOCKLINKS: *mut *mut std::ffi::c_void = std::ptr::null_mut();
 
+/// REJECT matrix - fast sight rejection (sector pairs). From p_setup P_LoadReject.
+pub static mut REJECTMATRIX: *mut u8 = std::ptr::null_mut();
+
 // POV data (viewplayer is from d_player - stub for now)
 pub static mut VIEWX: Fixed = 0;
 pub static mut VIEWY: Fixed = 0;

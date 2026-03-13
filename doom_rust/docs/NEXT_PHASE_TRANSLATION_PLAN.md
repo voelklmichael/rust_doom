@@ -88,7 +88,7 @@ doomkeys ───────────────────────�
 | P_SlideMove | p_map.c | player/p_map.rs | Slide along blocking line |
 | P_TeleportMove | p_map.c | player/p_map.rs | Instant move (teleporter) |
 | P_LineOpening | p_maputl.c | player/p_maputl.rs | Already done |
-| P_CheckSight | p_sight.c | player/p_sight.rs | REJECT + P_PathTraverse; currently stub (always true) |
+| P_CheckSight | p_sight.c | player/p_sight.rs | REJECT + BSP traversal (P_CrossBSPNode, P_CrossSubsector) ✅ |
 
 **Dependencies:** blockmap, p_maputl (P_PathTraverse, P_BlockLinesIterator), reject matrix (from p_setup).
 

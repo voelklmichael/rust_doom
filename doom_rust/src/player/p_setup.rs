@@ -444,6 +444,10 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
         state::SIDES = sides_ptr;
     }
 
+    // Load REJECT (lump 9) - for P_CheckSight
+    let reject_lump = (map_lump + 9) as usize;
+    p_load_reject(reject_lump, num_sectors);
+
     // Load blockmap (lump 10)
     let blockmap_lump = (map_lump + 10) as usize;
     p_load_blockmap(blockmap_lump);
@@ -452,6 +456,29 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
     p_group_lines(num_sectors, num_linedefs, sectors_ptr, lines_ptr);
 
     Ok(())
+}
+
+/// Load REJECT lump for fast sight rejection. Original: P_LoadReject
+fn p_load_reject(lump: usize, num_sectors: usize) {
+    let minlength = (num_sectors * num_sectors + 7) / 8;
+    if minlength == 0 {
+        return;
+    }
+    let lumplen = w_lump_length(lump) as usize;
+    let copy_len = lumplen.min(minlength);
+
+    let ptr = z_malloc(minlength, PU_LEVEL, ptr::null_mut()) as *mut u8;
+    let mut buf = vec![0u8; lumplen.max(1)];
+    if lumplen > 0 {
+        w_read_lump(lump, &mut buf);
+    }
+    unsafe {
+        ptr::copy_nonoverlapping(buf.as_ptr(), ptr, copy_len);
+        if copy_len < minlength {
+            ptr::write_bytes(ptr.add(copy_len), 0, minlength - copy_len);
+        }
+        state::REJECTMATRIX = ptr;
+    }
 }
 
 /// Load blockmap from WAD. Original: P_LoadBlockMap
