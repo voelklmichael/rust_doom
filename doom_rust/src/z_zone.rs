@@ -155,7 +155,7 @@ pub fn z_malloc(size: usize, tag: i32, user: *mut *mut u8) -> *mut u8 {
             } else {
                 rover = (*rover).next;
             }
-            if (*base).tag == PU_FREE && (*base).size >= size {
+                if (*base).tag == PU_FREE && (*base).size >= size {
                 break;
             }
         }

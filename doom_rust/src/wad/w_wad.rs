@@ -292,40 +292,52 @@ pub fn w_cache_lump_num(lumpnum: i32, tag: i32) -> *mut u8 {
         )
     });
 
-    let cache_opt = wad_state_read(|state| {
-        let lump = &state.lumpinfo[lumpnum as usize];
-        lump.cache
-    });
-
     if has_mapped {
-        wad_state_read(|state| {
+        return wad_state_read(|state| {
             let wad = &state.open_wad_files[wad_index];
             unsafe { wad.mapped.unwrap().add(position as usize) }
-        })
-    } else if let Some(cache) = cache_opt {
-        z_change_tag(cache, tag);
-        cache
-    } else {
-        let cache = z_malloc(size, tag, std::ptr::null_mut());
-        wad_state_write(|state| {
-            state.lumpinfo[lumpnum as usize].cache = Some(cache);
         });
-        i_system::i_begin_read();
-        let n = wad_state_read(|state| {
-            let wad = &state.open_wad_files[wad_index];
-            wad.read(position as u32, unsafe {
-                std::slice::from_raw_parts_mut(cache, size)
-            })
-        });
-        i_system::i_end_read();
-        if n < size {
-            i_system::i_error(&format!(
-                "W_ReadLump: only read {} of {} on lump {}",
-                n, size, lumpnum
-            ));
-        }
-        cache
     }
+
+    let cache_opt = wad_state_read(|state| state.lumpinfo[lumpnum as usize].cache);
+
+    if let Some(cache) = cache_opt {
+        // Purgable tags need user; use PU_STATIC for z_change_tag to avoid purge requirement
+        let safe_tag = if tag >= crate::z_zone::PU_PURGELEVEL {
+            crate::z_zone::PU_STATIC
+        } else {
+            tag
+        };
+        z_change_tag(cache, safe_tag);
+        return cache;
+    }
+
+    // Allocate: use PU_STATIC when tag is purgable to avoid needing user (avoids zone purge issues)
+    let alloc_tag = if tag >= crate::z_zone::PU_PURGELEVEL {
+        crate::z_zone::PU_STATIC
+    } else {
+        tag
+    };
+    let cache = z_malloc(size, alloc_tag, std::ptr::null_mut());
+    i_system::i_begin_read();
+    let n = wad_state_read(|state| {
+        let wad = &state.open_wad_files[wad_index];
+        wad.read(position as u32, unsafe {
+            std::slice::from_raw_parts_mut(cache, size)
+        })
+    });
+    i_system::i_end_read();
+    if n < size {
+        i_system::i_error(&format!(
+            "W_ReadLump: only read {} of {} on lump {}",
+            n, size, lumpnum
+        ));
+    }
+
+    wad_state_write(|state| {
+        state.lumpinfo[lumpnum as usize].cache = Some(cache);
+    });
+    cache
 }
 
 /// Original: W_CacheLumpName
@@ -343,7 +355,8 @@ pub fn w_release_lump_num(lumpnum: i32) {
         let wad = &state.open_wad_files[lump.wad_file_index];
         if wad.mapped.is_none() {
             if let Some(cache) = lump.cache {
-                z_change_tag(cache, PU_CACHE);
+                // Use PU_STATIC to avoid purge/user requirement (blocks stay allocated)
+                z_change_tag(cache, PU_STATIC);
             }
         }
     });

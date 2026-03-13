@@ -476,7 +476,11 @@ fn generate_texture_hash_table() {
         TEXTURES_HASHTABLE =
             z_malloc((NUMTEXTURES as usize) * std::mem::size_of::<*mut Texture>(), PU_STATIC, ptr::null_mut())
                 as *mut *mut Texture;
-        ptr::write_bytes(TEXTURES_HASHTABLE, 0, NUMTEXTURES as usize);
+        ptr::write_bytes(
+            TEXTURES_HASHTABLE,
+            0,
+            (NUMTEXTURES as usize) * std::mem::size_of::<*mut Texture>(),
+        );
 
         for i in 0..NUMTEXTURES {
             let tex = *TEXTURES.add(i as usize);
@@ -485,9 +489,9 @@ fn generate_texture_hash_table() {
             let name = std::str::from_utf8(&(*tex).name)
                 .unwrap_or("")
                 .trim_end_matches('\0');
-            let key = (w_lump_name_hash(name) as i32) % NUMTEXTURES;
+            let key = (w_lump_name_hash(name) as usize) % (NUMTEXTURES as usize);
 
-            let mut rover = TEXTURES_HASHTABLE.add(key as usize);
+            let mut rover = TEXTURES_HASHTABLE.add(key);
             while !(*rover).is_null() {
                 rover = &mut (*(*rover)).next;
             }

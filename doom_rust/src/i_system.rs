@@ -13,7 +13,7 @@ use crate::doomtype::Byte;
 /// Returns (pointer, size). Stub: allocates a fixed size (e.g. 16MB).
 /// The returned pointer must remain valid for the program's lifetime.
 pub fn i_zone_base() -> (*mut Byte, usize) {
-    const ZONE_SIZE: usize = 16 * 1024 * 1024; // 16MB
+    const ZONE_SIZE: usize = 32 * 1024 * 1024; // 32MB (PU_STATIC cache uses more)
     let zone = vec![0u8; ZONE_SIZE];
     let size = zone.len();
     let ptr = Box::leak(zone.into_boxed_slice()).as_mut_ptr();
