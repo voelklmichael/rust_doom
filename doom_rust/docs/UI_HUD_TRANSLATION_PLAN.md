@@ -131,7 +131,7 @@ For each `*.rs` file:
 
 **Dependencies:** doomdef (wbstartstruct_t), z_zone, m_misc, m_random, deh_main, i_swap, i_system, w_wad, g_game, r_local, s_sound, doomstat, sounds, v_video.
 
-**Note:** `wbstartstruct_t` is in doomstat (d_net.h / d_player.h in C). Rust has `WbStartStruct` stub in doomstat.
+**Note:** `wbstartstruct_t` is in doomstat (d_net.h / d_player.h in C). Rust has `WbStartStruct` with `epsd`, `last`, `next`, `pnum`, `plyr[]` and `WbPlayerStruct` in doomstat.
 
 ---
 
@@ -177,19 +177,19 @@ These must exist or be stubbed before full UI/HUD port:
 | doomdef | ✅ Done | SCREENWIDTH, SCREENHEIGHT, TICRATE, gamestate_t, gameaction_t |
 | doomkeys | ✅ Done | KEY_* constants |
 | doomtype | ✅ Done | Boolean |
-| doomstat | Partial | WbStartStruct stub; gameepisode, gamemap, etc. |
+| doomstat | Partial | WbStartStruct (epsd, last, next, pnum, plyr), WbPlayerStruct; gameepisode, gamemap, etc. |
 | deh_main, deh_misc | ✅ Stubs | DeHackEd |
 | i_swap | ✅ Done | SHORT, LONG |
 | i_system | Stub | I_Error, I_ZoneBase |
 | i_timer | ✅ Done | TICRATE |
 | i_video | Not started | Screen buffer, mode set |
 | m_misc | ✅ Done | M_StringCopy, etc. |
-| v_video | ✅ Done | V_DrawPatch, screen buffer |
+| v_video | ✅ Done | V_DrawPatch, V_DrawPatchDirect, V_CopyRect, V_UseBuffer, V_RestoreBuffer, screen buffer |
 | w_wad | ✅ Done | W_CacheLumpName |
 | z_zone | Partial | Zone allocator (has corruption bug) |
 | r_defs | ✅ Done | patch_t, etc. |
 | r_local | Partial | viewwindowx, etc. |
-| r_draw | ✅ Done | Column drawing |
+| r_draw | ✅ Done | Column drawing, R_VideoErase |
 | g_game | Partial | G_Responder, game state |
 | p_saveg | Stub | Savegame API |
 | p_inter | Stub | P_TouchSpecialThing, etc. |
@@ -254,19 +254,33 @@ pub use menu::{M_Init, M_Responder, M_Ticker, M_Drawer, M_StartControlPanel};
 
 ---
 
-## Stub Strategy
+## Implementation Progress
+
+| Module | Status | Implemented |
+|--------|--------|-------------|
+| **cheat.rs** | ✅ Full | CheatSeq, cht_CheckCheat, cht_GetParam |
+| **controls.rs** | Stub | Key globals; M_Bind* no-ops |
+| **st_lib.rs** | ✅ Full | StNumber, StPercent, StMultIcon, StBinIcon; stlib_init, stlib_update_* |
+| **hu_lib.rs** | ✅ Full | HuTextline, HuStext, HuItext; hulib_draw_*, hulib_erase_*, text manipulation |
+| **config.rs** | Partial | M_LoadDefaults (defaults), M_SetVariable, M_GetIntVariable, M_GetStrVariable, M_GetFloatVariable; variable store (HashMap) |
+| **hu_stuff.rs** | ✅ Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, font loading |
+| **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; load graphics; w_health, w_armor; cheat sequences |
+| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; load INTERPIC/WIMAP; background draw |
+| **menu.rs** | Partial | M_Init (syncs from config), m_set_screenblocks, m_set_detail_level; M_Drawer/M_Responder stubs |
+
+## Stub Strategy (Historical)
 
 For initial scaffold:
 
-1. **cheat.rs** — Full impl (small).
+1. **cheat.rs** — Full impl (small). ✅
 2. **controls.rs** — Struct with key values; `M_Bind*` no-ops.
-3. **st_lib.rs** — Types + stub impls (STlib_init no-op, update functions no-op).
-4. **hu_lib.rs** — Types + stub impls.
-5. **config.rs** — `M_LoadDefaults`/`M_SaveDefaults` no-ops; `M_BindVariable` stores in HashMap for later.
-6. **hu_stuff.rs** — `HU_Init`, `HU_Start` no-ops; `HU_Responder`/`HU_Ticker`/`HU_Drawer` no-ops.
-7. **st_stuff.rs** — `ST_Init`, `ST_Start` no-ops; `ST_Responder`/`ST_Ticker`/`ST_Drawer` no-ops.
-8. **wi_stuff.rs** — `WI_Start`/`WI_End` no-ops; `WI_Ticker`/`WI_Drawer` no-ops.
-9. **menu.rs** — `M_Init` no-op; `M_Responder`/`M_Ticker`/`M_Drawer`/`M_StartControlPanel` no-ops.
+3. **st_lib.rs** — Types + impls. ✅
+4. **hu_lib.rs** — Types + impls. ✅
+5. **config.rs** — Variable store; M_LoadDefaults sets defaults. ✅
+6. **hu_stuff.rs** — Full impl. ✅
+7. **st_stuff.rs** — Partial: load graphics, w_health/w_armor, cheat handling. ✅
+8. **wi_stuff.rs** — Partial: load background, draw. ✅
+9. **menu.rs** — M_Init syncs from config. ✅
 
 ---
 
@@ -283,6 +297,18 @@ For initial scaffold:
 | menu | 1 | 2–3 days |
 
 **Total (full impl):** ~2–3 weeks. **Stub scaffold:** 1–2 days.
+
+---
+
+## Remaining Work
+
+| Module | Remaining |
+|--------|-----------|
+| **st_stuff** | More widgets (ammo, weapons, keys, face); full cheat handling; palette effects; requires Player with ammo, armorpoints, weaponowned, readyweapon, cards |
+| **wi_stuff** | Stats display (kills, items, secret, time); "Finished!" / "Entering" text; animated background; level name patches |
+| **config** | File I/O (M_LoadDefaults from default.cfg, M_SaveDefaults); M_BindVariable pointer binding |
+| **menu** | M_Drawer (load menu patches, draw main/episode/skill menus); M_Responder (key handling, skull cursor); M_StartControlPanel |
+| **controls** | M_Bind* implementations; key binding from config |
 
 ---
 

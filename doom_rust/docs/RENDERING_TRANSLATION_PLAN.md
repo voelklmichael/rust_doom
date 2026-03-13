@@ -175,7 +175,7 @@ Rendering depends on (must exist or be stubbed):
 - [x] **v_patch** – patch_t, post_t, column_t
 - [x] **defs** – vertex_t, sector_t, line_t, seg_t, node_t, subsector_t, side_t, drawseg_t, vissprite_t, visplane_t, spritedef_t, etc.
 - [x] **state** – viewwidth, vertexes, segs, sectors, etc.
-- [x] **v_video** – V_Init, screen buffer (SCREENS, VIEWIMAGE, YLOOKUP, COLUMNOFS)
+- [x] **v_video** – V_Init, V_DrawPatch, V_DrawPatchDirect, V_CopyRect, V_UseBuffer, V_RestoreBuffer, screen buffer (SCREENS, VIEWIMAGE, YLOOKUP, COLUMNOFS)
 - [x] **r_data** – R_InitData, R_PrecacheLevel, R_GetColumn, R_FlatNumForName, R_TextureNumForName, R_CheckTextureNumForName
 - [x] **r_sky** – R_InitSkyMap, skytexture, skytexturemid, SKYFLATNAME
 - [x] **r_main** – R_Init, R_RenderPlayerView, R_SetViewSize, R_PointToAngle, R_PointInSubsector, R_ScaleFromGlobalAngle, lighting LUTs
@@ -183,6 +183,7 @@ Rendering depends on (must exist or be stubbed):
 - [x] **r_plane** – R_FindPlane, R_CheckPlane, R_ClearPlanes, R_MapPlane, R_MakeSpans, R_DrawPlanes
 - [x] **r_things** – R_InitSprites, R_AddSprites, R_DrawMasked, R_ProjectSprite, R_SortVisSprites, R_DrawSprite, R_DrawVisSprite, R_DrawMaskedColumn
 - [x] **r_segs** – R_StoreWallRange, R_RenderSegLoop (wall drawing, floor/ceiling marks)
+- [x] **r_draw** – colfunc, spanfunc, R_VideoErase (for HUD text erase)
 
 ### Next Steps
 1. **Level loading** – populate sector thinglist with mobjs that have sprite, frame, snext set

@@ -60,11 +60,11 @@ These modules have been ported from C with full or near-full functionality.
 | ↳ r_data | r_data.h/c | R_InitData, R_PrecacheLevel, texture/flat/sprite loading |
 | ↳ r_segs | r_segs.h/c | R_StoreWallRange, R_RenderMaskedSegRange |
 | ↳ r_plane | r_plane.h/c | R_CheckPlane, R_DrawPlanes |
-| ↳ r_draw | r_draw.h/c | Column drawing |
+| ↳ r_draw | r_draw.h/c | Column drawing, R_VideoErase |
 | ↳ r_things | r_things.h/c | Sprite/thing rendering |
 | ↳ r_sky | r_sky.h/c | Sky texture |
 | ↳ v_patch | v_patch.h | patch_t, post_t |
-| ↳ v_video | v_video.h/c | V_Init, V_DrawPatch, screen buffer |
+| ↳ v_video | v_video.h/c | V_Init, V_DrawPatch, V_DrawPatchDirect, V_CopyRect, V_UseBuffer, V_RestoreBuffer, screen buffer |
 
 ---
 
@@ -75,9 +75,9 @@ These modules exist but have minimal or stub implementations.
 | Rust Module | C Source(s) | Status |
 |-------------|-------------|--------|
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
-| **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player (mo, viewz, viewheight, extralight, fixedcolormap, playerstate, health), PlayerState enum, PLAYERS, PLAYERINGAME, PLAYERSTARTS |
+| **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player (mo, viewz, viewheight, extralight, fixedcolormap, playerstate, health), PlayerState enum, PLAYERS, PLAYERINGAME, PLAYERSTARTS; WbStartStruct (epsd, last, next, pnum, plyr), WbPlayerStruct |
 | **player/** | p_*.h / p_*.c | Scaffolded; see below |
-| **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | cheat, st_lib, hu_lib, hu_stuff, st_stuff (init) full; v_video v_copy_rect/v_draw_patch; config, wi_stuff, menu stubs |
+| **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | cheat, st_lib, hu_lib full; hu_stuff (HU_Init, HU_Drawer, HU_Erase, etc.); st_stuff (ST_Init, ST_Start, ST_Drawer, w_health/w_armor); wi_stuff (WI_Start, WI_Drawer, INTERPIC/WIMAP); config (variable store, M_SetVariable, M_GetIntVariable); menu (M_Init syncs from config); v_video (V_UseBuffer, V_RestoreBuffer); r_draw (R_VideoErase); controls stubs |
 
 ### player/ module (src/player/)
 
