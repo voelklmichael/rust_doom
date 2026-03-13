@@ -7,6 +7,7 @@
 //
 // Original: r_data.h + r_data.c
 
+use crate::deh::deh_string;
 use crate::i_swap;
 use crate::i_system;
 use crate::m_fixed::FRACBITS;
@@ -18,15 +19,6 @@ use crate::wad::{
 };
 use crate::z_zone::{z_change_tag, z_free, z_malloc, PU_CACHE, PU_STATIC};
 use std::ptr;
-
-// =============================================================================
-// DeHackEd stub (FEATURE_DEHACKED is false)
-// =============================================================================
-
-#[inline]
-fn deh_string(s: &str) -> &str {
-    s
-}
 
 // =============================================================================
 // Internal types (from r_data.c)

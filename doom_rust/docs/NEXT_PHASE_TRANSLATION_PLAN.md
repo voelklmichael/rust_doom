@@ -6,6 +6,8 @@ Plan for the next set of C modules to port. Focus: unblock player physics (p_map
 
 **Current state:** Game loop (d_think, d_event, d_items, d_main, d_loop, g_game), dstrings, rendering, WAD, sound, zone are done. Player module is scaffolded; p_map, p_sight, p_mobj need info and blockmap.
 
+**Completed:** deh_* stubs, doomkeys, info (minimal types + tables: State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD).
+
 ---
 
 ## Dependency Overview
