@@ -25,6 +25,9 @@ pub static mut VIEWIMAGE: *mut u8 = std::ptr::null_mut();
 /// Row offset table: ylookup[y] = VIEWIMAGE + y * SCREENWIDTH.
 pub static mut YLOOKUP: [*mut u8; 200] = [std::ptr::null_mut(); 200];
 
+/// Saved VIEWIMAGE for V_RestoreBuffer (when drawing to alternate buffer).
+static mut SAVED_VIEWIMAGE: *mut u8 = std::ptr::null_mut();
+
 /// Column offset table for subwindows (columnofs[x] = x for fullscreen).
 pub static mut COLUMNOFS: [i32; 320] = [0; 320];
 
@@ -196,11 +199,31 @@ pub fn v_draw_box(_x: i32, _y: i32, _w: i32, _h: i32, _c: u8) {}
 /// Draw raw screen lump. Stub: no-op.
 pub fn v_draw_raw_screen(_raw: *const u8) {}
 
-/// Switch to alternate buffer. Stub: no-op.
-pub fn v_use_buffer(_buffer: *mut u8) {}
+/// Switch to alternate buffer (e.g. status bar backing screen).
+pub fn v_use_buffer(buffer: *mut u8) {
+    unsafe {
+        SAVED_VIEWIMAGE = VIEWIMAGE;
+        VIEWIMAGE = buffer;
+        if !buffer.is_null() {
+            for y in 0..SCREENHEIGHT {
+                YLOOKUP[y as usize] = buffer.add((y as usize) * SCREENWIDTH as usize);
+            }
+        }
+    }
+}
 
-/// Restore normal buffer. Stub: no-op.
-pub fn v_restore_buffer() {}
+/// Restore normal buffer after v_use_buffer.
+pub fn v_restore_buffer() {
+    unsafe {
+        if !SAVED_VIEWIMAGE.is_null() {
+            VIEWIMAGE = SAVED_VIEWIMAGE;
+            for y in 0..SCREENHEIGHT {
+                YLOOKUP[y as usize] = SAVED_VIEWIMAGE.add((y as usize) * SCREENWIDTH as usize);
+            }
+            SAVED_VIEWIMAGE = std::ptr::null_mut();
+        }
+    }
+}
 
 /// Save screenshot. Stub: no-op.
 pub fn v_screen_shot(_format: &str) {}
