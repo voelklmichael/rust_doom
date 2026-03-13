@@ -265,8 +265,8 @@ pub use menu::{M_Init, M_Responder, M_Ticker, M_Drawer, M_StartControlPanel};
 | **config.rs** | Partial | M_LoadDefaults (file I/O, -config/-extraconfig); M_SaveDefaults; M_SetConfigFilenames; variable store; M_BindVariable stub |
 | **hu_stuff.rs** | ✅ Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, font loading |
 | **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip, idmus, idclev, idbehold*, idchoppers; Player wired |
-| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats (kills, items, secret, time); animated stat counting (sp_state 1–10); par time (WIPAR); wi_set_accelerate; "Finished!" / "Entering" + level names; WILV/CWILV patches |
-| **menu.rs** | Partial | M_Init, M_StartControlPanel (MENUACTIVE); M_Responder (escape open/close); m_set_screenblocks, m_set_detail_level; M_Drawer stub |
+| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats; animated stat counting; par time; wi_set_accelerate; animated background (WIA*); "Finished!" / "Entering" + level names; WILV/CWILV patches |
+| **menu.rs** | Partial | M_Init, M_StartControlPanel; M_Responder (escape, up/down, enter, back); M_Drawer (M_DOOM, main/episode/newgame, skull cursor); m_set_screenblocks, m_set_detail_level |
 
 ## Stub Strategy (Historical)
 
@@ -305,12 +305,12 @@ For initial scaffold:
 | Module | Remaining |
 |--------|-----------|
 | **st_stuff** | Palette effects |
-| **wi_stuff** | Animated background (WIA* patches); deathmatch/netgame stats |
+| **wi_stuff** | Deathmatch/netgame stats |
 | **config** | M_BindVariable pointer binding (key/control sync) |
-| **menu** | M_Drawer (load menu patches, draw main/episode/skill menus); full M_Responder (skull cursor, menu items) |
+| **menu** | Options/Load/Save submenus; message screens |
 | **controls** | M_BindHeretic/Hexen/Strife; full sync |
 
-**Done (this session):** controls: M_BindMapControls (automap keys); KEY_MAP_* globals;
+**Done (this session):** wi_stuff: animated background (WIA* patches); menu: M_Drawer (main/episode/newgame, skull cursor), M_Responder (up/down/enter/back);
 
 ---
 

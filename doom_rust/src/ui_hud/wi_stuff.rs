@@ -7,8 +7,9 @@
 
 use crate::deh::deh_string;
 use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
-use crate::doomstat::{DEATHMATCH, GAMEMODE, LEVELTIME, NETGAME, TOTALITEMS, TOTALKILLS, TOTALSECRET, WMINFO};
+use crate::doomstat::{DEATHMATCH, GAMEMODE, NETGAME, WMINFO};
 use crate::game::d_mode::GameMode;
+use crate::m_random::m_random;
 use crate::rendering::v_draw_patch;
 use crate::sound::{s_start_sound, SfxEnum};
 use crate::wad::w_cache_lump_name;
@@ -74,8 +75,292 @@ static mut WI_SUCKS: *mut crate::rendering::patch_t = ptr::null_mut();
 // Level name patches (WILVxx or CWILVxx)
 const NUMMAPS: usize = 9;
 const NUMCMAPS: usize = 34;
+const NUMEPISODES: usize = 3;
 static mut WI_LNAMES: [*mut crate::rendering::patch_t; NUMCMAPS] = [ptr::null_mut(); NUMCMAPS];
 static mut WI_NUM_LNAMES: usize = NUMMAPS;
+
+// Animated background (episodes 0-2 only)
+#[derive(Clone, Copy)]
+#[repr(i32)]
+enum AnimType {
+    Always = 0,
+    Random = 1,
+    Level = 2,
+}
+
+#[derive(Clone, Copy)]
+struct WiAnim {
+    anim_type: AnimType,
+    period: i32,
+    nanims: i32,
+    loc_x: i32,
+    loc_y: i32,
+    data1: i32,
+    data2: i32,
+    p: [*mut crate::rendering::patch_t; 3],
+    nexttic: i32,
+    ctr: i32,
+}
+
+const NUMANIMS: [usize; NUMEPISODES] = [10, 9, 6];
+static mut WI_ANIMS_0: [WiAnim; 10] = [WiAnim {
+    anim_type: AnimType::Always,
+    period: 0,
+    nanims: 0,
+    loc_x: 0,
+    loc_y: 0,
+    data1: 0,
+    data2: 0,
+    p: [ptr::null_mut(); 3],
+    nexttic: 0,
+    ctr: 0,
+}; 10];
+static mut WI_ANIMS_1: [WiAnim; 9] = [WiAnim {
+    anim_type: AnimType::Always,
+    period: 0,
+    nanims: 0,
+    loc_x: 0,
+    loc_y: 0,
+    data1: 0,
+    data2: 0,
+    p: [ptr::null_mut(); 3],
+    nexttic: 0,
+    ctr: 0,
+}; 9];
+static mut WI_ANIMS_2: [WiAnim; 6] = [WiAnim {
+    anim_type: AnimType::Always,
+    period: 0,
+    nanims: 0,
+    loc_x: 0,
+    loc_y: 0,
+    data1: 0,
+    data2: 0,
+    p: [ptr::null_mut(); 3],
+    nexttic: 0,
+    ctr: 0,
+}; 6];
+
+fn wi_anim_epsd0() {
+    const P: i32 = TICRATE / 3;
+    let a = [
+        (AnimType::Always, P, 3, 224, 104),
+        (AnimType::Always, P, 3, 184, 160),
+        (AnimType::Always, P, 3, 112, 136),
+        (AnimType::Always, P, 3, 72, 112),
+        (AnimType::Always, P, 3, 88, 96),
+        (AnimType::Always, P, 3, 64, 48),
+        (AnimType::Always, P, 3, 192, 40),
+        (AnimType::Always, P, 3, 136, 16),
+        (AnimType::Always, P, 3, 80, 16),
+        (AnimType::Always, P, 3, 64, 24),
+    ];
+    unsafe {
+        for (i, (t, period, nanims, x, y)) in a.iter().enumerate() {
+            WI_ANIMS_0[i] = WiAnim {
+                anim_type: *t,
+                period: *period,
+                nanims: *nanims,
+                loc_x: *x,
+                loc_y: *y,
+                data1: 0,
+                data2: 0,
+                p: [ptr::null_mut(); 3],
+                nexttic: 0,
+                ctr: 0,
+            };
+        }
+    }
+}
+
+fn wi_anim_epsd1() {
+    const P: i32 = TICRATE / 3;
+    let a = [
+        (AnimType::Level, P, 1, 128, 136, 1),
+        (AnimType::Level, P, 1, 128, 136, 2),
+        (AnimType::Level, P, 1, 128, 136, 3),
+        (AnimType::Level, P, 1, 128, 136, 4),
+        (AnimType::Level, P, 1, 128, 136, 5),
+        (AnimType::Level, P, 1, 128, 136, 6),
+        (AnimType::Level, P, 1, 128, 136, 7),
+        (AnimType::Level, P, 3, 192, 144, 8),
+        (AnimType::Level, P, 1, 128, 136, 8),
+    ];
+    unsafe {
+        for (i, (t, period, nanims, x, y, d1)) in a.iter().enumerate() {
+            WI_ANIMS_1[i] = WiAnim {
+                anim_type: *t,
+                period: *period,
+                nanims: *nanims,
+                loc_x: *x,
+                loc_y: *y,
+                data1: *d1,
+                data2: 0,
+                p: [ptr::null_mut(); 3],
+                nexttic: 0,
+                ctr: 0,
+            };
+        }
+    }
+}
+
+fn wi_anim_epsd2() {
+    const P: i32 = TICRATE / 3;
+    let a = [
+        (AnimType::Always, P, 3, 104, 168),
+        (AnimType::Always, P, 3, 40, 136),
+        (AnimType::Always, P, 3, 160, 96),
+        (AnimType::Always, P, 3, 104, 80),
+        (AnimType::Always, P, 3, 120, 32),
+        (AnimType::Always, TICRATE / 4, 3, 40, 0),
+    ];
+    unsafe {
+        for (i, (t, period, nanims, x, y)) in a.iter().enumerate() {
+            WI_ANIMS_2[i] = WiAnim {
+                anim_type: *t,
+                period: *period,
+                nanims: *nanims,
+                loc_x: *x,
+                loc_y: *y,
+                data1: 0,
+                data2: 0,
+                p: [ptr::null_mut(); 3],
+                nexttic: 0,
+                ctr: 0,
+            };
+        }
+    }
+}
+
+fn wi_load_anim_patches(epsd: i32) {
+    unsafe {
+        let num_anims = NUMANIMS[epsd as usize];
+        let anims: *mut WiAnim = match epsd {
+            0 => WI_ANIMS_0.as_mut_ptr(),
+            1 => WI_ANIMS_1.as_mut_ptr(),
+            2 => WI_ANIMS_2.as_mut_ptr(),
+            _ => return,
+        };
+        for j in 0..num_anims {
+            let a = &mut *anims.add(j);
+            let nanims = a.nanims as usize;
+            for i in 0..nanims {
+                if epsd == 1 && j == 8 {
+                    a.p[i] = (*anims.add(4)).p[i];
+                } else {
+                    let lump = format!("WIA{}{:02}{:02}", epsd, j, i);
+                    a.p[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
+                }
+            }
+        }
+    }
+}
+
+fn wi_init_animated_back() {
+    unsafe {
+        if GAMEMODE == GameMode::Commercial {
+            return;
+        }
+        let wbs = &WMINFO;
+        if wbs.epsd > 2 {
+            return;
+        }
+        let bcnt = WI_BCNT;
+        let num_anims = NUMANIMS[wbs.epsd as usize];
+        let anims: *mut WiAnim = match wbs.epsd {
+            0 => WI_ANIMS_0.as_mut_ptr(),
+            1 => WI_ANIMS_1.as_mut_ptr(),
+            2 => WI_ANIMS_2.as_mut_ptr(),
+            _ => return,
+        };
+        for i in 0..num_anims {
+            let a = &mut *anims.add(i);
+            a.ctr = -1;
+            a.nexttic = match a.anim_type {
+                AnimType::Always => bcnt + 1 + (m_random() % a.period.max(1)),
+                AnimType::Random => bcnt + 1 + a.data2 + (m_random() % a.data1.max(1)),
+                AnimType::Level => bcnt + 1,
+            };
+        }
+    }
+}
+
+fn wi_update_animated_back() {
+    unsafe {
+        if GAMEMODE == GameMode::Commercial {
+            return;
+        }
+        let wbs = &WMINFO;
+        if wbs.epsd > 2 {
+            return;
+        }
+        let bcnt = WI_BCNT;
+        let state = WI_STATE;
+        let num_anims = NUMANIMS[wbs.epsd as usize];
+        let anims: *mut WiAnim = match wbs.epsd {
+            0 => WI_ANIMS_0.as_mut_ptr(),
+            1 => WI_ANIMS_1.as_mut_ptr(),
+            2 => WI_ANIMS_2.as_mut_ptr(),
+            _ => return,
+        };
+        for i in 0..num_anims {
+            let a = &mut *anims.add(i);
+            if bcnt == a.nexttic {
+                match a.anim_type {
+                    AnimType::Always => {
+                        a.ctr += 1;
+                        if a.ctr >= a.nanims {
+                            a.ctr = 0;
+                        }
+                        a.nexttic = bcnt + a.period;
+                    }
+                    AnimType::Random => {
+                        a.ctr += 1;
+                        if a.ctr == a.nanims {
+                            a.ctr = -1;
+                            a.nexttic = bcnt + a.data2 + (m_random() % a.data1);
+                        } else {
+                            a.nexttic = bcnt + a.period;
+                        }
+                    }
+                    AnimType::Level => {
+                        if !(state == WiStateEnum::StatCount && i == 7) && wbs.next == a.data1 {
+                            a.ctr += 1;
+                            if a.ctr >= a.nanims {
+                                a.ctr = a.nanims - 1;
+                            }
+                            a.nexttic = bcnt + a.period;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn wi_draw_animated_back() {
+    unsafe {
+        if GAMEMODE == GameMode::Commercial {
+            return;
+        }
+        let wbs = &WMINFO;
+        if wbs.epsd > 2 {
+            return;
+        }
+        let num_anims = NUMANIMS[wbs.epsd as usize];
+        let anims: *mut WiAnim = match wbs.epsd {
+            0 => WI_ANIMS_0.as_mut_ptr(),
+            1 => WI_ANIMS_1.as_mut_ptr(),
+            2 => WI_ANIMS_2.as_mut_ptr(),
+            _ => return,
+        };
+        for i in 0..num_anims {
+            let a = &*anims.add(i);
+            if a.ctr >= 0 && !a.p[a.ctr as usize].is_null() {
+                v_draw_patch(a.loc_x, a.loc_y, a.p[a.ctr as usize]);
+            }
+        }
+    }
+}
 
 // =============================================================================
 // Implementation (from wi_stuff.c)
@@ -133,6 +418,12 @@ fn wi_load_data(wbs: &crate::doomstat::WbStartStruct) {
                 let lump = format!("WILV{}{}", wbs.epsd, i);
                 WI_LNAMES[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
             }
+        }
+        if GAMEMODE != GameMode::Commercial && wbs.epsd < 3 {
+            wi_anim_epsd0();
+            wi_anim_epsd1();
+            wi_anim_epsd2();
+            wi_load_anim_patches(wbs.epsd);
         }
     }
 }
@@ -292,6 +583,7 @@ fn wi_draw_stats() {
         let lh = (3 * (*p0).height as i32) / 2;
 
         wi_slam_background();
+        wi_draw_animated_back();
         wi_draw_lf();
 
         if !WI_KILLS.is_null() {
@@ -334,6 +626,7 @@ pub fn wi_set_accelerate() {
 }
 
 fn wi_init_stats() {
+    wi_init_animated_back();
     unsafe {
         WI_SP_STATE = 1;
         WI_CNT_KILLS = -1;
@@ -346,6 +639,7 @@ fn wi_init_stats() {
 }
 
 fn wi_update_stats() {
+    wi_update_animated_back();
     unsafe {
         let wbs = &WMINFO;
         let me = wbs.pnum as usize;
