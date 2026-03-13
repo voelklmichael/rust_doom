@@ -12,7 +12,7 @@
 use doom_rust::doomdef::{SCREENHEIGHT, SCREENWIDTH};
 use doom_rust::m_argv;
 use doom_rust::m_fixed::FRACUNIT;
-use doom_rust::p_setup;
+use doom_rust::player::p_setup;
 use doom_rust::rendering::{
     r_init, r_precache_level, r_render_player_view, ViewPlayerStub, VIEWIMAGE,
 };

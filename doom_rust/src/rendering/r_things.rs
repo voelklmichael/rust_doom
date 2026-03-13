@@ -10,7 +10,7 @@
 use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
 use crate::geometry::{finecosine, finesine, ANG45, ANGLETOFINESHIFT};
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
-use crate::p_mobj::{Mobj, FF_FRAMEMASK, FF_FULLBRIGHT, MF_SHADOW};
+use crate::player::p_mobj::{Mobj, FF_FRAMEMASK, FF_FULLBRIGHT, MF_SHADOW};
 use crate::rendering::defs::{DrawSeg, Spritedef, SpriteFrame, Vissprite};
 use crate::rendering::r_data::r_get_column;
 use crate::rendering::r_draw::colfunc;

@@ -10,7 +10,7 @@
 
 use crate::doomdef::SCREENWIDTH_USIZE;
 use crate::m_fixed::Fixed;
-use crate::p_mobj::Mobj;
+use crate::player::p_mobj::Mobj;
 
 // =============================================================================
 // Public API (from .h)

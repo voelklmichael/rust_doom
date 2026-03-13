@@ -13,7 +13,7 @@ use crate::doomfeatures::FEATURE_SOUND;
 use crate::d_mode::GameMode;
 use crate::doomstat;
 use crate::m_fixed::{fixed_mul, Fixed, FRACBITS, FRACUNIT};
-use crate::p_mobj::Mobj;
+use crate::player::p_mobj::Mobj;
 
 use super::i_sound::{self, SfxInfo};
 use super::r_angle::{r_point_to_angle2, Angle};
