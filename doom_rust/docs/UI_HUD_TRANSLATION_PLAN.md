@@ -265,7 +265,7 @@ pub use menu::{M_Init, M_Responder, M_Ticker, M_Drawer, M_StartControlPanel};
 | **config.rs** | Partial | M_LoadDefaults (defaults), M_SetVariable, M_GetIntVariable, M_GetStrVariable, M_GetFloatVariable; variable store (HashMap) |
 | **hu_stuff.rs** | ✅ Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, font loading |
 | **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip; Player wired |
-| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; load INTERPIC/WIMAP; background draw |
+| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats (kills, items, secret, time); "Finished!" / "Entering" + level names; WILV/CWILV patches |
 | **menu.rs** | Partial | M_Init (syncs from config), m_set_screenblocks, m_set_detail_level; M_Drawer/M_Responder stubs |
 
 ## Stub Strategy (Historical)
@@ -305,12 +305,12 @@ For initial scaffold:
 | Module | Remaining |
 |--------|-----------|
 | **st_stuff** | Full cheat handling (idmus, idclev, powerups); palette effects |
-| **wi_stuff** | Stats display (kills, items, secret, time); "Finished!" / "Entering" text; animated background; level name patches |
+| **wi_stuff** | Animated background; animated stat counting; par time display |
 | **config** | File I/O (M_LoadDefaults from default.cfg, M_SaveDefaults); M_BindVariable pointer binding |
 | **menu** | M_Drawer (load menu patches, draw main/episode/skill menus); M_Responder (key handling, skull cursor); M_StartControlPanel |
 | **controls** | M_Bind* implementations; key binding from config |
 
-**Done (this session):** st_stuff: w_arms (weapon icons), w_armsbg, w_faces (simplified: normal/god/dead), w_keyboxes (3 key slots); graphics loaded for keys, arms, faces;
+**Done (this session):** wi_stuff: stats display (kills, items, secret, time); "Finished!" + level name; "Entering" + next level name; WbStartStruct extended (maxkills, maxitems, maxsecret, partime);
 
 ---
 

@@ -131,6 +131,14 @@ pub struct WbStartStruct {
     pub next: i32,
     /// Number of players.
     pub pnum: i32,
+    /// Max kills in level (for percentage).
+    pub maxkills: i32,
+    /// Max items in level (for percentage).
+    pub maxitems: i32,
+    /// Max secrets in level (for percentage).
+    pub maxsecret: i32,
+    /// Par time in tics.
+    pub partime: i32,
     /// Per-player stats.
     pub plyr: [WbPlayerStruct; crate::doomdef::MAXPLAYERS],
 }
@@ -251,6 +259,10 @@ pub static mut WMINFO: WbStartStruct = WbStartStruct {
     last: 0,
     next: 0,
     pnum: 0,
+    maxkills: 0,
+    maxitems: 0,
+    maxsecret: 0,
+    partime: 0,
     plyr: [DEFAULT_WBPLAYER; crate::doomdef::MAXPLAYERS],
 };
 
