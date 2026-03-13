@@ -212,7 +212,7 @@ fn r_add_line(line: *mut Seg) {
 
         state::BACKSECTOR = (*line).backsector;
 
-        if BACKSECTOR.is_null() {
+        if state::BACKSECTOR.is_null() {
             r_clip_solid_wall_segment(x1, x2 - 1);
             return;
         }

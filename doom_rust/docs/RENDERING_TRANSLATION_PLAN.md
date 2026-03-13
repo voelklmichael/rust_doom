@@ -180,12 +180,11 @@ Rendering depends on (must exist or be stubbed):
 - [x] **r_sky** – R_InitSkyMap, skytexture, skytexturemid, SKYFLATNAME
 - [x] **r_main** – R_Init, R_RenderPlayerView, R_SetViewSize, R_PointToAngle, R_PointInSubsector, R_ScaleFromGlobalAngle, lighting LUTs
 - [x] **r_bsp** – R_RenderBSPNode, R_ClearClipSegs, R_ClearDrawSegs, R_AddLine, R_CheckBBox, R_Subsector
-- [x] **r_plane** – stub (R_FindPlane, R_InitPlanes, R_ClearPlanes)
+- [x] **r_plane** – R_FindPlane, R_CheckPlane, R_ClearPlanes, R_MapPlane, R_MakeSpans, R_DrawPlanes
 - [x] **r_things** – stub (R_AddSprites, R_ClearSprites)
-- [x] **r_segs** – stub (R_StoreWallRange)
+- [x] **r_segs** – R_StoreWallRange (store-only, no drawing yet)
 
 ### Next Steps
-1. **r_segs** – R_StoreWallRange (implement), R_RenderMaskedSegRange
-2. **r_plane** – R_FindPlane, R_MapPlane, R_DrawPlanes (full impl)
-3. **r_things** – R_AddSprites, R_DrawMasked (full impl)
-4. **r_draw** – column/span blitting
+1. **r_segs** – R_RenderSegLoop, R_RenderMaskedSegRange (drawing)
+2. **r_things** – R_AddSprites, R_DrawMasked (full impl)
+3. **r_draw** – column/span blitting (spanfunc, colfunc)

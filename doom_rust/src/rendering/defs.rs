@@ -16,6 +16,14 @@ use crate::p_mobj::Mobj;
 // Public API (from .h)
 // =============================================================================
 
+/// LineDef flags (from doomdata.h).
+pub const ML_BLOCKING: i16 = 1;
+pub const ML_BLOCKMONSTERS: i16 = 2;
+pub const ML_TWOSIDED: i16 = 4;
+pub const ML_DONTPEGTOP: i16 = 8;
+pub const ML_DONTPEGBOTTOM: i16 = 16;
+pub const ML_MAPPED: i16 = 256;
+
 /// Silhouette flags for clipping segs and sprites.
 pub const SIL_NONE: i32 = 0;
 pub const SIL_BOTTOM: i32 = 1;

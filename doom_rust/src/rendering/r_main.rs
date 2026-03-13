@@ -587,6 +587,6 @@ pub fn r_render_player_view(player: &ViewPlayerStub) {
         r_bsp::r_render_bsp_node((numnodes - 1) as i32);
     }
 
-    // R_DrawPlanes - r_plane (stub)
+    r_plane::r_draw_planes();
     // R_DrawMasked - r_things (stub)
 }
