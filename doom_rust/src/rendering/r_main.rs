@@ -589,5 +589,5 @@ pub fn r_render_player_view(player: &ViewPlayerStub) {
     }
 
     r_plane::r_draw_planes();
-    // R_DrawMasked - r_things (stub)
+    r_things::r_draw_masked();
 }

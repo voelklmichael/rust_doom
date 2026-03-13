@@ -550,7 +550,142 @@ pub fn r_store_wall_range(start: i32, stop: i32) {
     }
 }
 
-/// Render masked mid textures for a drawseg range. Stub - masked textures drawn later.
-pub fn r_render_masked_seg_range(_ds: *mut crate::rendering::defs::DrawSeg, _x1: i32, _x2: i32) {
-    // TODO: Implement for masked mid textures (transparent doors, etc.)
+/// Render masked mid textures for a drawseg range.
+pub fn r_render_masked_seg_range(ds: *mut crate::rendering::defs::DrawSeg, x1: i32, x2: i32) {
+    use crate::rendering::r_draw::{colfunc, DC_COLORMAP, DC_ISCALE, DC_SOURCE, DC_TEXTUREMID, DC_X, DC_YH, DC_YL};
+    use crate::rendering::r_main::{FIXEDCOLORMAP, LIGHTSCALESHIFT, SCALELIGHT};
+
+    unsafe {
+        if ds.is_null() || (*ds).maskedtexturecol.is_null() {
+            return;
+        }
+
+        let curline = (*ds).curline;
+        let frontsector = state::FRONTSECTOR;
+        let backsector = state::BACKSECTOR;
+        if curline.is_null() || frontsector.is_null() {
+            return;
+        }
+
+        let sidedef = (*curline).sidedef;
+        let linedef = (*curline).linedef;
+        if sidedef.is_null() {
+            return;
+        }
+
+        let texnum = if state::TEXTURETRANSLATION.is_null() {
+            (*sidedef).midtexture as i32
+        } else {
+            *state::TEXTURETRANSLATION.add((*sidedef).midtexture as usize)
+        };
+
+        let viewz = state::VIEWZ;
+        let textureheight = state::TEXTUREHEIGHT;
+        let th = if textureheight.is_null() {
+            128 << crate::m_fixed::FRACBITS
+        } else {
+            *textureheight.add(texnum as usize)
+        };
+
+        let dc_texturemid = if !linedef.is_null()
+            && ((*linedef).flags & crate::rendering::defs::ML_DONTPEGBOTTOM) != 0
+        {
+            let fh = if backsector.is_null() {
+                (*frontsector).floorheight
+            } else if (*frontsector).floorheight > (*backsector).floorheight {
+                (*frontsector).floorheight
+            } else {
+                (*backsector).floorheight
+            };
+            fh + th - viewz + (*sidedef).rowoffset
+        } else {
+            let ch = if backsector.is_null() {
+                (*frontsector).ceilingheight
+            } else if (*frontsector).ceilingheight < (*backsector).ceilingheight {
+                (*frontsector).ceilingheight
+            } else {
+                (*backsector).ceilingheight
+            };
+            ch - viewz + (*sidedef).rowoffset
+        };
+
+        DC_TEXTUREMID = dc_texturemid;
+
+        if !FIXEDCOLORMAP.is_null() {
+            DC_COLORMAP = FIXEDCOLORMAP;
+        }
+
+        let walllights = if FIXEDCOLORMAP.is_null() {
+            let lightnum = ((*frontsector).lightlevel as i32 >> LIGHTSEGSHIFT)
+                + crate::rendering::r_main::EXTRALIGHT;
+            let v1 = *(*curline).v1;
+            let v2 = *(*curline).v2;
+            let mut ln = lightnum;
+            if v1.y == v2.y {
+                ln -= 1;
+            } else if v1.x == v2.x {
+                ln += 1;
+            }
+            let ln = ln.max(0).min(crate::rendering::r_main::LIGHTLEVELS as i32 - 1);
+            SCALELIGHT[ln as usize].as_ptr()
+        } else {
+            std::ptr::null()
+        };
+
+        let mut spryscale = (*ds).scale1 + fixed_mul((x1 - (*ds).x1) as i32, (*ds).scalestep);
+        let mfloorclip = (*ds).sprbottomclip;
+        let mceilingclip = (*ds).sprtopclip;
+
+        for dc_x in x1..=x2 {
+            let col_idx = dc_x - (*ds).x1;
+            let texcol = *(*ds).maskedtexturecol.add(col_idx as usize);
+            if texcol == SHRT_MAX {
+                spryscale += (*ds).scalestep;
+                continue;
+            }
+
+            if FIXEDCOLORMAP.is_null() && !walllights.is_null() {
+                let index = (spryscale >> LIGHTSCALESHIFT) as usize;
+                let index = index.min(crate::rendering::r_main::MAXLIGHTSCALE - 1);
+                DC_COLORMAP = walllights.add(index).read();
+            }
+
+            let sprtopscreen =
+                crate::rendering::r_main::CENTERYFRAC - fixed_mul(DC_TEXTUREMID, spryscale);
+            DC_ISCALE = if spryscale != 0 {
+                0xffff_ffffu32 / (spryscale as u32)
+            } else {
+                0
+            };
+
+            DC_X = dc_x;
+            DC_SOURCE = r_get_column(texnum, texcol as i32);
+
+            let mut dc_yl = (sprtopscreen >> FRACBITS) as i32;
+            let mut dc_yh = ((sprtopscreen + fixed_mul(th, spryscale)) >> FRACBITS) as i32;
+
+            if !mfloorclip.is_null() && dc_x >= (*ds).x1 {
+                let clip = *mfloorclip.add(col_idx as usize);
+                if dc_yh >= clip as i32 {
+                    dc_yh = clip as i32 - 1;
+                }
+            }
+            if !mceilingclip.is_null() && dc_x >= (*ds).x1 {
+                let clip = *mceilingclip.add(col_idx as usize);
+                if dc_yl <= clip as i32 {
+                    dc_yl = clip as i32 + 1;
+                }
+            }
+
+            DC_YL = dc_yl;
+            DC_YH = dc_yh;
+
+            if DC_YL <= DC_YH {
+                colfunc();
+            }
+
+            *(*ds).maskedtexturecol.add(col_idx as usize) = SHRT_MAX;
+            spryscale += (*ds).scalestep;
+        }
+    }
 }
