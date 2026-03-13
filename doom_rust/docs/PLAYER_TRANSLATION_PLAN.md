@@ -123,6 +123,7 @@ These must exist or be stubbed before player:
 | doomstat | Partial | `player_t`, `GAMEMODE`, etc. |
 | info | Not started | `mobjinfo_t`, `state_t`, `mobjtype_t`, `statenum_t` |
 | r_local / rendering | Started | `line_t`, `sector_t`, `subsector_t`, `side_t`, etc. |
+| m_bbox | ✅ In `rendering/m_bbox` | M_ClearBox, M_AddToBox; shared by rendering and p_maputl |
 | g_game | Not started | Game logic calls |
 | s_sound | Started | Sound playback |
 | deh_main, deh_misc | Not started | DeHackEd |

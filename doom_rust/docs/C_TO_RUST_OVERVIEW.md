@@ -40,6 +40,19 @@ These modules have been ported from C with full or near-full functionality.
 | ↳ w_merge | w_merge.h/c | W_MergeFile, NWT merge |
 | ↳ w_file_stdc | w_file_stdc.c | Stdio-based file I/O |
 | **sha1_mod** | sha1.c | SHA1 hashing |
+| **rendering/** | | Scene rendering (BSP, visplanes, sprites) |
+| ↳ defs | r_defs.h | vertex_t, sector_t, line_t, seg_t, node_t, subsector_t, etc. |
+| ↳ m_bbox | m_bbox.h/c | M_ClearBox, M_AddToBox, bbox indices; shared util (also used by player::p_maputl) |
+| ↳ r_main | r_main.h/c | R_Init, R_RenderPlayerView, R_PointToAngle, R_PointInSubsector |
+| ↳ r_bsp | r_bsp.h/c | R_RenderBSPNode |
+| ↳ r_data | r_data.h/c | R_InitData, R_PrecacheLevel, texture/flat/sprite loading |
+| ↳ r_segs | r_segs.h/c | R_StoreWallRange, R_RenderMaskedSegRange |
+| ↳ r_plane | r_plane.h/c | R_CheckPlane, R_DrawPlanes |
+| ↳ r_draw | r_draw.h/c | Column drawing |
+| ↳ r_things | r_things.h/c | Sprite/thing rendering |
+| ↳ r_sky | r_sky.h/c | Sky texture |
+| ↳ v_patch | v_patch.h | patch_t, post_t |
+| ↳ v_video | v_video.h/c | V_Init, V_DrawPatch, screen buffer |
 
 ---
 
@@ -52,7 +65,24 @@ These modules exist but have minimal or stub implementations.
 | **d_iwad** | d_iwad.h/c | Stub: D_TryFindWADByName, D_SuggestGameName (minimal logic) |
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
 | **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player/WbStartStruct stubs |
-| **p_mobj** | p_mobj.h (partial) | Minimal stub: Mobj with x, y, z, angle only (for sound) |
+| **player/** | p_*.h / p_*.c | Scaffolded; see below |
+
+### player/ module (src/player/)
+
+All p_* C modules are scaffolded in `player/`. See `docs/PLAYER_TRANSLATION_PLAN.md` for details.
+
+| Submodule | Status | Notes |
+|-----------|--------|-------|
+| **p_setup** | Working | p_load_level for scene rendering (no blockmap yet) |
+| **p_mobj** | Partial | Mobj (x, y, z, angle, sprite, frame, flags) for sound/rendering |
+| **p_maputl** | Partial | P_AproxDistance, P_PointOnLineSide, P_LineOpening, etc. (no blockmap iterators) |
+| **p_tick** | Stub | P_InitThinkers, P_AddThinker, P_RemoveThinker |
+| **p_map** | Stub | API only; P_CheckPosition, P_TryMove, etc. need blockmap |
+| **p_sight** | Stub | P_CheckSight always returns true |
+| **p_spec** | Partial | get_next_sector |
+| **p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept** | Stub | Module structure only |
+| **p_switch, p_inter** | Stub | API stubs |
+| **p_pspr, p_user, p_enemy, p_saveg** | Stub | API stubs |
 
 ---
 
@@ -71,44 +101,6 @@ C modules with no Rust equivalent yet.
 | dstrings | Game strings |
 | g_game | Game logic, G_Ticker, G_Responder |
 
-### Player / Physics
-| C Module | Purpose |
-|----------|---------|
-| p_mobj | Full map object (sprites, state, thinker) |
-| p_map | Collision, movement |
-| p_maputl | Map utilities |
-| p_mobj | Full implementation |
-| p_user | Player movement |
-| p_plats | Platforms |
-| p_doors | Doors |
-| p_floor | Floor movement |
-| p_ceilng | Ceiling movement |
-| p_lights | Lighting |
-| p_spec | Special sectors |
-| p_switch | Switches |
-| p_inter | Item interaction |
-| p_sight | Line-of-sight |
-| p_telept | Teleporters |
-| p_tick | Thinker ticks |
-| p_pspr | Player weapons/sprites |
-| p_setup | Level setup |
-| p_enemy | Monster AI |
-| p_saveg | Savegame |
-
-### Rendering
-| C Module | Purpose |
-|----------|---------|
-| r_main | Main renderer, R_RenderPlayerView |
-| r_bsp | BSP traversal |
-| r_segs | Seg rendering |
-| r_plane | Floors/ceilings |
-| r_draw | Column drawing |
-| r_data | Texture/flat/sprite loading |
-| r_things | Thing rendering |
-| r_sky | Sky rendering |
-| v_video | Video buffer |
-| v_patch | Patch drawing |
-
 ### UI / HUD
 | C Module | Purpose |
 |----------|---------|
@@ -125,8 +117,8 @@ C modules with no Rust equivalent yet.
 ### Other
 | C Module | Purpose |
 |----------|---------|
-| info | Thing/mobjs info tables |
-| m_bbox | Bounding boxes |
+| info | Thing/mobjs info tables (mobjinfo_t, state_t) |
+| d_think | thinker_t, action function pointers |
 | f_finale | End-game screens |
 | f_wipe | Screen wipe |
 | i_timer | Timing |
@@ -153,8 +145,11 @@ C modules with no Rust equivalent yet.
 
 | Category | Count |
 |----------|-------|
-| **Fully rewritten** | ~25 modules |
-| **Started (stub)** | 4 modules |
-| **Not started** | ~60+ C modules |
+| **Fully rewritten** | ~35 modules (incl. rendering/) |
+| **Started (stub)** | 4 + player/ (20 submodules scaffolded) |
+| **Not started** | ~45 C modules |
 
-The foundation (WAD, zone, sound, geometry, types) is in place. Game logic, rendering, and UI are not yet ported.
+**Foundation:** WAD, zone, sound, geometry, types, rendering (scene rendering works).  
+**Player:** All p_* modules scaffolded; blockmap, d_think, info, g_game needed for full game logic.
+
+See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`
