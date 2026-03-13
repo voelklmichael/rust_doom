@@ -84,7 +84,7 @@ pub fn z_free(ptr: *mut u8) {
         return;
     }
     unsafe {
-        let block = block_from_ptr(ptr);
+        let mut block = block_from_ptr(ptr);
         if (*block).id != ZONEID {
             i_system::i_error("Z_Free: freed a pointer without ZONEID");
         }
@@ -103,16 +103,15 @@ pub fn z_free(ptr: *mut u8) {
             if block == (*MAINZONE).rover {
                 (*MAINZONE).rover = other;
             }
-            // block = other - we're done, block is merged
-        } else {
-            other = (*block).next;
-            if (*other).tag == PU_FREE {
-                (*block).size += (*other).size;
-                (*block).next = (*other).next;
-                (*(*other).next).prev = block;
-                if other == (*MAINZONE).rover {
-                    (*MAINZONE).rover = block;
-                }
+            block = other;
+        }
+        other = (*block).next;
+        if (*other).tag == PU_FREE {
+            (*block).size += (*other).size;
+            (*block).next = (*other).next;
+            (*(*other).next).prev = block;
+            if other == (*MAINZONE).rover {
+                (*MAINZONE).rover = block;
             }
         }
     }
@@ -150,12 +149,24 @@ pub fn z_malloc(size: usize, tag: i32, user: *mut *mut u8) -> *mut u8 {
                     base = (*base).prev;
                     z_free(ptr_from_block(rover));
                     base = (*base).next;
+                    if base.is_null() {
+                        i_system::i_error(&format!(
+                            "Z_Malloc: null base after purge (zone corrupted) for {} bytes",
+                            size
+                        ));
+                    }
                     rover = (*base).next;
                 }
             } else {
                 rover = (*rover).next;
             }
-                if (*base).tag == PU_FREE && (*base).size >= size {
+            if base.is_null() {
+                i_system::i_error(&format!(
+                    "Z_Malloc: base is null (zone corrupted) for {} bytes",
+                    size
+                ));
+            }
+            if (*base).tag == PU_FREE && (*base).size >= size {
                 break;
             }
         }
