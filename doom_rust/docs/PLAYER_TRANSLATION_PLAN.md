@@ -6,30 +6,48 @@ Plan for porting the Doom `p_*.c` / `p_*.h` files from C to Rust. All files go i
 
 ---
 
+## Current Status (as of scaffold completion)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| **Integration** | ✅ Done | `src/player/` exists, `lib.rs` uses `pub mod player`, imports updated |
+| **Phase 1** | ✅ Done | mod.rs, p_mobj, p_maputl, p_tick, p_setup |
+| **Phase 2** | ✅ Done | p_map, p_sight, p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept |
+| **Phase 3** | ✅ Done | p_spec, p_switch, p_inter |
+| **Phase 4** | ✅ Done | p_pspr, p_user, p_enemy, p_saveg |
+
+**Working:** `p_load_level` (scene rendering), `p_maputl` line/divline utilities, `get_next_sector`, thinker list stubs.
+
+**Stubs:** Most modules have API stubs; full logic requires g_game, d_think, info, blockmap, etc.
+
+**Missing:** None – all 20 modules scaffolded (p_map added).
+
+---
+
 ## Module Structure
 
 ```
 src/player/
-├── mod.rs              # p_local.h role: re-exports public API, constants, shared types
-├── p_setup.rs          # p_setup.h + p_setup.c
-├── p_mobj.rs           # p_mobj.h + p_mobj.c
-├── p_inter.rs          # p_inter.h + p_inter.c
-├── p_pspr.rs           # p_pspr.h + p_pspr.c
-├── p_saveg.rs          # p_saveg.h + p_saveg.c
-├── p_spec.rs           # p_spec.h + p_spec.c
-├── p_tick.rs           # p_tick.h + p_tick.c
-├── p_ceilng.rs         # p_ceilng.c (no .h)
-├── p_doors.rs          # p_doors.c (no .h)
-├── p_enemy.rs          # p_enemy.c (no .h)
-├── p_floor.rs          # p_floor.c (no .h)
-├── p_lights.rs         # p_lights.c (no .h)
-├── p_map.rs            # p_map.c (no .h)
-├── p_maputl.rs         # p_maputl.c (no .h)
-├── p_plats.rs          # p_plats.c (no .h)
-├── p_sight.rs          # p_sight.c (no .h)
-├── p_switch.rs         # p_switch.c (no .h)
-├── p_telept.rs         # p_telept.c (no .h)
-└── p_user.rs           # p_user.c (no .h)
+├── mod.rs              # p_local.h: constants, Divline, re-exports ✅
+├── p_setup.rs          # p_setup.h + p_setup.c ✅ (p_load_level working)
+├── p_mobj.rs           # p_mobj.h + p_mobj.c ✅ (minimal Mobj)
+├── p_inter.rs          # p_inter.h + p_inter.c ✅ (stub)
+├── p_pspr.rs           # p_pspr.h + p_pspr.c ✅ (stub)
+├── p_saveg.rs          # p_saveg.h + p_saveg.c ✅ (stub)
+├── p_spec.rs           # p_spec.h + p_spec.c ✅ (get_next_sector)
+├── p_tick.rs           # p_tick.h + p_tick.c ✅ (thinker list)
+├── p_ceilng.rs         # p_ceilng.c ✅ (stub)
+├── p_doors.rs          # p_doors.c ✅ (stub)
+├── p_enemy.rs          # p_enemy.c ✅ (stub)
+├── p_floor.rs          # p_floor.c ✅ (stub)
+├── p_lights.rs         # p_lights.c ✅ (stub)
+├── p_map.rs            # p_map.c ✅ (stub; requires blockmap)
+├── p_maputl.rs         # p_maputl.c ✅ (line/divline utils)
+├── p_plats.rs          # p_plats.c ✅ (stub)
+├── p_sight.rs          # p_sight.c ✅ (P_CheckSight stub)
+├── p_switch.rs         # p_switch.c ✅ (stub)
+├── p_telept.rs         # p_telept.c ✅ (stub)
+└── p_user.rs           # p_user.c ✅ (stub)
 ```
 
 ---
@@ -116,16 +134,16 @@ These must exist or be stubbed before player:
 | Step | File | Dependencies | Notes |
 |------|------|--------------|-------|
 | 1 | **p_local / mod.rs** | r_local, p_spec | Constants, types, re-exports. Start with minimal stub. ✅ Constants, Divline |
-| 2 | **p_mobj.rs** | d_think, doomdata, info, tables, m_fixed | Full `mobj_t`, flags, spawn/remove |
+| 2 | **p_mobj.rs** | d_think, doomdata, info, tables, m_fixed | Full `mobj_t`, flags, spawn/remove. ✅ Minimal Mobj (x,y,z,angle,sprite,frame,flags) |
 | 3 | **p_maputl.rs** | p_local, m_bbox, r_state | Blockmap, divline, intercept, path traverse. ✅ P_AproxDistance, P_PointOnLineSide, P_PointOnDivlineSide, P_DivlineSide, P_MakeDivline, P_InterceptVector, P_BoxOnLineSide, P_LineOpening |
 | 4 | **p_tick.rs** | p_local, z_zone, doomstat | Thinker list, P_Ticker. ✅ P_InitThinkers, P_AddThinker, P_RemoveThinker stubs |
-| 5 | **p_setup.rs** | p_local, z_zone, w_wad, m_bbox, g_game, s_sound | Level load, blockmap, reject |
+| 5 | **p_setup.rs** | p_local, z_zone, w_wad, m_bbox, g_game, s_sound | Level load, blockmap, reject. ✅ p_load_level (rendering subset; no blockmap yet) |
 
 ### Phase 2: Movement & Collision
 
 | Step | File | Dependencies | Notes |
 |------|------|--------------|-------|
-| 6 | **p_map.rs** | p_maputl, p_sight, p_local | P_CheckPosition, P_TryMove, P_SlideMove, P_UseLines, attacks |
+| 6 | **p_map.rs** | p_maputl, p_sight, p_local | P_CheckPosition, P_TryMove, P_SlideMove, P_UseLines, attacks. ✅ Stub (globals, API; blockmap required for impl) |
 | 7 | **p_sight.rs** | p_local, r_state | P_CheckSight. ✅ Stub (always true) |
 | 8 | **p_floor.rs** | p_local, z_zone, s_sound | Floor movers. ✅ Stub |
 | 9 | **p_ceilng.rs** | p_local, z_zone, s_sound | Ceiling movers. ✅ Stub |
@@ -155,23 +173,21 @@ These must exist or be stubbed before player:
 
 ## Integration with doom_rust
 
-1. **Create `src/player/` directory** and add `mod.rs` plus the `p_*.rs` files.
-2. **Update `src/lib.rs`**: Replace `pub mod p_mobj` and `pub mod p_setup` with `pub mod player`.
-3. **Move existing code**: Current `p_setup.rs` and `p_mobj.rs` in `src/` are partial. Either:
-   - Move into `player/` and expand, or
-   - Keep as stubs that delegate to `player::` when full port is done.
-4. **Fix imports**: All `crate::p_setup`, `crate::p_mobj` become `crate::player::p_setup`, `crate::player::p_mobj` (or `crate::player` with re-exports).
+1. ✅ **Create `src/player/` directory** and add `mod.rs` plus the `p_*.rs` files.
+2. ✅ **Update `src/lib.rs`**: Replaced `pub mod p_mobj` and `pub mod p_setup` with `pub mod player`.
+3. ✅ **Move existing code**: `p_setup.rs` and `p_mobj.rs` moved into `player/`.
+4. ✅ **Fix imports**: `crate::rendering::defs`, `crate::sound::s_sound`, `examples` use `crate::player::p_setup`, `crate::player::p_mobj`.
 
 ---
 
 ## Migration of Existing p_setup / p_mobj
 
-Current `doom_rust` has:
+**Done.** Both are in `player/`:
 
-- **p_setup.rs**: Minimal `p_load_level` for scene rendering (different from C `P_SetupLevel`).
-- **p_mobj.rs**: Minimal `Mobj` struct (x, y, z, angle, sprite, frame, flags) for sound/rendering.
+- **p_setup.rs**: `p_load_level` for scene rendering (works; differs from C `P_SetupLevel` which also does blockmap/reject).
+- **p_mobj.rs**: Minimal `Mobj` (x, y, z, angle, snext, sprite, frame, flags) for sound/rendering.
 
-**Recommendation:** Move both into `player/` as `p_setup.rs` and `p_mobj.rs`. Keep the current minimal API working during migration. As the full C logic is ported, extend the modules and deprecate/remove the minimal stubs where appropriate.
+**Next:** Extend with full C logic as prerequisites (d_think, info, blockmap, g_game) are ported.
 
 ---
 
@@ -183,6 +199,17 @@ Current `doom_rust` has:
 | Files with .c only | 12 |
 | mod.rs (p_local.h) | 1 |
 | **Total .rs files** | **20** |
+
+---
+
+## Next Steps (implementation order)
+
+1. **Implement p_map** – P_CheckPosition, P_TryMove, P_TeleportMove (needs blockmap from p_setup).
+2. **Blockmap in p_setup** – extend `p_load_level` to build blockmap, sector.lines; required for p_map, twoSided, getSector.
+3. **d_think** – full `thinker_t` with function pointer; required for P_Ticker, mobj thinkers.
+4. **info** – `mobjinfo_t`, `state_t`, thing/state tables; required for full p_mobj, p_enemy.
+5. **g_game** – game loop, G_Ticker; required for p_switch, p_inter, p_enemy.
+6. **Fill stubs** – p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept, p_spec, p_switch, p_inter, p_pspr, p_user, p_enemy, p_saveg.
 
 ---
 
