@@ -18,7 +18,7 @@ use crate::p_mobj::Mobj;
 use super::i_sound::{self, SfxInfo};
 use super::r_angle::{r_point_to_angle2, Angle};
 use super::sounds::{self, MusicEnum, NUMSFX};
-use super::tables::{finesine, ANGLETOFINESHIFT};
+use crate::geometry::{finesine, ANGLETOFINESHIFT};
 
 const S_CLIPPING_DIST: Fixed = 1200 * FRACUNIT;
 const S_CLOSE_DIST: Fixed = 200 * FRACUNIT;

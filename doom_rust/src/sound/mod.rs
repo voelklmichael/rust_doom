@@ -6,7 +6,6 @@ mod mus2mid;
 mod r_angle;
 mod s_sound;
 mod sounds;
-mod tables;
 
 pub use i_sound::{
     i_get_sfx_lump_num, i_init_music, i_init_sound, i_music_is_playing, i_pause_song,
@@ -24,4 +23,4 @@ pub use s_sound::{
     s_stop_sound, s_update_sounds, SND_CHANNELS,
 };
 pub use sounds::{s_music, s_sfx, MusicEnum, SfxEnum, NUMMUSIC, NUMSFX};
-pub use tables::{finesine, ANGLETOFINESHIFT, FINEANGLES};
+pub use crate::geometry::{finesine, ANGLETOFINESHIFT, FINEANGLES};

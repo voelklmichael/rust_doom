@@ -9,6 +9,7 @@ pub mod doomdef;
 pub mod doomstat;
 pub mod doomfeatures;
 pub mod doomtype;
+pub mod geometry;
 pub mod i_swap;
 pub mod i_system;
 pub mod m_fixed;
