@@ -5,11 +5,22 @@
 // DESCRIPTION: Status bar widget code.
 // Original: st_lib.h + st_lib.c
 
+use crate::deh::deh_string;
 use crate::doomtype::Boolean;
 use crate::rendering::patch_t;
+use crate::rendering::{v_copy_rect, v_draw_patch};
+use crate::wad::w_cache_lump_name;
+use crate::z_zone::PU_STATIC;
 
 // =============================================================================
 // Public API (from st_lib.h)
+// =============================================================================
+
+/// STTMINUS patch for negative numbers.
+static mut STTMINUS: *mut patch_t = std::ptr::null_mut();
+
+// =============================================================================
+// Implementation (from st_lib.c)
 // =============================================================================
 
 /// Number widget for status bar.
@@ -60,12 +71,10 @@ pub struct StBinIcon {
     pub data: i32,
 }
 
-// =============================================================================
-// Implementation (from st_lib.c) — stubs
-// =============================================================================
-
 pub fn stlib_init() {
-    // Stub: would load STTMINUS lump via W_CacheLumpName
+    unsafe {
+        STTMINUS = w_cache_lump_name(deh_string("STTMINUS"), PU_STATIC) as *mut patch_t;
+    }
 }
 
 pub fn stlib_init_num(
@@ -86,8 +95,72 @@ pub fn stlib_init_num(
     n.p = pl;
 }
 
-pub fn stlib_update_num(_n: &mut StNumber, _refresh: bool) {
-    // Stub: would draw number via V_CopyRect, V_DrawPatch
+/// Draw number. Requires backing_screen (st_backing_screen) and st_y (ST_Y).
+pub fn stlib_update_num(
+    n: &mut StNumber,
+    refresh: bool,
+    backing_screen: *const u8,
+    st_y: i32,
+) {
+    unsafe {
+        if *n.on {
+            stlib_draw_num(n, refresh, backing_screen, st_y);
+        }
+    }
+}
+
+fn stlib_draw_num(
+    n: &mut StNumber,
+    _refresh: bool,
+    backing_screen: *const u8,
+    st_y: i32,
+) {
+    unsafe {
+        let numdigits = n.width;
+        let mut num = *n.num;
+        let p0 = *n.p;
+        if p0.is_null() {
+            return;
+        }
+        let w = (*p0).width as i32;
+        let h = (*p0).height as i32;
+        n.oldnum = *n.num;
+        let neg = num < 0;
+        if neg {
+            if numdigits == 2 && num < -9 {
+                num = -9;
+            } else if numdigits == 3 && num < -99 {
+                num = -99;
+            }
+            num = -num;
+        }
+        let mut x = n.x - numdigits * w;
+        if n.y - st_y < 0 {
+            return;
+        }
+        if !backing_screen.is_null() {
+            v_copy_rect(x, n.y - st_y, backing_screen, w * numdigits, h, x, n.y);
+        }
+        if num == 1994 {
+            return;
+        }
+        x = n.x;
+        if num == 0 {
+            v_draw_patch(x - w, n.y, *n.p.add(0));
+        }
+        let mut num = num;
+        let mut numdigits = numdigits;
+        while num != 0 && numdigits > 0 {
+            x -= w;
+            let digit = (num % 10) as usize;
+            v_draw_patch(x, n.y, *n.p.add(digit));
+            num /= 10;
+            numdigits -= 1;
+        }
+        if neg {
+            v_draw_patch(x - 8, n.y, STTMINUS);
+        }
+    }
 }
 
 pub fn stlib_init_percent(
@@ -103,8 +176,19 @@ pub fn stlib_init_percent(
     p.p = percent;
 }
 
-pub fn stlib_update_percent(_per: &mut StPercent, _refresh: bool) {
-    // Stub: would update percent display
+/// Update percent. Requires backing_screen and st_y.
+pub fn stlib_update_percent(
+    per: &mut StPercent,
+    refresh: bool,
+    backing_screen: *const u8,
+    st_y: i32,
+) {
+    unsafe {
+        if refresh && *per.n.on {
+            v_draw_patch(per.n.x, per.n.y, per.p);
+        }
+        stlib_update_num(&mut per.n, refresh, backing_screen, st_y);
+    }
 }
 
 pub fn stlib_init_mult_icon(
@@ -123,8 +207,34 @@ pub fn stlib_init_mult_icon(
     mi.p = il;
 }
 
-pub fn stlib_update_mult_icon(_mi: &mut StMultIcon, _refresh: bool) {
-    // Stub: would draw icon
+/// Update mult icon. Requires backing_screen and st_y.
+pub fn stlib_update_mult_icon(
+    mi: &mut StMultIcon,
+    refresh: bool,
+    backing_screen: *const u8,
+    st_y: i32,
+) {
+    unsafe {
+        if *mi.on && (mi.oldinum != *mi.inum || refresh) && *mi.inum != -1 {
+            if mi.oldinum != -1 {
+                let p_old = *mi.p.add(mi.oldinum as usize);
+                if !p_old.is_null() {
+                    let x = mi.x - (*p_old).leftoffset as i32;
+                    let y = mi.y - (*p_old).topoffset as i32;
+                    let w = (*p_old).width as i32;
+                    let h = (*p_old).height as i32;
+                    if y - st_y >= 0 && !backing_screen.is_null() {
+                        v_copy_rect(x, y - st_y, backing_screen, w, h, x, y);
+                    }
+                }
+            }
+            let p_cur = *mi.p.add(*mi.inum as usize);
+            if !p_cur.is_null() {
+                v_draw_patch(mi.x, mi.y, p_cur);
+            }
+            mi.oldinum = *mi.inum;
+        }
+    }
 }
 
 pub fn stlib_init_bin_icon(
@@ -143,6 +253,30 @@ pub fn stlib_init_bin_icon(
     b.p = i;
 }
 
-pub fn stlib_update_bin_icon(_bi: &mut StBinIcon, _refresh: bool) {
-    // Stub: would draw binary icon
+/// Update binary icon. Requires backing_screen and st_y.
+pub fn stlib_update_bin_icon(
+    bi: &mut StBinIcon,
+    refresh: bool,
+    backing_screen: *const u8,
+    st_y: i32,
+) {
+    unsafe {
+        if *bi.on && (bi.oldval != *bi.val || refresh) {
+            let p = bi.p;
+            if !p.is_null() {
+                let x = bi.x - (*p).leftoffset as i32;
+                let y = bi.y - (*p).topoffset as i32;
+                let w = (*p).width as i32;
+                let h = (*p).height as i32;
+                if y - st_y >= 0 {
+                    if *bi.val {
+                        v_draw_patch(bi.x, bi.y, p);
+                    } else if !backing_screen.is_null() {
+                        v_copy_rect(x, y - st_y, backing_screen, w, h, x, y);
+                    }
+                }
+            }
+            bi.oldval = *bi.val;
+        }
+    }
 }

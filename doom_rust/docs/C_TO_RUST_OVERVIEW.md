@@ -77,7 +77,7 @@ These modules exist but have minimal or stub implementations.
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
 | **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player (mo, viewz, viewheight, extralight, fixedcolormap, playerstate, health), PlayerState enum, PLAYERS, PLAYERINGAME, PLAYERSTARTS |
 | **player/** | p_*.h / p_*.c | Scaffolded; see below |
-| **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | cheat full; rest stubs |
+| **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | cheat, st_lib, hu_lib full; v_video v_copy_rect/v_draw_patch; rest stubs |
 
 ### player/ module (src/player/)
 

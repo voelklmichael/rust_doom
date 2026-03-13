@@ -60,20 +60,77 @@ pub fn v_init() {
     }
 }
 
-/// Copy rect from source to dest. Stub: no-op.
+/// Copy rect from source to dest.
+/// Source and dest are row-major buffers with SCREENWIDTH bytes per row.
 pub fn v_copy_rect(
-    _srcx: i32,
-    _srcy: i32,
-    _source: *const u8,
-    _width: i32,
-    _height: i32,
-    _destx: i32,
-    _desty: i32,
+    srcx: i32,
+    srcy: i32,
+    source: *const u8,
+    width: i32,
+    height: i32,
+    destx: i32,
+    desty: i32,
 ) {
+    unsafe {
+        if source.is_null() || VIEWIMAGE.is_null() {
+            return;
+        }
+        let srcx = srcx.max(0).min(SCREENWIDTH - 1);
+        let srcy = srcy.max(0).min(SCREENHEIGHT - 1);
+        let destx = destx.max(0).min(SCREENWIDTH - 1);
+        let desty = desty.max(0).min(SCREENHEIGHT - 1);
+        let w = width.min(SCREENWIDTH - srcx).min(SCREENWIDTH - destx);
+        let h = height.min(SCREENHEIGHT - srcy).min(SCREENHEIGHT - desty);
+        if w <= 0 || h <= 0 {
+            return;
+        }
+        let mut src = source.add((srcy as usize) * SCREENWIDTH as usize + srcx as usize);
+        let mut dest = VIEWIMAGE.add((desty as usize) * SCREENWIDTH as usize + destx as usize);
+        for _ in 0..h {
+            std::ptr::copy_nonoverlapping(src, dest, w as usize);
+            src = src.add(SCREENWIDTH as usize);
+            dest = dest.add(SCREENWIDTH as usize);
+        }
+    }
 }
 
-/// Draw patch at (x, y). Stub: no-op.
-pub fn v_draw_patch(_x: i32, _y: i32, _patch: *const patch_t) {}
+/// Draw patch at (x, y). Patch is column-based masked format.
+pub fn v_draw_patch(x: i32, y: i32, patch: *const patch_t) {
+    unsafe {
+        if patch.is_null() || VIEWIMAGE.is_null() {
+            return;
+        }
+        let w = (*patch).width as i32;
+        let _h = (*patch).height as i32;
+        let left = (*patch).leftoffset as i32;
+        let top = (*patch).topoffset as i32;
+        let x = x - left;
+        let y = y - top;
+        if x + w > SCREENWIDTH || y + _h > SCREENHEIGHT || x < 0 || y < 0 {
+            return;
+        }
+        let patch_bytes = patch as *const u8;
+        for col in 0..w {
+            let ofs = i32::from_le_bytes(std::ptr::read_unaligned(patch_bytes.add(8 + col as usize * 4) as *const [u8; 4]));
+            let column = patch_bytes.add(ofs as usize);
+            let mut col_ptr = column;
+            let dest_col = VIEWIMAGE.add((y as usize) * SCREENWIDTH as usize + (x + col) as usize);
+            loop {
+                let topdelta = *col_ptr;
+                if topdelta == 0xff {
+                    break;
+                }
+                let length = *col_ptr.add(1) as usize;
+                let source = col_ptr.add(3);
+                let dest = dest_col.add(topdelta as usize * SCREENWIDTH as usize);
+                for row in 0..length {
+                    *dest.add(row * SCREENWIDTH as usize) = *source.add(row);
+                }
+                col_ptr = col_ptr.add(4 + length);
+            }
+        }
+    }
+}
 
 /// Draw patch flipped. Stub: no-op.
 pub fn v_draw_patch_flipped(_x: i32, _y: i32, _patch: *const patch_t) {}
