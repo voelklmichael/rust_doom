@@ -1,0 +1,21 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "check",
+			"args": [],
+			"options": {
+				"cwd": "${workspaceFolder}/doom_rust"
+			},
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"label": "rust: cargo check",
+		}
+	]
+}
