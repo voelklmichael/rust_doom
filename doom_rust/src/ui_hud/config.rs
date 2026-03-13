@@ -5,6 +5,7 @@
 // DESCRIPTION: Configuration file interface.
 // Original: m_config.h + m_config.c
 
+use crate::doomkeys;
 use crate::doomtype::Boolean;
 use crate::m_argv::m_check_parm_with_args;
 use std::collections::HashMap;
@@ -45,6 +46,67 @@ fn set_defaults() {
     ints.insert("sfx_volume".to_string(), 8);
     ints.insert("music_volume".to_string(), 8);
     ints.insert("show_messages".to_string(), 1);
+
+    // Key bindings (Doom base)
+    ints.insert("key_right".to_string(), doomkeys::KEY_RIGHTARROW);
+    ints.insert("key_left".to_string(), doomkeys::KEY_LEFTARROW);
+    ints.insert("key_up".to_string(), doomkeys::KEY_UPARROW);
+    ints.insert("key_down".to_string(), doomkeys::KEY_DOWNARROW);
+    ints.insert("key_strafeleft".to_string(), doomkeys::KEY_STRAFE_L);
+    ints.insert("key_straferight".to_string(), doomkeys::KEY_STRAFE_R);
+    ints.insert("key_fire".to_string(), doomkeys::KEY_FIRE);
+    ints.insert("key_use".to_string(), doomkeys::KEY_USE);
+    ints.insert("key_strafe".to_string(), doomkeys::KEY_RALT);
+    ints.insert("key_speed".to_string(), doomkeys::KEY_RSHIFT);
+    ints.insert("key_pause".to_string(), doomkeys::KEY_PAUSE);
+    ints.insert("key_message_refresh".to_string(), doomkeys::KEY_ENTER);
+    ints.insert("key_demo_quit".to_string(), b'q' as i32);
+    ints.insert("key_spy".to_string(), doomkeys::KEY_F12);
+    ints.insert("key_multi_msg".to_string(), b't' as i32);
+    ints.insert("key_weapon1".to_string(), b'1' as i32);
+    ints.insert("key_weapon2".to_string(), b'2' as i32);
+    ints.insert("key_weapon3".to_string(), b'3' as i32);
+    ints.insert("key_weapon4".to_string(), b'4' as i32);
+    ints.insert("key_weapon5".to_string(), b'5' as i32);
+    ints.insert("key_weapon6".to_string(), b'6' as i32);
+    ints.insert("key_weapon7".to_string(), b'7' as i32);
+    ints.insert("key_weapon8".to_string(), b'8' as i32);
+    ints.insert("key_menu_activate".to_string(), doomkeys::KEY_ESCAPE);
+    ints.insert("key_menu_up".to_string(), doomkeys::KEY_UPARROW);
+    ints.insert("key_menu_down".to_string(), doomkeys::KEY_DOWNARROW);
+    ints.insert("key_menu_left".to_string(), doomkeys::KEY_LEFTARROW);
+    ints.insert("key_menu_right".to_string(), doomkeys::KEY_RIGHTARROW);
+    ints.insert("key_menu_back".to_string(), doomkeys::KEY_BACKSPACE);
+    ints.insert("key_menu_forward".to_string(), doomkeys::KEY_ENTER);
+    ints.insert("key_menu_confirm".to_string(), doomkeys::KEY_ENTER);
+    ints.insert("key_menu_abort".to_string(), doomkeys::KEY_ESCAPE);
+
+    // Mouse/joy (base)
+    ints.insert("mouseb_fire".to_string(), 0);
+    ints.insert("mouseb_strafe".to_string(), 1);
+    ints.insert("mouseb_forward".to_string(), 2);
+    ints.insert("joyb_fire".to_string(), 0);
+    ints.insert("joyb_strafe".to_string(), 1);
+    ints.insert("joyb_use".to_string(), 2);
+    ints.insert("joyb_speed".to_string(), 3);
+    ints.insert("key_map_north".to_string(), doomkeys::KEY_UPARROW);
+    ints.insert("key_map_south".to_string(), doomkeys::KEY_DOWNARROW);
+    ints.insert("key_map_east".to_string(), doomkeys::KEY_RIGHTARROW);
+    ints.insert("key_map_west".to_string(), doomkeys::KEY_LEFTARROW);
+    ints.insert("key_map_zoomin".to_string(), doomkeys::KEY_EQUALS);
+    ints.insert("key_map_zoomout".to_string(), doomkeys::KEY_MINUS);
+    ints.insert("key_map_toggle".to_string(), doomkeys::KEY_TAB);
+    ints.insert("key_map_maxzoom".to_string(), b'0' as i32);
+    ints.insert("key_map_follow".to_string(), b'f' as i32);
+    ints.insert("key_map_grid".to_string(), b'g' as i32);
+    ints.insert("key_map_mark".to_string(), b'm' as i32);
+    ints.insert("key_map_clearmark".to_string(), b'c' as i32);
+    ints.insert("key_prevweapon".to_string(), 0);
+    ints.insert("key_nextweapon".to_string(), 0);
+    ints.insert("mouseb_prevweapon".to_string(), -1);
+    ints.insert("mouseb_nextweapon".to_string(), -1);
+    ints.insert("joyb_prevweapon".to_string(), -1);
+    ints.insert("joyb_nextweapon".to_string(), -1);
 }
 
 fn config_path(filename: &str) -> String {
@@ -128,6 +190,7 @@ pub fn m_load_defaults() {
 }
 
 pub fn m_save_defaults() {
+    crate::ui_hud::controls::m_sync_controls_to_config();
     let main_path = config_path(MAIN_CONFIG.lock().unwrap().as_deref().unwrap_or(DEFAULT_CONFIG));
     save_config_file(Path::new(&main_path));
     let extra_path = config_path(EXTRA_CONFIG.lock().unwrap().as_deref().unwrap_or(DEFAULT_CONFIG));

@@ -8,9 +8,12 @@
 // Original: g_game.h + g_game.c (stub)
 
 use super::d_event::Event;
+use super::d_main::GAMEACTION;
 use super::d_ticcmd::Ticcmd;
 use crate::deh::misc::DEH_DEFAULT_INITIAL_HEALTH;
-use crate::doomstat::{Player, PlayerState, PLAYERS};
+use crate::doomdef::Gameaction;
+use crate::doomstat::{Player, PlayerState, GAMEEPISODE, GAMEMAP, GAMESKILL, PLAYERS};
+use crate::game::d_mode::Skill;
 use crate::player::p_tick;
 
 /// Advance game one tic. Calls P_Ticker.
@@ -45,4 +48,15 @@ pub fn g_responder(_ev: &Event) -> bool {
 /// Original: G_BuildTiccmd
 pub fn g_build_ticcmd(cmd: &mut Ticcmd, _maketic: i32) {
     *cmd = Ticcmd::default();
+}
+
+/// Defer new game start. Used by idclev cheat and menu.
+/// Original: G_DeferedInitNew
+pub fn g_defered_init_new(skill: Skill, episode: i32, map: i32) {
+    unsafe {
+        GAMESKILL = skill;
+        GAMEEPISODE = episode;
+        GAMEMAP = map;
+        GAMEACTION = Gameaction::NewGame;
+    }
 }

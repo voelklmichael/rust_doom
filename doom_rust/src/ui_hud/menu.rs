@@ -5,9 +5,13 @@
 // DESCRIPTION: Menu widget stuff, episode selection.
 // Original: m_menu.h + m_menu.c
 
+use crate::doomstat::MENUACTIVE;
 use crate::doomtype::Boolean;
 use crate::game::d_event::Event;
 use crate::ui_hud::config::{m_get_int_variable, m_load_defaults, m_set_variable};
+use crate::ui_hud::controls::{
+    m_bind_base_controls, m_bind_map_controls, m_bind_menu_controls, m_bind_weapon_controls,
+};
 
 // =============================================================================
 // Public API (from m_menu.h)
@@ -22,13 +26,35 @@ pub static mut SCREENBLOCKS: i32 = 10;
 
 pub fn m_init() {
     m_load_defaults();
+    m_bind_base_controls();
+    m_bind_weapon_controls();
+    m_bind_map_controls();
+    m_bind_menu_controls();
     unsafe {
         SCREENBLOCKS = m_get_int_variable("screenblocks");
         DETAIL_LEVEL = m_get_int_variable("detailLevel");
     }
 }
 
-pub fn m_responder(_ev: &Event) -> Boolean {
+/// Handle menu key input. Returns true if event was consumed.
+pub fn m_responder(ev: &Event) -> Boolean {
+    use crate::game::d_event::EvType;
+    use crate::ui_hud::controls::{KEY_MENU_ABORT, KEY_MENU_ACTIVATE};
+    if ev.ev_type != EvType::KeyDown {
+        return false;
+    }
+    let key = ev.data2;
+    unsafe {
+        if MENUACTIVE {
+            if key == KEY_MENU_ABORT {
+                MENUACTIVE = false;
+                return true;
+            }
+        } else if key == KEY_MENU_ACTIVATE {
+            m_start_control_panel();
+            return true;
+        }
+    }
     false
 }
 
@@ -40,8 +66,14 @@ pub fn m_drawer() {
     // Stub: draws menus to screen buffer
 }
 
+/// Force menu up on keypress. Does nothing if menu already active.
 pub fn m_start_control_panel() {
-    // Stub: force menu up on keypress
+    unsafe {
+        if MENUACTIVE {
+            return;
+        }
+        MENUACTIVE = true;
+    }
 }
 
 /// Sync screenblocks to config and optionally trigger view size update.

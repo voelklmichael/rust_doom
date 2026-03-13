@@ -7,9 +7,10 @@
 
 use crate::deh::deh_string;
 use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
-use crate::doomstat::{GAMEMODE, TOTALITEMS, TOTALKILLS, TOTALSECRET, LEVELTIME, WMINFO};
+use crate::doomstat::{DEATHMATCH, GAMEMODE, LEVELTIME, NETGAME, TOTALITEMS, TOTALKILLS, TOTALSECRET, WMINFO};
 use crate::game::d_mode::GameMode;
 use crate::rendering::v_draw_patch;
+use crate::sound::{s_start_sound, SfxEnum};
 use crate::wad::w_cache_lump_name;
 use crate::wad::w_release_lump_name;
 use crate::z_zone::PU_STATIC;
@@ -44,6 +45,16 @@ static mut WI_STATE: WiStateEnum = WiStateEnum::NoState;
 static mut WI_BCNT: i32 = 0;
 static mut WI_CNT: i32 = 0;
 static mut WI_BACKGROUND: *mut crate::rendering::patch_t = ptr::null_mut();
+
+// Single-player stat count animation (sp_state 1–10)
+static mut WI_SP_STATE: i32 = 1;
+static mut WI_CNT_KILLS: i32 = -1;
+static mut WI_CNT_ITEMS: i32 = -1;
+static mut WI_CNT_SECRET: i32 = -1;
+static mut WI_CNT_TIME: i32 = -1;
+static mut WI_CNT_PAR: i32 = -1;
+static mut WI_CNT_PAUSE: i32 = 0;
+static mut WI_ACCELERATE: bool = false;
 static mut WI_BACKGROUND_NAME: [u8; 9] = [0; 9];
 
 // Stats patches
@@ -56,6 +67,9 @@ static mut WI_KILLS: *mut crate::rendering::patch_t = ptr::null_mut();
 static mut WI_ITEMS: *mut crate::rendering::patch_t = ptr::null_mut();
 static mut WI_SP_SECRET: *mut crate::rendering::patch_t = ptr::null_mut();
 static mut WI_TIMEPATCH: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_PAR: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_COLON: *mut crate::rendering::patch_t = ptr::null_mut();
+static mut WI_SUCKS: *mut crate::rendering::patch_t = ptr::null_mut();
 
 // Level name patches (WILVxx or CWILVxx)
 const NUMMAPS: usize = 9;
@@ -102,6 +116,9 @@ fn wi_load_data(wbs: &crate::doomstat::WbStartStruct) {
         WI_ITEMS = w_cache_lump_name(deh_string("WIOSTI"), PU_STATIC) as *mut crate::rendering::patch_t;
         WI_SP_SECRET = w_cache_lump_name(deh_string("WISCRT2"), PU_STATIC) as *mut crate::rendering::patch_t;
         WI_TIMEPATCH = w_cache_lump_name(deh_string("WITIME"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_PAR = w_cache_lump_name(deh_string("WIPAR"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_COLON = w_cache_lump_name(deh_string("WICOLON"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_SUCKS = w_cache_lump_name(deh_string("WISUCKS"), PU_STATIC) as *mut crate::rendering::patch_t;
 
         // Level names
         if GAMEMODE == GameMode::Commercial {
@@ -187,6 +204,39 @@ fn wi_draw_percent(x: i32, y: i32, p: i32) {
     }
 }
 
+/// Draw time as MM:SS (or "sucks" if overflow).
+fn wi_draw_time(mut x: i32, y: i32, t: i32) {
+    unsafe {
+        if t < 0 {
+            return;
+        }
+        if t <= 61 * 59 {
+            let mut div = 1i32;
+            let colon_w = if WI_COLON.is_null() {
+                8
+            } else {
+                (*WI_COLON).width as i32
+            };
+            loop {
+                let n = (t / div) % 60;
+                x = wi_draw_num(x, y, n, 2) - colon_w;
+                div *= 60;
+                if div == 60 || t / div != 0 {
+                    if !WI_COLON.is_null() {
+                        v_draw_patch(x, y, WI_COLON);
+                    }
+                }
+                if t / div == 0 {
+                    break;
+                }
+            }
+        } else if !WI_SUCKS.is_null() {
+            let w = (*WI_SUCKS).width as i32;
+            v_draw_patch(x - w, y, WI_SUCKS);
+        }
+    }
+}
+
 /// Draw "<Levelname> Finished!"
 fn wi_draw_lf() {
     unsafe {
@@ -231,7 +281,7 @@ fn wi_draw_el() {
     }
 }
 
-/// Draw stats (kills, items, secret, time).
+/// Draw stats (kills, items, secret, time) using animated cnt_* values.
 fn wi_draw_stats() {
     unsafe {
         let wbs = &WMINFO;
@@ -246,35 +296,24 @@ fn wi_draw_stats() {
 
         if !WI_KILLS.is_null() {
             v_draw_patch(SP_STATSX, SP_STATSY, WI_KILLS);
-            let pct = if wbs.maxkills > 0 {
-                (TOTALKILLS * 100) / wbs.maxkills
-            } else {
-                TOTALKILLS
-            };
-            wi_draw_percent(SCREENWIDTH - SP_STATSX, SP_STATSY, pct);
+            wi_draw_percent(SCREENWIDTH - SP_STATSX, SP_STATSY, WI_CNT_KILLS);
         }
         if !WI_ITEMS.is_null() {
             v_draw_patch(SP_STATSX, SP_STATSY + lh, WI_ITEMS);
-            let pct = if wbs.maxitems > 0 {
-                (TOTALITEMS * 100) / wbs.maxitems
-            } else {
-                TOTALITEMS
-            };
-            wi_draw_percent(SCREENWIDTH - SP_STATSX, SP_STATSY + lh, pct);
+            wi_draw_percent(SCREENWIDTH - SP_STATSX, SP_STATSY + lh, WI_CNT_ITEMS);
         }
         if !WI_SP_SECRET.is_null() {
             v_draw_patch(SP_STATSX, SP_STATSY + 2 * lh, WI_SP_SECRET);
-            let pct = if wbs.maxsecret > 0 {
-                (TOTALSECRET * 100) / wbs.maxsecret
-            } else {
-                TOTALSECRET
-            };
-            wi_draw_percent(SCREENWIDTH - SP_STATSX, SP_STATSY + 2 * lh, pct);
+            wi_draw_percent(SCREENWIDTH - SP_STATSX, SP_STATSY + 2 * lh, WI_CNT_SECRET);
         }
         if !WI_TIMEPATCH.is_null() {
             v_draw_patch(SP_TIMEX, SP_TIMEY, WI_TIMEPATCH);
-            let t = LEVELTIME / TICRATE;
-            wi_draw_num(SCREENWIDTH / 2 - SP_TIMEX, SP_TIMEY, t, 2);
+            wi_draw_time(SCREENWIDTH / 2 - SP_TIMEX, SP_TIMEY, WI_CNT_TIME);
+        }
+        // Par time (episodes 0-2 only, not Thy Flesh Consumed)
+        if wbs.epsd < 3 && !WI_PAR.is_null() {
+            v_draw_patch(SCREENWIDTH / 2 + SP_TIMEX, SP_TIMEY, WI_PAR);
+            wi_draw_time(SCREENWIDTH - SP_TIMEX, SP_TIMEY, WI_CNT_PAR);
         }
     }
 }
@@ -287,12 +326,132 @@ fn wi_slam_background() {
     }
 }
 
+/// Call when player presses attack or use during intermission to skip stat animation.
+pub fn wi_set_accelerate() {
+    unsafe {
+        WI_ACCELERATE = true;
+    }
+}
+
+fn wi_init_stats() {
+    unsafe {
+        WI_SP_STATE = 1;
+        WI_CNT_KILLS = -1;
+        WI_CNT_ITEMS = -1;
+        WI_CNT_SECRET = -1;
+        WI_CNT_TIME = -1;
+        WI_CNT_PAR = -1;
+        WI_CNT_PAUSE = TICRATE;
+    }
+}
+
+fn wi_update_stats() {
+    unsafe {
+        let wbs = &WMINFO;
+        let me = wbs.pnum as usize;
+        if me >= crate::doomdef::MAXPLAYERS {
+            return;
+        }
+        let plyr = &wbs.plyr[me];
+        let maxk = wbs.maxkills.max(1);
+        let maxi = wbs.maxitems.max(1);
+        let maxs = wbs.maxsecret.max(1);
+        let target_kills = (plyr.kills * 100) / maxk;
+        let target_items = (plyr.items * 100) / maxi;
+        let target_secret = (plyr.secret * 100) / maxs;
+        let target_time = plyr.time / TICRATE;
+        let target_par = wbs.partime / TICRATE;
+
+        if WI_ACCELERATE && WI_SP_STATE != 10 {
+            WI_ACCELERATE = false;
+            WI_CNT_KILLS = target_kills;
+            WI_CNT_ITEMS = target_items;
+            WI_CNT_SECRET = target_secret;
+            WI_CNT_TIME = target_time;
+            WI_CNT_PAR = target_par;
+            s_start_sound(None, SfxEnum::Barexp as i32, None);
+            WI_SP_STATE = 10;
+        }
+
+        if WI_SP_STATE == 2 {
+            WI_CNT_KILLS += 2;
+            if (WI_BCNT & 3) == 0 {
+                s_start_sound(None, SfxEnum::Pistol as i32, None);
+            }
+            if WI_CNT_KILLS >= target_kills {
+                WI_CNT_KILLS = target_kills;
+                s_start_sound(None, SfxEnum::Barexp as i32, None);
+                WI_SP_STATE += 1;
+            }
+        } else if WI_SP_STATE == 4 {
+            WI_CNT_ITEMS += 2;
+            if (WI_BCNT & 3) == 0 {
+                s_start_sound(None, SfxEnum::Pistol as i32, None);
+            }
+            if WI_CNT_ITEMS >= target_items {
+                WI_CNT_ITEMS = target_items;
+                s_start_sound(None, SfxEnum::Barexp as i32, None);
+                WI_SP_STATE += 1;
+            }
+        } else if WI_SP_STATE == 6 {
+            WI_CNT_SECRET += 2;
+            if (WI_BCNT & 3) == 0 {
+                s_start_sound(None, SfxEnum::Pistol as i32, None);
+            }
+            if WI_CNT_SECRET >= target_secret {
+                WI_CNT_SECRET = target_secret;
+                s_start_sound(None, SfxEnum::Barexp as i32, None);
+                WI_SP_STATE += 1;
+            }
+        } else if WI_SP_STATE == 8 {
+            if (WI_BCNT & 3) == 0 {
+                s_start_sound(None, SfxEnum::Pistol as i32, None);
+            }
+            WI_CNT_TIME += 3;
+            if WI_CNT_TIME >= target_time {
+                WI_CNT_TIME = target_time;
+            }
+            WI_CNT_PAR += 3;
+            if WI_CNT_PAR >= target_par {
+                WI_CNT_PAR = target_par;
+                if WI_CNT_TIME >= target_time {
+                    s_start_sound(None, SfxEnum::Barexp as i32, None);
+                    WI_SP_STATE += 1;
+                }
+            }
+        } else if WI_SP_STATE == 10 {
+            if WI_ACCELERATE {
+                WI_ACCELERATE = false;
+                s_start_sound(None, SfxEnum::Sgcock as i32, None);
+                if GAMEMODE == GameMode::Commercial {
+                    WI_STATE = WiStateEnum::NoState;
+                } else {
+                    WI_STATE = WiStateEnum::ShowNextLoc;
+                    WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
+                }
+            }
+        } else if (WI_SP_STATE & 1) != 0 {
+            WI_CNT_PAUSE -= 1;
+            if WI_CNT_PAUSE <= 0 {
+                WI_SP_STATE += 1;
+                WI_CNT_PAUSE = TICRATE;
+            }
+        }
+    }
+}
+
 pub fn wi_start(wbstartstruct: &crate::doomstat::WbStartStruct) {
     unsafe {
         WI_STATE = WiStateEnum::StatCount;
         WI_BCNT = 0;
-        WI_CNT = 4 * TICRATE; // ~4 seconds before ShowNextLoc
+        WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
+        WI_ACCELERATE = false;
         wi_load_data(wbstartstruct);
+        let deathmatch = DEATHMATCH != 0;
+        let netgame = NETGAME;
+        if !deathmatch && !netgame {
+            wi_init_stats();
+        }
     }
 }
 
@@ -308,10 +467,17 @@ pub fn wi_ticker() {
         WI_BCNT += 1;
         match WI_STATE {
             WiStateEnum::StatCount => {
-                WI_CNT -= 1;
-                if WI_CNT <= 0 {
-                    WI_STATE = WiStateEnum::ShowNextLoc;
-                    WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
+                let deathmatch = DEATHMATCH != 0;
+                let netgame = NETGAME;
+                if !deathmatch && !netgame {
+                    wi_update_stats();
+                } else {
+                    // Deathmatch/netgame: simple countdown (not yet implemented)
+                    WI_CNT -= 1;
+                    if WI_CNT <= 0 {
+                        WI_STATE = WiStateEnum::ShowNextLoc;
+                        WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
+                    }
                 }
             }
             WiStateEnum::ShowNextLoc => {

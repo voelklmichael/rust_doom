@@ -28,4 +28,4 @@ pub use controls::{
 pub use hu_stuff::{hu_dequeue_chat_char, hu_drawer, hu_erase, hu_init, hu_responder, hu_set_message, hu_start, hu_ticker};
 pub use menu::{m_drawer, m_init, m_responder, m_start_control_panel, m_ticker};
 pub use st_stuff::{st_drawer, st_init, st_responder, st_start, st_ticker};
-pub use wi_stuff::{wi_drawer, wi_end, wi_start, wi_ticker};
+pub use wi_stuff::{wi_drawer, wi_end, wi_set_accelerate, wi_start, wi_ticker};

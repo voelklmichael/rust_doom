@@ -7,12 +7,15 @@
 
 use crate::deh::deh_string;
 use crate::doomdef::{Ammotype, SCREENHEIGHT, SCREENWIDTH};
-use crate::doomstat::{CF_GODMODE, CF_NOCLIP, CONSOLEPLAYER, DEATHMATCH, PLAYERS};
+use crate::doomdef::Weapontype;
+use crate::doomstat::{
+    CF_GODMODE, CF_NOCLIP, CONSOLEPLAYER, DEATHMATCH, GAMEMODE, GAMESKILL, NETGAME, PLAYERS,
+};
 use crate::doomtype::Boolean;
 use crate::game::d_event::Event;
 use crate::game::d_items::WEAPONINFO;
 use crate::rendering::{v_copy_rect, v_draw_patch, v_restore_buffer, v_use_buffer};
-use crate::ui_hud::cheat::{cht_check_cheat, CheatSeq};
+use crate::ui_hud::cheat::{cht_check_cheat, cht_get_param, CheatSeq};
 use crate::ui_hud::st_lib::{
     stlib_init, stlib_init_bin_icon, stlib_init_mult_icon, stlib_init_num, stlib_init_percent,
     stlib_update_bin_icon, stlib_update_mult_icon, stlib_update_num, stlib_update_percent,
@@ -80,6 +83,8 @@ pub static mut CHEAT_AMMONOKEY: CheatSeq = CheatSeq::EMPTY;
 pub static mut CHEAT_NOCLIP: CheatSeq = CheatSeq::EMPTY;
 pub static mut CHEAT_CLEV: CheatSeq = CheatSeq::EMPTY;
 pub static mut CHEAT_MYPOS: CheatSeq = CheatSeq::EMPTY;
+pub static mut CHEAT_CHOPPERS: CheatSeq = CheatSeq::EMPTY;
+static mut CHEAT_POWERUP: [CheatSeq; 7] = [CheatSeq::EMPTY; 7];
 
 // =============================================================================
 // Internal state (from st_stuff.c)
@@ -429,6 +434,14 @@ pub fn st_init() {
         CHEAT_CLEV = CheatSeq::new("idclev", 2);
         CHEAT_MYPOS = CheatSeq::new("idmypos", 0);
         CHEAT_MUS = CheatSeq::new("idmus", 2);
+        CHEAT_CHOPPERS = CheatSeq::new("idchoppers", 0);
+        CHEAT_POWERUP[0] = CheatSeq::new("idbeholdv", 0);
+        CHEAT_POWERUP[1] = CheatSeq::new("idbeholds", 0);
+        CHEAT_POWERUP[2] = CheatSeq::new("idbeholdi", 0);
+        CHEAT_POWERUP[3] = CheatSeq::new("idbeholdr", 0);
+        CHEAT_POWERUP[4] = CheatSeq::new("idbeholda", 0);
+        CHEAT_POWERUP[5] = CheatSeq::new("idbeholdl", 0);
+        CHEAT_POWERUP[6] = CheatSeq::new("idbehold", 0);
     }
 }
 
@@ -443,53 +456,159 @@ pub fn st_start() {
     }
 }
 
+const TICRATE: i32 = 35;
+const INVULNTICS: i32 = 30 * TICRATE;
+const INVISTICS: i32 = 60 * TICRATE;
+const INFRATICS: i32 = 120 * TICRATE;
+const IRONTICS: i32 = 60 * TICRATE;
+
 pub fn st_responder(ev: &Event) -> Boolean {
     use crate::deh::misc::{
         DEH_DEFAULT_GOD_MODE_HEALTH, DEH_DEFAULT_IDFA_ARMOR, DEH_DEFAULT_IDFA_ARMOR_CLASS,
         DEH_DEFAULT_IDKFA_ARMOR, DEH_DEFAULT_IDKFA_ARMOR_CLASS,
     };
-    use crate::doomdef::{NUMAMMO, NUMCARDS, NUMWEAPONS};
+    use crate::doomdef::{Powertype, NUMAMMO, NUMCARDS, NUMWEAPONS};
     use crate::game::d_event::EvType;
+    use crate::game::d_mode::GameMode;
+    use crate::game::g_game::g_defered_init_new;
+    use crate::sound::{s_change_music, MusicEnum};
     unsafe {
         if ev.ev_type == EvType::KeyDown {
             let idx = CONSOLEPLAYER as usize;
             let plyr = &mut PLAYERS[idx];
-            if cht_check_cheat(&mut CHEAT_GOD, ev.data2 as u8) {
-                plyr.cheats ^= CF_GODMODE;
-                if (plyr.cheats & CF_GODMODE) != 0 {
-                    plyr.health = DEH_DEFAULT_GOD_MODE_HEALTH;
+            let netgame = NETGAME;
+            let skill_nightmare = GAMESKILL == crate::game::d_mode::Skill::Nightmare;
+
+            if !netgame && !skill_nightmare {
+                if cht_check_cheat(&mut CHEAT_GOD, ev.data2 as u8) {
+                    plyr.cheats ^= CF_GODMODE;
+                    if (plyr.cheats & CF_GODMODE) != 0 {
+                        plyr.health = DEH_DEFAULT_GOD_MODE_HEALTH;
+                    }
+                    return true;
                 }
-                return true;
+                if cht_check_cheat(&mut CHEAT_AMMONOKEY, ev.data2 as u8) {
+                    plyr.armorpoints = DEH_DEFAULT_IDFA_ARMOR;
+                    plyr.armortype = DEH_DEFAULT_IDFA_ARMOR_CLASS;
+                    for i in 0..NUMWEAPONS {
+                        plyr.weaponowned[i] = true;
+                    }
+                    for i in 0..NUMAMMO {
+                        plyr.ammo[i] = plyr.maxammo[i];
+                    }
+                    return true;
+                }
+                if cht_check_cheat(&mut CHEAT_AMMO, ev.data2 as u8) {
+                    plyr.armorpoints = DEH_DEFAULT_IDKFA_ARMOR;
+                    plyr.armortype = DEH_DEFAULT_IDKFA_ARMOR_CLASS;
+                    for i in 0..NUMWEAPONS {
+                        plyr.weaponowned[i] = true;
+                    }
+                    for i in 0..NUMAMMO {
+                        plyr.ammo[i] = plyr.maxammo[i];
+                    }
+                    for i in 0..NUMCARDS {
+                        plyr.cards[i] = true;
+                    }
+                    return true;
+                }
+                if cht_check_cheat(&mut CHEAT_NOCLIP, ev.data2 as u8) {
+                    plyr.cheats ^= CF_NOCLIP;
+                    return true;
+                }
+                // idmus: change music (2-digit param)
+                if cht_check_cheat(&mut CHEAT_MUS, ev.data2 as u8) {
+                    let mut buf = [0u8; 3];
+                    cht_get_param(&CHEAT_MUS, &mut buf);
+                    let musnum = if GAMEMODE == GameMode::Commercial
+                        || GAMEMODE == GameMode::Indetermined
+                    {
+                        let n = (buf[0].saturating_sub(b'0')) as i32 * 10
+                            + (buf[1].saturating_sub(b'0')) as i32;
+                        if n > 35 {
+                            return true;
+                        }
+                        (MusicEnum::Runnin as i32) + n - 1
+                    } else {
+                        let n = (buf[0].saturating_sub(b'1')) as i32 * 9
+                            + (buf[1].saturating_sub(b'1')) as i32;
+                        if n > 31 {
+                            return true;
+                        }
+                        (MusicEnum::E1m1 as i32) + n
+                    };
+                    s_change_music(musnum.max(0) as usize, true);
+                    return true;
+                }
+                // idbehold? power-up cheats
+                for i in 0..6 {
+                    if cht_check_cheat(&mut CHEAT_POWERUP[i], ev.data2 as u8) {
+                        if plyr.powers[i] == 0 {
+                            match i as i32 {
+                                x if x == Powertype::Invulnerability as i32 => {
+                                    plyr.powers[i] = INVULNTICS;
+                                }
+                                x if x == Powertype::Invisibility as i32 => {
+                                    plyr.powers[i] = INVISTICS;
+                                }
+                                x if x == Powertype::Infrared as i32 => {
+                                    plyr.powers[i] = INFRATICS;
+                                }
+                                x if x == Powertype::Ironfeet as i32 => {
+                                    plyr.powers[i] = IRONTICS;
+                                }
+                                x if x == Powertype::Strength as i32 => {
+                                    plyr.health = 100;
+                                    plyr.powers[i] = 1;
+                                }
+                                _ => plyr.powers[i] = 1,
+                            }
+                        } else if i != Powertype::Strength as usize {
+                            plyr.powers[i] = 1;
+                        } else {
+                            plyr.powers[i] = 0;
+                        }
+                        return true;
+                    }
+                }
+                if cht_check_cheat(&mut CHEAT_POWERUP[6], ev.data2 as u8) {
+                    plyr.message = Some("BEHOLD!".to_string());
+                    return true;
+                }
+                if cht_check_cheat(&mut CHEAT_CHOPPERS, ev.data2 as u8) {
+                    plyr.weaponowned[Weapontype::Chainsaw as usize] = true;
+                    plyr.powers[Powertype::Invulnerability as usize] = INVULNTICS;
+                    plyr.message = Some("CHOPPERS!".to_string());
+                    return true;
+                }
             }
-            if cht_check_cheat(&mut CHEAT_AMMONOKEY, ev.data2 as u8) {
-                // idfa: full ammo, all weapons, no keys
-                plyr.armorpoints = DEH_DEFAULT_IDFA_ARMOR;
-                plyr.armortype = DEH_DEFAULT_IDFA_ARMOR_CLASS;
-                for i in 0..NUMWEAPONS {
-                    plyr.weaponowned[i] = true;
+
+            // idclev: change level (outside netgame check, but still !netgame)
+            if !netgame && cht_check_cheat(&mut CHEAT_CLEV, ev.data2 as u8) {
+                let mut buf = [0u8; 3];
+                cht_get_param(&CHEAT_CLEV, &mut buf);
+                let (epsd, map) = if GAMEMODE == GameMode::Commercial {
+                    (1, (buf[0].saturating_sub(b'0')) as i32 * 10
+                        + (buf[1].saturating_sub(b'0')) as i32)
+                } else {
+                    (
+                        (buf[0].saturating_sub(b'0')) as i32,
+                        (buf[1].saturating_sub(b'0')) as i32,
+                    )
+                };
+                if epsd >= 1 && map >= 1 {
+                    let mut valid = true;
+                    match GAMEMODE {
+                        GameMode::Retail if epsd > 4 || map > 9 => valid = false,
+                        GameMode::Registered if epsd > 3 || map > 9 => valid = false,
+                        GameMode::Shareware if epsd > 1 || map > 9 => valid = false,
+                        GameMode::Commercial if epsd > 1 || map > 40 => valid = false,
+                        _ => {}
+                    }
+                    if valid {
+                        g_defered_init_new(GAMESKILL, epsd, map);
+                    }
                 }
-                for i in 0..NUMAMMO {
-                    plyr.ammo[i] = plyr.maxammo[i];
-                }
-                return true;
-            }
-            if cht_check_cheat(&mut CHEAT_AMMO, ev.data2 as u8) {
-                // idkfa: full ammo, all weapons, all keys
-                plyr.armorpoints = DEH_DEFAULT_IDKFA_ARMOR;
-                plyr.armortype = DEH_DEFAULT_IDKFA_ARMOR_CLASS;
-                for i in 0..NUMWEAPONS {
-                    plyr.weaponowned[i] = true;
-                }
-                for i in 0..NUMAMMO {
-                    plyr.ammo[i] = plyr.maxammo[i];
-                }
-                for i in 0..NUMCARDS {
-                    plyr.cards[i] = true;
-                }
-                return true;
-            }
-            if cht_check_cheat(&mut CHEAT_NOCLIP, ev.data2 as u8) {
-                plyr.cheats ^= CF_NOCLIP;
                 return true;
             }
         }

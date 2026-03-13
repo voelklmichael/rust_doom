@@ -259,14 +259,14 @@ pub use menu::{M_Init, M_Responder, M_Ticker, M_Drawer, M_StartControlPanel};
 | Module | Status | Implemented |
 |--------|--------|-------------|
 | **cheat.rs** | ✅ Full | CheatSeq, cht_CheckCheat, cht_GetParam |
-| **controls.rs** | Stub | Key globals; M_Bind* no-ops |
+| **controls.rs** | Partial | Key globals; M_BindBaseControls, M_BindWeaponControls, M_BindMapControls, M_BindMenuControls; m_sync_controls_to_config |
 | **st_lib.rs** | ✅ Full | StNumber, StPercent, StMultIcon, StBinIcon; stlib_init, stlib_update_* |
 | **hu_lib.rs** | ✅ Full | HuTextline, HuStext, HuItext; hulib_draw_*, hulib_erase_*, text manipulation |
 | **config.rs** | Partial | M_LoadDefaults (file I/O, -config/-extraconfig); M_SaveDefaults; M_SetConfigFilenames; variable store; M_BindVariable stub |
 | **hu_stuff.rs** | ✅ Full | HU_Init, HU_Start, HU_Drawer, HU_Erase, HU_Ticker, font loading |
-| **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip; Player wired |
-| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats (kills, items, secret, time); "Finished!" / "Entering" + level names; WILV/CWILV patches |
-| **menu.rs** | Partial | M_Init (syncs from config), m_set_screenblocks, m_set_detail_level; M_Drawer/M_Responder stubs |
+| **st_stuff.rs** | Partial | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip, idmus, idclev, idbehold*, idchoppers; Player wired |
+| **wi_stuff.rs** | Partial | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats (kills, items, secret, time); animated stat counting (sp_state 1–10); par time (WIPAR); wi_set_accelerate; "Finished!" / "Entering" + level names; WILV/CWILV patches |
+| **menu.rs** | Partial | M_Init, M_StartControlPanel (MENUACTIVE); M_Responder (escape open/close); m_set_screenblocks, m_set_detail_level; M_Drawer stub |
 
 ## Stub Strategy (Historical)
 
@@ -304,13 +304,13 @@ For initial scaffold:
 
 | Module | Remaining |
 |--------|-----------|
-| **st_stuff** | Full cheat handling (idmus, idclev, powerups); palette effects |
-| **wi_stuff** | Animated background; animated stat counting; par time display |
+| **st_stuff** | Palette effects |
+| **wi_stuff** | Animated background (WIA* patches); deathmatch/netgame stats |
 | **config** | M_BindVariable pointer binding (key/control sync) |
-| **menu** | M_Drawer (load menu patches, draw main/episode/skill menus); M_Responder (key handling, skull cursor); M_StartControlPanel |
-| **controls** | M_Bind* implementations; key binding from config |
+| **menu** | M_Drawer (load menu patches, draw main/episode/skill menus); full M_Responder (skull cursor, menu items) |
+| **controls** | M_BindHeretic/Hexen/Strife; full sync |
 
-**Done (this session):** config: M_LoadDefaults reads default.cfg (configdir + filename); M_SaveDefaults writes variables; M_SetConfigFilenames; -config/-extraconfig argv override;
+**Done (this session):** controls: M_BindMapControls (automap keys); KEY_MAP_* globals;
 
 ---
 
