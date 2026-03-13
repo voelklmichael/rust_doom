@@ -170,7 +170,7 @@ Rendering depends on (must exist or be stubbed):
 
 ## Progress
 
-### Completed (Phase 1–4)
+### Completed (Phase 1–5)
 - [x] **m_bbox** – M_ClearBox, M_AddToBox
 - [x] **v_patch** – patch_t, post_t, column_t
 - [x] **defs** – vertex_t, sector_t, line_t, seg_t, node_t, subsector_t, side_t, drawseg_t, vissprite_t, visplane_t, spritedef_t, etc.
@@ -178,8 +178,8 @@ Rendering depends on (must exist or be stubbed):
 - [x] **v_video** – stub (V_Init, V_DrawPatch, V_DrawBlock, etc. – no-op)
 - [x] **r_data** – R_InitData, R_PrecacheLevel, R_GetColumn, R_FlatNumForName, R_TextureNumForName, R_CheckTextureNumForName
 - [x] **r_sky** – R_InitSkyMap, skytexture, skytexturemid, SKYFLATNAME
+- [x] **r_main** – R_Init, R_RenderPlayerView, R_SetViewSize, R_PointToAngle, R_PointInSubsector, R_ScaleFromGlobalAngle, lighting LUTs
 
 ### Next Steps
-1. **r_main** – R_Init, R_RenderPlayerView, R_SetViewSize
-2. **r_bsp** – R_RenderBSPNode
-3. **r_segs** → **r_plane** → **r_things** → **r_draw**
+1. **r_bsp** – R_RenderBSPNode
+2. **r_segs** → **r_plane** → **r_things** → **r_draw**
