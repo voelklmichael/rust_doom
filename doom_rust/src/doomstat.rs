@@ -57,9 +57,30 @@ impl Default for Player {
     }
 }
 
-// Stub for wbstartstruct_t - intermission parameters.
+/// Intermission player stats (wbplayerstruct_t in C).
 #[derive(Debug, Clone, Copy, Default)]
-pub struct WbStartStruct;
+pub struct WbPlayerStruct {
+    pub in_game: i32,
+    pub kills: i32,
+    pub items: i32,
+    pub secret: i32,
+    pub time: i32,
+}
+
+/// Intermission parameters (wbstartstruct_t in C).
+#[derive(Debug, Clone, Default)]
+pub struct WbStartStruct {
+    /// Episode (0-based).
+    pub epsd: i32,
+    /// Last level completed (0-based).
+    pub last: i32,
+    /// Next level to enter (0-based).
+    pub next: i32,
+    /// Number of players.
+    pub pnum: i32,
+    /// Per-player stats.
+    pub plyr: [WbPlayerStruct; crate::doomdef::MAXPLAYERS],
+}
 
 // Command line parameters.
 pub static NOMONSTERS: AtomicI32 = AtomicI32::new(0);
@@ -149,7 +170,21 @@ pub static mut DEATHMATCHSTARTS: [MapThing; MAX_DM_STARTS] =
 pub static mut DEATHMATCH_P: *const MapThing = std::ptr::null();
 pub static mut PLAYERSTARTS: [MapThing; MAXPLAYERS] =
     [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAXPLAYERS];
-pub static mut WMINFO: WbStartStruct = WbStartStruct;
+const DEFAULT_WBPLAYER: WbPlayerStruct = WbPlayerStruct {
+    in_game: 0,
+    kills: 0,
+    items: 0,
+    secret: 0,
+    time: 0,
+};
+
+pub static mut WMINFO: WbStartStruct = WbStartStruct {
+    epsd: 0,
+    last: 0,
+    next: 0,
+    pnum: 0,
+    plyr: [DEFAULT_WBPLAYER; crate::doomdef::MAXPLAYERS],
+};
 
 pub static mut SAVEGAMEDIR: Option<String> = None;
 pub static mut BASEDEFAULT: [u8; 1024] = [0; 1024];
