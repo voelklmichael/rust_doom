@@ -7,11 +7,14 @@
 //
 // Original: p_maputl.c
 
-use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS};
-use crate::rendering::defs::{Line, SlopeType};
+use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
+use crate::rendering::defs::{Line, SlopeType, Subsector};
+use crate::rendering::{r_point_in_subsector, VALIDCOUNT};
+use crate::rendering::state;
 use crate::rendering::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 
-use super::Divline;
+use super::p_mobj::Mobj;
+use super::{Divline, Intercept, MAPBLOCKSHIFT, MAPBTOFRAC, PT_ADDTHINGS, PT_ADDLINES, PT_EARLYOUT};
 
 /// Gives an estimation of distance (not exact).
 /// Original: P_AproxDistance
@@ -296,5 +299,433 @@ pub fn p_line_opening(linedef: *const Line) {
     }
 }
 
-// TODO: P_BlockLinesIterator, P_BlockThingsIterator, P_PathTraverse,
-// P_UnsetThingPosition, P_SetThingPosition - require blockmap
+/// Call func for each line in block (x,y). Increment validcount before first call.
+/// Original: P_BlockLinesIterator
+pub fn p_block_lines_iterator<F>(x: i32, y: i32, mut func: F) -> bool
+where
+    F: FnMut(*mut Line) -> bool,
+{
+    let (bmapwidth, bmapheight, blockmap, blockmaplump, lines) = unsafe {
+        (
+            state::BMAPWIDTH,
+            state::BMAPHEIGHT,
+            state::BLOCKMAP,
+            state::BLOCKMAPLUMP,
+            state::LINES,
+        )
+    };
+    if x < 0 || y < 0 || x >= bmapwidth || y >= bmapheight {
+        return true;
+    }
+    if blockmap.is_null() || blockmaplump.is_null() || lines.is_null() {
+        return true;
+    }
+    let validcount = unsafe { VALIDCOUNT };
+    let offset_idx = (y * bmapwidth + x) as usize;
+    let offset = unsafe { *blockmap.add(offset_idx) } as usize;
+    let mut list = unsafe { blockmaplump.add(offset) };
+    loop {
+        let linedef_idx = unsafe { *list };
+        if linedef_idx == -1 {
+            break;
+        }
+        let ld = unsafe { lines.add(linedef_idx as usize) };
+        if unsafe { (*ld).validcount } == validcount {
+            list = unsafe { list.add(1) };
+            continue;
+        }
+        unsafe {
+            (*ld).validcount = validcount;
+        }
+        if !func(ld) {
+            return false;
+        }
+        list = unsafe { list.add(1) };
+    }
+    true
+}
+
+/// Call func for each thing in block (x,y). Original: P_BlockThingsIterator
+pub fn p_block_things_iterator<F>(x: i32, y: i32, mut func: F) -> bool
+where
+    F: FnMut(*mut Mobj) -> bool,
+{
+    let (bmapwidth, bmapheight, blocklinks) = unsafe {
+        (
+            state::BMAPWIDTH,
+            state::BMAPHEIGHT,
+            state::BLOCKLINKS,
+        )
+    };
+    if x < 0 || y < 0 || x >= bmapwidth || y >= bmapheight {
+        return true;
+    }
+    if blocklinks.is_null() {
+        return true;
+    }
+    let idx = (y * bmapwidth + x) as usize;
+    let mut mobj = unsafe { *(blocklinks as *mut *mut Mobj).add(idx) };
+    while !mobj.is_null() {
+        let next = unsafe { (*mobj).bnext };
+        if !func(mobj) {
+            return false;
+        }
+        mobj = next;
+    }
+    true
+}
+
+/// Unlink thing from sector and blockmap. Original: P_UnsetThingPosition
+pub fn p_unset_thing_position(thing: *mut Mobj) {
+    if thing.is_null() {
+        return;
+    }
+    let flags = unsafe { (*thing).flags };
+    if flags & super::p_mobj::MF_NOSECTOR == 0 {
+        let snext = unsafe { (*thing).snext };
+        let sprev = unsafe { (*thing).sprev };
+        if !snext.is_null() {
+            unsafe { (*snext).sprev = sprev };
+        }
+        if !sprev.is_null() {
+            unsafe { (*sprev).snext = snext };
+        } else {
+            let subsector = unsafe { (*thing).subsector } as *mut Subsector;
+            if !subsector.is_null() {
+                let sector = unsafe { (*subsector).sector };
+                if !sector.is_null() {
+                    unsafe { (*sector).thinglist = snext };
+                }
+            }
+        }
+    }
+    if flags & super::p_mobj::MF_NOBLOCKMAP == 0 {
+        let bnext = unsafe { (*thing).bnext };
+        let bprev = unsafe { (*thing).bprev };
+        if !bnext.is_null() {
+            unsafe { (*bnext).bprev = bprev };
+        }
+        if !bprev.is_null() {
+            unsafe { (*bprev).bnext = bnext };
+        } else {
+            let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = unsafe {
+                (
+                    state::BMAPORGX,
+                    state::BMAPORGY,
+                    state::BMAPWIDTH,
+                    state::BMAPHEIGHT,
+                    state::BLOCKLINKS,
+                )
+            };
+            let blockx = (unsafe { (*thing).x } - bmaporgx) >> MAPBLOCKSHIFT;
+            let blocky = (unsafe { (*thing).y } - bmaporgy) >> MAPBLOCKSHIFT;
+            if blockx >= 0 && blockx < bmapwidth && blocky >= 0 && blocky < bmapheight {
+                let idx = (blocky * bmapwidth + blockx) as usize;
+                unsafe {
+                    *((blocklinks as *mut *mut Mobj).add(idx)) = bnext;
+                }
+            }
+        }
+    }
+}
+
+/// Link thing into sector and blockmap. Original: P_SetThingPosition
+pub fn p_set_thing_position(thing: *mut Mobj) {
+    if thing.is_null() {
+        return;
+    }
+    let ss = r_point_in_subsector(unsafe { (*thing).x }, unsafe { (*thing).y });
+    unsafe {
+        (*thing).subsector = ss as *mut std::ffi::c_void;
+    }
+    let flags = unsafe { (*thing).flags };
+    if flags & super::p_mobj::MF_NOSECTOR == 0 {
+        let sec = unsafe { (*ss).sector };
+        if !sec.is_null() {
+            unsafe {
+                (*thing).sprev = std::ptr::null_mut();
+                (*thing).snext = (*sec).thinglist;
+                if !(*sec).thinglist.is_null() {
+                    (*(*sec).thinglist).sprev = thing;
+                }
+                (*sec).thinglist = thing;
+            }
+        }
+    }
+    if flags & super::p_mobj::MF_NOBLOCKMAP == 0 {
+        let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = unsafe {
+            (
+                state::BMAPORGX,
+                state::BMAPORGY,
+                state::BMAPWIDTH,
+                state::BMAPHEIGHT,
+                state::BLOCKLINKS,
+            )
+        };
+        let blockx = (unsafe { (*thing).x } - bmaporgx) >> MAPBLOCKSHIFT;
+        let blocky = (unsafe { (*thing).y } - bmaporgy) >> MAPBLOCKSHIFT;
+        if blockx >= 0 && blockx < bmapwidth && blocky >= 0 && blocky < bmapheight {
+            let idx = (blocky * bmapwidth + blockx) as usize;
+            let link = unsafe { (blocklinks as *mut *mut Mobj).add(idx) };
+            unsafe {
+                (*thing).bprev = std::ptr::null_mut();
+                (*thing).bnext = *link;
+                if !(*link).is_null() {
+                    (*(*link)).bprev = thing;
+                }
+                *link = thing;
+            }
+        } else {
+            unsafe {
+                (*thing).bnext = std::ptr::null_mut();
+                (*thing).bprev = std::ptr::null_mut();
+            }
+        }
+    }
+}
+
+// =============================================================================
+// P_PathTraverse - intercept collection and traversal
+// =============================================================================
+
+static mut INTERCEPTS: [Intercept; super::MAXINTERCEPTS] = [Intercept {
+    frac: 0,
+    isaline: false,
+    line: std::ptr::null_mut(),
+    thing: std::ptr::null_mut(),
+}; super::MAXINTERCEPTS];
+static mut INTERCEPT_P: usize = 0;
+static mut TRACE: Divline = Divline {
+    x: 0,
+    y: 0,
+    dx: 0,
+    dy: 0,
+};
+static mut EARLYOUT: bool = false;
+
+/// Add line intercepts from block. Original: PIT_AddLineIntercepts
+fn pit_add_line_intercepts(ld: *mut Line) -> bool {
+    if ld.is_null() {
+        return true;
+    }
+    let (s1, s2) = unsafe {
+        let (trace_dx, trace_dy) = (TRACE.dx, TRACE.dy);
+        if trace_dx > FRACUNIT * 16
+            || trace_dy > FRACUNIT * 16
+            || trace_dx < -FRACUNIT * 16
+            || trace_dy < -FRACUNIT * 16
+        {
+            let v1_x = (*(*ld).v1).x;
+            let v1_y = (*(*ld).v1).y;
+            let v2_x = (*(*ld).v2).x;
+            let v2_y = (*(*ld).v2).y;
+            (
+                p_point_on_divline_side(v1_x, v1_y, &TRACE),
+                p_point_on_divline_side(v2_x, v2_y, &TRACE),
+            )
+        } else {
+            (
+                p_point_on_line_side(TRACE.x, TRACE.y, ld),
+                p_point_on_line_side(TRACE.x + TRACE.dx, TRACE.y + TRACE.dy, ld),
+            )
+        }
+    };
+    if s1 == s2 {
+        return true;
+    }
+    let mut dl = Divline { x: 0, y: 0, dx: 0, dy: 0 };
+    p_make_divline(ld, &mut dl);
+    let frac = unsafe { p_intercept_vector(&TRACE, &dl) };
+    if frac < 0 {
+        return true;
+    }
+    if unsafe { EARLYOUT } && frac < FRACUNIT && unsafe { (*ld).backsector.is_null() } {
+        return false;
+    }
+    let p = unsafe { INTERCEPT_P };
+    if p >= super::MAXINTERCEPTS {
+        return true;
+    }
+    unsafe {
+        INTERCEPTS[p].frac = frac;
+        INTERCEPTS[p].isaline = true;
+        INTERCEPTS[p].line = ld;
+        INTERCEPTS[p].thing = std::ptr::null_mut();
+        INTERCEPT_P += 1;
+    }
+    true
+}
+
+/// Add thing intercepts from block. Original: PIT_AddThingIntercepts
+fn pit_add_thing_intercepts(thing: *mut Mobj) -> bool {
+    if thing.is_null() {
+        return true;
+    }
+    let (x, y, radius) = unsafe { ((*thing).x, (*thing).y, (*thing).radius) };
+    let tracepositive = (unsafe { TRACE.dx } ^ unsafe { TRACE.dy }) > 0;
+    let (x1, y1, x2, y2) = if tracepositive {
+        (x - radius, y + radius, x + radius, y - radius)
+    } else {
+        (x - radius, y - radius, x + radius, y + radius)
+    };
+    let (s1, s2) = unsafe {
+        (
+            p_point_on_divline_side(x1, y1, &TRACE),
+            p_point_on_divline_side(x2, y2, &TRACE),
+        )
+    };
+    if s1 == s2 {
+        return true;
+    }
+    let dl = Divline {
+        x: x1,
+        y: y1,
+        dx: x2 - x1,
+        dy: y2 - y1,
+    };
+    let frac = unsafe { p_intercept_vector(&TRACE, &dl) };
+    if frac < 0 {
+        return true;
+    }
+    let p = unsafe { INTERCEPT_P };
+    if p >= super::MAXINTERCEPTS {
+        return true;
+    }
+    unsafe {
+        INTERCEPTS[p].frac = frac;
+        INTERCEPTS[p].isaline = false;
+        INTERCEPTS[p].line = std::ptr::null_mut();
+        INTERCEPTS[p].thing = thing;
+        INTERCEPT_P += 1;
+    }
+    true
+}
+
+/// Traverse intercepts in order, call trav for each. Original: P_TraverseIntercepts
+fn p_traverse_intercepts<F>(trav: &mut F, maxfrac: Fixed) -> bool
+where
+    F: FnMut(&mut Intercept) -> bool,
+{
+    let count = unsafe { INTERCEPT_P };
+    if count == 0 {
+        return true;
+    }
+    let mut remaining = count;
+    while remaining > 0 {
+        let mut dist = i32::MAX;
+        let mut in_idx = 0;
+        for i in 0..count {
+            let frac = unsafe { INTERCEPTS[i].frac };
+            if frac < dist {
+                dist = frac;
+                in_idx = i;
+            }
+        }
+        if dist > maxfrac {
+            return true;
+        }
+        if !trav(unsafe { &mut INTERCEPTS[in_idx] }) {
+            return false;
+        }
+        unsafe {
+            INTERCEPTS[in_idx].frac = i32::MAX;
+        }
+        remaining -= 1;
+    }
+    true
+}
+
+/// Trace path from (x1,y1) to (x2,y2), call trav for each intercept.
+/// Original: P_PathTraverse
+pub fn p_path_traverse<F>(x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed, flags: i32, mut trav: F) -> bool
+where
+    F: FnMut(&mut Intercept) -> bool,
+{
+    unsafe {
+        VALIDCOUNT += 1;
+        INTERCEPT_P = 0;
+        EARLYOUT = (flags & PT_EARLYOUT) != 0;
+    }
+    let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = unsafe {
+        (
+            state::BMAPORGX,
+            state::BMAPORGY,
+            state::BMAPWIDTH,
+            state::BMAPHEIGHT,
+        )
+    };
+    let mut x1 = x1;
+    let mut y1 = y1;
+    if ((x1 - bmaporgx) & (super::MAPBMASK as i32)) == 0 {
+        x1 += FRACUNIT;
+    }
+    if ((y1 - bmaporgy) & (super::MAPBMASK as i32)) == 0 {
+        y1 += FRACUNIT;
+    }
+    unsafe {
+        TRACE.x = x1;
+        TRACE.y = y1;
+        TRACE.dx = x2 - x1;
+        TRACE.dy = y2 - y1;
+    }
+    let x1_off = x1 - bmaporgx;
+    let y1_off = y1 - bmaporgy;
+    let xt1 = x1_off >> MAPBLOCKSHIFT;
+    let yt1 = y1_off >> MAPBLOCKSHIFT;
+    let x2_off = x2 - bmaporgx;
+    let y2_off = y2 - bmaporgy;
+    let xt2 = x2_off >> MAPBLOCKSHIFT;
+    let yt2 = y2_off >> MAPBLOCKSHIFT;
+
+    let (mapxstep, partial_x, ystep) = if xt2 > xt1 {
+        let partial = FRACUNIT - ((x1_off >> MAPBTOFRAC) & (FRACUNIT - 1));
+        let ystep = fixed_div(y2_off - y1_off, (x2_off - x1_off).abs());
+        (1, partial, ystep)
+    } else if xt2 < xt1 {
+        let partial = (x1_off >> MAPBTOFRAC) & (FRACUNIT - 1);
+        let ystep = fixed_div(y2_off - y1_off, (x2_off - x1_off).abs());
+        (-1, partial, ystep)
+    } else {
+        (0, FRACUNIT, 256 * FRACUNIT)
+    };
+    let mut yintercept = (y1_off >> MAPBTOFRAC) + fixed_mul(partial_x, ystep);
+
+    let (mapystep, partial_y, xstep) = if yt2 > yt1 {
+        let partial = FRACUNIT - ((y1_off >> MAPBTOFRAC) & (FRACUNIT - 1));
+        let xstep = fixed_div(x2_off - x1_off, (y2_off - y1_off).abs());
+        (1, partial, xstep)
+    } else if yt2 < yt1 {
+        let partial = (y1_off >> MAPBTOFRAC) & (FRACUNIT - 1);
+        let xstep = fixed_div(x2_off - x1_off, (y2_off - y1_off).abs());
+        (-1, partial, xstep)
+    } else {
+        (0, FRACUNIT, 256 * FRACUNIT)
+    };
+    let mut xintercept = (x1_off >> MAPBTOFRAC) + fixed_mul(partial_y, xstep);
+
+    let mut mapx = xt1;
+    let mut mapy = yt1;
+    for _count in 0..64 {
+        if (flags & PT_ADDLINES) != 0 {
+            if !p_block_lines_iterator(mapx, mapy, pit_add_line_intercepts) {
+                return false;
+            }
+        }
+        if (flags & PT_ADDTHINGS) != 0 {
+            if !p_block_things_iterator(mapx, mapy, pit_add_thing_intercepts) {
+                return false;
+            }
+        }
+        if mapx == xt2 && mapy == yt2 {
+            break;
+        }
+        if (yintercept >> FRACBITS) == mapy {
+            yintercept += ystep;
+            mapx += mapxstep;
+        } else if (xintercept >> FRACBITS) == mapx {
+            xintercept += xstep;
+            mapy += mapystep;
+        }
+    }
+    p_traverse_intercepts(&mut trav, FRACUNIT)
+}

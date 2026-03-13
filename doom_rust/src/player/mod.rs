@@ -44,8 +44,15 @@ pub const MAPBLOCKUNITS: i32 = 128;
 pub const MAPBLOCKSIZE: Fixed = (MAPBLOCKUNITS as Fixed) * FRACUNIT;
 /// MAPBLOCKSHIFT - shift to convert to block index.
 pub const MAPBLOCKSHIFT: i32 = FRACBITS + 7;
+/// MAPBTOFRAC - fractional position within block (for P_PathTraverse).
+pub const MAPBTOFRAC: i32 = MAPBLOCKSHIFT - FRACBITS;
 /// MAPBMASK - mask for block alignment.
 pub const MAPBMASK: Fixed = MAPBLOCKSIZE - 1;
+
+/// P_PathTraverse flags.
+pub const PT_ADDLINES: i32 = 1;
+pub const PT_ADDTHINGS: i32 = 2;
+pub const PT_EARLYOUT: i32 = 4;
 
 /// PLAYERRADIUS - player radius for movement checking.
 pub const PLAYERRADIUS: Fixed = 16 * FRACUNIT;
@@ -84,3 +91,15 @@ pub struct Divline {
     pub dx: Fixed,
     pub dy: Fixed,
 }
+
+/// Intercept - one line or thing crossed along a trace.
+#[derive(Clone, Copy)]
+pub struct Intercept {
+    pub frac: Fixed,
+    pub isaline: bool,
+    pub line: *mut crate::rendering::defs::Line,
+    pub thing: *mut crate::player::p_mobj::Mobj,
+}
+
+/// Max intercepts (original Doom had 128; we use 128+61 for overrun safety).
+pub const MAXINTERCEPTS: usize = 189;

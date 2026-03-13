@@ -35,7 +35,7 @@ pub use r_main::{
     r_add_point_to_box, r_init, r_point_in_subsector, r_point_on_seg_side, r_point_on_side,
     r_point_to_angle, r_point_to_angle2, r_point_to_dist, r_render_player_view,
     r_scale_from_global_angle, r_set_view_size, r_setup_frame, ViewPlayerStub,
-    LIGHTLEVELS, MAXLIGHTSCALE, MAXLIGHTZ, NF_SUBSECTOR, NUMCOLORMAPS,
+    LIGHTLEVELS, MAXLIGHTSCALE, MAXLIGHTZ, NF_SUBSECTOR, NUMCOLORMAPS, VALIDCOUNT,
 };
 pub use r_data::{
     r_check_flat_num_for_name, r_check_texture_num_for_name, r_flat_num_for_name, r_get_column,
