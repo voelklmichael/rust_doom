@@ -50,6 +50,7 @@ These modules have been ported from C with full or near-full functionality.
 | ↳ d_main | d_main.h/c | D_ProcessEvents, GAMEACTION |
 | ↳ d_loop | d_loop.h/c | TryRunTics, LoopInterface |
 | ↳ g_game | g_game.h/c | G_Ticker, G_Responder, G_BuildTiccmd |
+| ↳ dstrings | dstrings.h/c, d_englsh.h | SAVEGAMENAME, quit messages, save/load prompts |
 | **i_timer** | i_timer.h/c | i_get_time, i_sleep, i_init_timer |
 | **rendering/** | | Scene rendering (BSP, visplanes, sprites) |
 | ↳ defs | r_defs.h | vertex_t, sector_t, line_t, seg_t, node_t, subsector_t, etc. |
@@ -106,7 +107,6 @@ C modules with no Rust equivalent yet.
 | d_main (stub) | D_ProcessEvents, gameaction; D_DoomMain not ported |
 | d_loop (stub) | TryRunTics, LoopInterface; netgame not ported |
 | d_net | Networking |
-| dstrings | Game strings |
 | g_game (stub) | G_Ticker, G_Responder, G_BuildTiccmd; full logic not ported |
 
 ### UI / HUD

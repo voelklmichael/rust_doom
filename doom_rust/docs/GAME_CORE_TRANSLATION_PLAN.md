@@ -16,7 +16,7 @@ Plan for porting the next set of C modules that unblock the player module and en
 | **Phase 2** | Partial | d_items done; info not started |
 | **Phase 3** | ✅ Done | i_timer, doomdef extension |
 | **Phase 4** | ✅ Done | d_main, d_loop, g_game (stubs) |
-| **Phase 5** | Not started | dstrings (optional) |
+| **Phase 5** | ✅ Done | dstrings |
 
 ---
 
@@ -185,7 +185,6 @@ Check existing `doomdef.rs`; add `gameaction_t`, `gamestate_t` if missing.
 
 | Module | Purpose | When |
 |--------|---------|------|
-| dstrings | Game strings (save/load prompts) | When G_LoadGame, G_SaveGame needed |
 | Blockmap in p_setup | P_BlockLinesIterator, P_BlockThingsIterator | When p_map needs collision |
 | deh_* | DeHackEd | When mod support needed |
 | i_input | Keyboard/mouse → events | When D_ProcessEvents needs real input |

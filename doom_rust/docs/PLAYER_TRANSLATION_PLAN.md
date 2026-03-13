@@ -168,7 +168,7 @@ These must exist or be stubbed before player:
 | 17 | **p_pspr.rs** | p_local, s_sound, deh_misc | Player weapon sprites. ✅ Psprnum, Pspdef, P_SetupPsprites, P_MovePsprites, P_DropWeapon stubs |
 | 18 | **p_user.rs** | p_local, d_event, doomstat | P_PlayerThink. ✅ P_PlayerThink stub, INVERSECOLORMAP, MAXBOB |
 | 19 | **p_enemy.rs** | p_local, g_game, s_sound | P_NoiseAlert, monster AI. ✅ P_NoiseAlert stub |
-| 20 | **p_saveg.rs** | p_local, g_game, dstrings | Save/load game. ✅ SAVESTRINGSIZE, file API stubs |
+| 20 | **p_saveg.rs** | p_local, g_game, dstrings | Save/load game. ✅ SAVESTRINGSIZE, SAVEGAMENAME from dstrings |
 
 ---
 

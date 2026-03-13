@@ -12,14 +12,12 @@ pub const SAVESTRINGSIZE: usize = 24;
 
 /// Temporary filename while saving. Original: P_TempSaveGameFile
 pub fn p_temp_save_game_file() -> String {
-    // TODO: require dstrings, platform path
-    "doomsav".to_string()
+    crate::game::dstrings::SAVEGAMENAME.to_string()
 }
 
 /// Filename for save slot. Original: P_SaveGameFile
 pub fn p_save_game_file(_slot: i32) -> String {
-    // TODO: require dstrings
-    "doomsav".to_string()
+    crate::game::dstrings::SAVEGAMENAME.to_string()
 }
 
 /// Read savegame header. Original: P_ReadSaveGameHeader

@@ -3,6 +3,7 @@
 //! Original: d_*.h/c, g_game.h/c
 
 pub mod d_event;
+pub mod dstrings;
 pub mod d_iwad;
 pub mod d_items;
 pub mod d_loop;
