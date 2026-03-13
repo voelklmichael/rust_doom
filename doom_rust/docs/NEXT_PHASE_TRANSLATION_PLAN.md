@@ -6,7 +6,7 @@ Plan for the next set of C modules to port. Focus: unblock player physics (p_map
 
 **Current state:** Game loop (d_think, d_event, d_items, d_main, d_loop, g_game), dstrings, rendering, WAD, sound, zone are done. Player module is scaffolded; p_map, p_sight, p_mobj need info and blockmap.
 
-**Completed:** deh_* stubs, doomkeys, info (minimal types + tables: State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD), blockmap in p_setup (P_LoadBlockMap, P_GroupLines, sector.lines, blocklinks, BMAPORGX/Y/WIDTH/HEIGHT), p_maputl (P_BlockLinesIterator, P_BlockThingsIterator, P_PathTraverse, P_SetThingPosition, P_UnsetThingPosition). Mobj extended with bnext, bprev, sprev, subsector, radius, height.
+**Completed:** deh_* stubs, doomkeys, info (minimal types + tables: State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD), blockmap in p_setup (P_LoadBlockMap, P_GroupLines, sector.lines, blocklinks, line bbox), p_maputl (P_BlockLinesIterator, P_BlockThingsIterator, P_PathTraverse, P_SetThingPosition, P_UnsetThingPosition), p_map (P_CheckPosition, P_TryMove, P_TeleportMove, P_SlideMove). Mobj extended with floorz, ceilingz, momx, momy, momz, bnext, bprev, sprev, subsector, radius, height.
 
 ---
 

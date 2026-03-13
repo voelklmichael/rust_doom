@@ -34,6 +34,12 @@ pub fn get_next_sector(line: *const Line, sec: *const Sector) -> *mut Sector {
     }
 }
 
+/// Called when thing crosses a special line. Stub - no-op until g_game integration.
+/// Original: P_CrossSpecialLine
+pub fn p_cross_special_line(_line_index: i32, _oldside: i32, _thing: *mut crate::player::p_mobj::Mobj) {
+    // TODO: require g_game, process line specials
+}
+
 // TODO: twoSided, getSector, getSide - require sector.lines array (populated in full p_setup)
 // TODO: P_InitPicAnims, P_SpawnSpecials, P_UpdateSpecials - require animdefs, w_wad
 // TODO: P_UseSpecialLine, P_ShootSpecialLine, P_CrossSpecialLine - require g_game

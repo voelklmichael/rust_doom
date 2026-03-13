@@ -214,15 +214,24 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
             ptr::null_mut()
         };
 
-        let (dx, dy) = if !v1.is_null() && !v2.is_null() {
+        let (dx, dy, bbox) = if !v1.is_null() && !v2.is_null() {
             unsafe {
+                let v1x = (*v1).x;
+                let v1y = (*v1).y;
+                let v2x = (*v2).x;
+                let v2y = (*v2).y;
+                let left = v1x.min(v2x);
+                let right = v1x.max(v2x);
+                let bottom = v1y.min(v2y);
+                let top = v1y.max(v2y);
                 (
-                    (*v2).x - (*v1).x,
-                    (*v2).y - (*v1).y,
+                    v2x - v1x,
+                    v2y - v1y,
+                    [top, bottom, left, right], // BOXTOP, BOXBOTTOM, BOXLEFT, BOXRIGHT
                 )
             }
         } else {
-            (0, 0)
+            (0, 0, [0, 0, 0, 0])
         };
 
         let slopetype = if dy == 0 {
@@ -267,7 +276,7 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
             (*line).special = special;
             (*line).tag = tag;
             (*line).sidenum = [sidenum0, sidenum1];
-            (*line).bbox = [0, 0, 0, 0];
+            (*line).bbox = bbox;
             (*line).slopetype = slopetype;
             (*line).frontsector = frontsector;
             (*line).backsector = backsector;
