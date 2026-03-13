@@ -11,10 +11,15 @@ use std::sync::atomic::AtomicI32;
 
 use crate::game::d_mode::{GameMission, GameMode, GameVersion, Skill};
 use crate::doomdata::MapThing;
-use crate::doomdef::{Gamestate, MAXPLAYERS};
+use crate::doomdef::{Gamestate, MAXPLAYERS, NUMAMMO, NUMCARDS, NUMWEAPONS, Weapontype};
 use crate::doomtype::Boolean;
 use crate::game::d_ticcmd::Ticcmd;
 use crate::m_fixed::Fixed;
+
+/// Cheat flags (cheat_t in d_player.h).
+pub const CF_NOCLIP: i32 = 1;
+pub const CF_GODMODE: i32 = 2;
+pub const CF_NOMOMENTUM: i32 = 4;
 
 /// Player state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -41,6 +46,31 @@ pub struct Player {
     pub extralight: i32,
     pub fixedcolormap: i32,
     pub health: i32,
+    /// Armor points (0–200).
+    pub armorpoints: i32,
+    /// Armor type: 0=green, 1=blue, 2=blue.
+    pub armortype: i32,
+    /// Power-up tic counters (invuln, strength, invis, etc.).
+    pub powers: [i32; crate::doomdef::NUMPOWERS],
+    /// Key cards owned.
+    pub cards: [bool; NUMCARDS],
+    pub backpack: bool,
+    /// Frags in deathmatch.
+    pub frags: [i32; MAXPLAYERS],
+    /// Currently equipped weapon.
+    pub readyweapon: Weapontype,
+    /// Pending weapon change (WP_NOCHANGE if none).
+    pub pendingweapon: Weapontype,
+    /// Weapons owned.
+    pub weaponowned: [bool; NUMWEAPONS],
+    /// Ammo counts per type.
+    pub ammo: [i32; NUMAMMO],
+    /// Max ammo per type.
+    pub maxammo: [i32; NUMAMMO],
+    /// Cheat flags (CF_*).
+    pub cheats: i32,
+    /// Hint message (e.g. "Picked up the armor").
+    pub message: Option<String>,
 }
 
 impl Default for Player {
@@ -53,6 +83,29 @@ impl Default for Player {
             extralight: 0,
             fixedcolormap: 0,
             health: 100,
+            armorpoints: 0,
+            armortype: 0,
+            powers: [0; crate::doomdef::NUMPOWERS],
+            cards: [false; NUMCARDS],
+            backpack: false,
+            frags: [0; MAXPLAYERS],
+            readyweapon: Weapontype::Pistol,
+            pendingweapon: Weapontype::Pistol,
+            weaponowned: [
+                true,  // fist
+                true,  // pistol
+                false, // shotgun
+                false, // chaingun
+                false, // missile
+                false, // plasma
+                false, // bfg
+                false, // chainsaw
+                false, // supershotgun
+            ],
+            ammo: [50, 0, 0, 0],  // 50 bullets, no shells/cells/missiles
+            maxammo: [200, 50, 300, 50],
+            cheats: 0,
+            message: None,
         }
     }
 }
@@ -161,6 +214,21 @@ const DEFAULT_PLAYER: Player = Player {
     extralight: 0,
     fixedcolormap: 0,
     health: 100,
+    armorpoints: 0,
+    armortype: 0,
+    powers: [0; crate::doomdef::NUMPOWERS],
+    cards: [false; NUMCARDS],
+    backpack: false,
+    frags: [0; MAXPLAYERS],
+    readyweapon: Weapontype::Pistol,
+    pendingweapon: Weapontype::Pistol,
+    weaponowned: [
+        true, false, false, false, false, false, false, false, false,
+    ],
+    ammo: [50, 0, 0, 0],
+    maxammo: [200, 50, 300, 50],
+    cheats: 0,
+    message: None,
 };
 
 pub static mut PLAYERS: [Player; MAXPLAYERS] = [DEFAULT_PLAYER; MAXPLAYERS];

@@ -26,15 +26,12 @@ pub fn g_player_reborn(player: usize) {
     }
     unsafe {
         let p = &mut PLAYERS[player];
-        *p = Player {
-            mo: std::ptr::null_mut(),
-            playerstate: PlayerState::Live,
-            viewz: 0,
-            viewheight: crate::player::VIEWHEIGHT,
-            extralight: 0,
-            fixedcolormap: 0,
-            health: DEH_DEFAULT_INITIAL_HEALTH,
-        };
+        let mut pl = Player::default();
+        pl.mo = std::ptr::null_mut();
+        pl.playerstate = PlayerState::Live;
+        pl.viewheight = crate::player::VIEWHEIGHT;
+        pl.health = DEH_DEFAULT_INITIAL_HEALTH;
+        *p = pl;
     }
 }
 

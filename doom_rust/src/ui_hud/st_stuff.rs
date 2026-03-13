@@ -6,13 +6,17 @@
 // Original: st_stuff.h + st_stuff.c
 
 use crate::deh::deh_string;
-use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
-use crate::doomstat::{CONSOLEPLAYER, PLAYERS};
+use crate::doomdef::{Ammotype, SCREENHEIGHT, SCREENWIDTH};
+use crate::doomstat::{CF_GODMODE, CF_NOCLIP, CONSOLEPLAYER, PLAYERS};
 use crate::doomtype::Boolean;
 use crate::game::d_event::Event;
+use crate::game::d_items::WEAPONINFO;
 use crate::rendering::{v_copy_rect, v_draw_patch, v_restore_buffer, v_use_buffer};
 use crate::ui_hud::cheat::{cht_check_cheat, CheatSeq};
-use crate::ui_hud::st_lib::{stlib_init, stlib_init_percent, stlib_update_percent, StNumber, StPercent};
+use crate::ui_hud::st_lib::{
+    stlib_init, stlib_init_num, stlib_init_percent, stlib_update_num, stlib_update_percent,
+    StNumber, StPercent,
+};
 use crate::wad::w_cache_lump_name;
 use crate::z_zone::{z_malloc, PU_STATIC};
 use std::ptr;
@@ -79,9 +83,8 @@ static mut ST_OLDHEALTH: i32 = -1;
 static mut ST_FACEINDEX: i32 = 0;
 static mut ST_STOPPED: bool = true;
 
-// Dummy values for widgets until Player has full fields
-static mut ST_DUMMY_ARMOR: i32 = 0;
-static mut ST_DUMMY_AMMO: i32 = 0;
+/// N/A display for weapons with no ammo (fist, chainsaw).
+static mut LARGE_AMMO: i32 = 1994;
 
 static mut W_HEALTH: StPercent = StPercent {
     n: StNumber {
@@ -109,6 +112,18 @@ static mut W_ARMOR: StPercent = StPercent {
         data: 0,
     },
     p: ptr::null_mut(),
+};
+
+/// Ready weapon ammo display.
+static mut W_READY: StNumber = StNumber {
+    x: 0,
+    y: 0,
+    width: 0,
+    oldnum: 0,
+    num: ptr::null_mut(),
+    on: ptr::null_mut(),
+    p: ptr::null_mut(),
+    data: 0,
 };
 
 // =============================================================================
@@ -149,6 +164,18 @@ fn st_create_widgets() {
         let idx = CONSOLEPLAYER as usize;
         let plyr = &mut PLAYERS[idx];
         let health_ptr = &mut plyr.health as *mut i32;
+        let armor_ptr = &mut plyr.armorpoints as *mut i32;
+
+        // Ready weapon ammo (pointer updated each tick in st_update_widgets)
+        stlib_init_num(
+            &mut W_READY,
+            ST_AMMOX,
+            ST_AMMOY,
+            TALLNUM.as_mut_ptr(),
+            &mut plyr.ammo[0] as *mut i32,
+            &mut ST_STATUSBARON,
+            ST_AMMOWIDTH,
+        );
 
         stlib_init_percent(
             &mut W_HEALTH,
@@ -165,10 +192,27 @@ fn st_create_widgets() {
             ST_ARMORX,
             ST_ARMORY,
             TALLNUM.as_mut_ptr(),
-            &mut ST_DUMMY_ARMOR,
+            armor_ptr,
             &mut ST_STATUSBARON,
             TALLPERCENT,
         );
+    }
+}
+
+/// Update widget pointers (ammo type for ready weapon, etc.). Called from st_ticker.
+fn st_update_widgets() {
+    unsafe {
+        let idx = CONSOLEPLAYER as usize;
+        let plyr = &mut PLAYERS[idx];
+        let weapon = plyr.readyweapon as usize;
+        let ammo_type = WEAPONINFO[weapon].ammo;
+
+        if ammo_type == Ammotype::Noammo {
+            W_READY.num = &mut LARGE_AMMO as *mut i32;
+        } else {
+            let ammo_idx = ammo_type as usize;
+            W_READY.num = &mut plyr.ammo[ammo_idx] as *mut i32;
+        }
     }
 }
 
@@ -190,6 +234,7 @@ fn st_draw_widgets(refresh: bool) {
         if backing.is_null() {
             return;
         }
+        stlib_update_num(&mut W_READY, refresh, backing, ST_Y);
         stlib_update_percent(&mut W_HEALTH, refresh, backing, ST_Y);
         stlib_update_percent(&mut W_ARMOR, refresh, backing, ST_Y);
     }
@@ -224,14 +269,52 @@ pub fn st_start() {
 }
 
 pub fn st_responder(ev: &Event) -> Boolean {
+    use crate::deh::misc::{
+        DEH_DEFAULT_GOD_MODE_HEALTH, DEH_DEFAULT_IDFA_ARMOR, DEH_DEFAULT_IDFA_ARMOR_CLASS,
+        DEH_DEFAULT_IDKFA_ARMOR, DEH_DEFAULT_IDKFA_ARMOR_CLASS,
+    };
+    use crate::doomdef::{NUMAMMO, NUMCARDS, NUMWEAPONS};
     use crate::game::d_event::EvType;
     unsafe {
         if ev.ev_type == EvType::KeyDown {
             let idx = CONSOLEPLAYER as usize;
             let plyr = &mut PLAYERS[idx];
             if cht_check_cheat(&mut CHEAT_GOD, ev.data2 as u8) {
-                // Toggle god mode - stub: just set message
-                plyr.health = 100;
+                plyr.cheats ^= CF_GODMODE;
+                if (plyr.cheats & CF_GODMODE) != 0 {
+                    plyr.health = DEH_DEFAULT_GOD_MODE_HEALTH;
+                }
+                return true;
+            }
+            if cht_check_cheat(&mut CHEAT_AMMONOKEY, ev.data2 as u8) {
+                // idfa: full ammo, all weapons, no keys
+                plyr.armorpoints = DEH_DEFAULT_IDFA_ARMOR;
+                plyr.armortype = DEH_DEFAULT_IDFA_ARMOR_CLASS;
+                for i in 0..NUMWEAPONS {
+                    plyr.weaponowned[i] = true;
+                }
+                for i in 0..NUMAMMO {
+                    plyr.ammo[i] = plyr.maxammo[i];
+                }
+                return true;
+            }
+            if cht_check_cheat(&mut CHEAT_AMMO, ev.data2 as u8) {
+                // idkfa: full ammo, all weapons, all keys
+                plyr.armorpoints = DEH_DEFAULT_IDKFA_ARMOR;
+                plyr.armortype = DEH_DEFAULT_IDKFA_ARMOR_CLASS;
+                for i in 0..NUMWEAPONS {
+                    plyr.weaponowned[i] = true;
+                }
+                for i in 0..NUMAMMO {
+                    plyr.ammo[i] = plyr.maxammo[i];
+                }
+                for i in 0..NUMCARDS {
+                    plyr.cards[i] = true;
+                }
+                return true;
+            }
+            if cht_check_cheat(&mut CHEAT_NOCLIP, ev.data2 as u8) {
+                plyr.cheats ^= CF_NOCLIP;
                 return true;
             }
         }
@@ -240,6 +323,7 @@ pub fn st_responder(ev: &Event) -> Boolean {
 }
 
 pub fn st_ticker() {
+    st_update_widgets();
     unsafe {
         ST_CLOCK = ST_CLOCK.wrapping_add(1);
         let idx = CONSOLEPLAYER as usize;
