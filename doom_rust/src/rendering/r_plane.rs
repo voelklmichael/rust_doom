@@ -35,12 +35,15 @@ const PLANE_SENTINEL: u8 = 0xff;
 
 static mut VISPLANES: [Visplane; MAXVISPLANES] = unsafe { std::mem::zeroed() };
 static mut LASTVISPLANE: *mut Visplane = ptr::null_mut();
-static mut FLOORCLIP: [i16; 320] = [0; 320];
-static mut CEILINGCLIP: [i16; 320] = [0; 320];
+/// Floor clip per column - used by r_segs during wall rendering.
+pub static mut FLOORCLIP: [i16; 320] = [0; 320];
+/// Ceiling clip per column - used by r_segs during wall rendering.
+pub static mut CEILINGCLIP: [i16; 320] = [0; 320];
 static mut SPANSTART: [i32; 200] = [0; 200];
 static mut SPANSTOP: [i32; 200] = [0; 200];
 static mut OPENINGS: [i16; MAXOPENINGS] = [0; MAXOPENINGS];
-static mut LASTOPENING: *mut i16 = ptr::null_mut();
+/// Current position in openings array - used by r_segs for masked texture allocation.
+pub static mut LASTOPENING: *mut i16 = ptr::null_mut();
 
 static mut PLANEHEIGHT: Fixed = 0;
 static mut PLANEZLIGHT: *mut *mut u8 = ptr::null_mut();
@@ -177,6 +180,12 @@ pub fn r_clear_planes() {
         for i in 0..viewwidth {
             FLOORCLIP[i] = SCREENHEIGHT as i16;
             CEILINGCLIP[i] = -1;
+        }
+
+        // Initialize screenheightarray for single-sided wall clipping.
+        let viewheight_i16 = viewheight as i16;
+        for i in 0..viewwidth {
+            crate::rendering::r_draw::SCREENHEIGHTARRAY[i] = viewheight_i16;
         }
 
         for i in 0..viewheight {

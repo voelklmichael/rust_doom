@@ -182,9 +182,9 @@ Rendering depends on (must exist or be stubbed):
 - [x] **r_bsp** – R_RenderBSPNode, R_ClearClipSegs, R_ClearDrawSegs, R_AddLine, R_CheckBBox, R_Subsector
 - [x] **r_plane** – R_FindPlane, R_CheckPlane, R_ClearPlanes, R_MapPlane, R_MakeSpans, R_DrawPlanes
 - [x] **r_things** – stub (R_AddSprites, R_ClearSprites)
-- [x] **r_segs** – R_StoreWallRange (store-only, no drawing yet)
+- [x] **r_segs** – R_StoreWallRange, R_RenderSegLoop (wall drawing, floor/ceiling marks)
 
 ### Next Steps
-1. **r_segs** – R_RenderSegLoop, R_RenderMaskedSegRange (drawing)
+1. **r_segs** – R_RenderMaskedSegRange (masked mid textures)
 2. **r_things** – R_AddSprites, R_DrawMasked (full impl)
 3. **r_draw** – column/span blitting (spanfunc, colfunc)

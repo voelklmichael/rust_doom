@@ -42,6 +42,15 @@ pub static mut YSLOPE: [Fixed; 200] = [0; 200]; // SCREENHEIGHT
 pub static mut DISTSCALE: [Fixed; 320] = [0; 320]; // SCREENWIDTH
 
 // =============================================================================
+// Clipping arrays for single-sided walls (sprtopclip/sprbottomclip)
+// =============================================================================
+
+/// Array of viewheight - used when ceiling fills entire column.
+pub static mut SCREENHEIGHTARRAY: [i16; 320] = [0; 320];
+/// Array of -1 - used when floor fills entire column.
+pub static mut NEGONEARRAY: [i16; 320] = [-1; 320];
+
+// =============================================================================
 // Public API - draw functions (stubs)
 // =============================================================================
 
