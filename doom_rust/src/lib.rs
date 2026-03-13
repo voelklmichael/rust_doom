@@ -9,6 +9,7 @@ pub mod i_swap;
 pub mod i_system;
 pub mod m_argv;
 pub mod m_misc;
+pub mod m_random;
 pub mod sha1_mod;
 pub mod wad;
 pub mod z_zone;
