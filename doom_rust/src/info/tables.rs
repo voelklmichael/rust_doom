@@ -8,7 +8,7 @@
 
 use std::sync::OnceLock;
 
-use crate::game::d_think::{no_op, ActionF};
+use crate::game::d_think::{no_op_acp1, ActionF};
 use crate::info::types::{Mobjinfo, Mobjtype, Spritenum, State, S_NULL};
 
 // Sprite indices (from spritenum_t)
@@ -38,7 +38,7 @@ fn state_null() -> State {
         sprite: 0,
         frame: 0,
         tics: -1,
-        action: ActionF { acv: no_op },
+        action: ActionF { acp1: no_op_acp1 },
         nextstate: S_NULL,
         misc1: 0,
         misc2: 0,

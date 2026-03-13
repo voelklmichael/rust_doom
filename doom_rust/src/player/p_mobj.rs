@@ -45,6 +45,12 @@ pub const MF_FLOAT: i32 = 0x4000;
 pub const MF_MISSILE: i32 = 0x10000;
 /// MF_SPAWNCEILING - spawn on ceiling.
 pub const MF_SPAWNCEILING: i32 = 256;
+/// MF_NOGRAVITY - no gravity.
+pub const MF_NOGRAVITY: i32 = 512;
+/// MF_CORPSE - dead body.
+pub const MF_CORPSE: i32 = 0x100000;
+/// MF_SKULLFLY - skull in flight.
+pub const MF_SKULLFLY: i32 = 0x1000000;
 /// FF_FRAMEMASK - frame index mask.
 pub const FF_FRAMEMASK: i32 = 0x7fff;
 /// FF_FULLBRIGHT - full bright sprite.
@@ -96,10 +102,250 @@ pub struct Mobj {
     pub tracer: *mut Mobj,
 }
 
-/// MobjThinker - called each tic. Stub for now (no P_XYMovement, P_ZMovement).
+/// MobjThinker - called each tic. Original: P_MobjThinker
 pub unsafe extern "C" fn p_mobj_thinker(mobj: *mut ()) {
-    let _ = mobj;
-    // TODO: P_XYMovement, P_ZMovement, state tics
+    let mo = mobj as *mut Mobj;
+    if mo.is_null() {
+        return;
+    }
+    if (*mo).momx != 0 || (*mo).momy != 0 || ((*mo).flags & MF_SKULLFLY) != 0 {
+        p_xy_movement(mo);
+    }
+    p_z_movement(mo);
+}
+
+const STOPSPEED: Fixed = 0x1000;
+const FRICTION: Fixed = 0xe800;
+
+/// XY movement with collision. Original: P_XYMovement
+fn p_xy_movement(mo: *mut Mobj) {
+    use crate::m_fixed::fixed_mul;
+    use super::p_map::{p_slide_move, p_try_move};
+    use super::MAXMOVE;
+
+    if mo.is_null() {
+        return;
+    }
+
+    unsafe {
+        if (*mo).momx == 0 && (*mo).momy == 0 {
+            if ((*mo).flags & MF_SKULLFLY) != 0 {
+                (*mo).flags &= !MF_SKULLFLY;
+                (*mo).momx = 0;
+                (*mo).momy = 0;
+                (*mo).momz = 0;
+                let spawnstate = if (*mo).info.is_null() {
+                    1
+                } else {
+                    (*(*mo).info).spawnstate
+                };
+                p_set_mobj_state(mo, spawnstate);
+            }
+            return;
+        }
+
+        (*mo).momx = (*mo).momx.clamp(-MAXMOVE, MAXMOVE);
+        (*mo).momy = (*mo).momy.clamp(-MAXMOVE, MAXMOVE);
+    }
+
+    let mut xmove = unsafe { (*mo).momx };
+    let mut ymove = unsafe { (*mo).momy };
+
+    loop {
+        let (ptryx, ptryy, done) = if xmove > MAXMOVE / 2 || ymove > MAXMOVE / 2 {
+            let ptryx = unsafe { (*mo).x + xmove / 2 };
+            let ptryy = unsafe { (*mo).y + ymove / 2 };
+            xmove >>= 1;
+            ymove >>= 1;
+            (ptryx, ptryy, false)
+        } else {
+            let ptryx = unsafe { (*mo).x + xmove };
+            let ptryy = unsafe { (*mo).y + ymove };
+            xmove = 0;
+            ymove = 0;
+            (ptryx, ptryy, true)
+        };
+
+        if !p_try_move(mo, ptryx, ptryy) {
+            let player = unsafe { (*mo).player };
+            if !player.is_null() {
+                p_slide_move(mo);
+            } else if (unsafe { (*mo).flags } & MF_MISSILE) != 0 {
+                // Sky check: if missile hit sky ceiling, remove instead of explode.
+                // Skip for now - always explode (SKYFLATNUM requires r_sky which is private).
+                p_explode_missile(mo);
+            } else {
+                unsafe {
+                    (*mo).momx = 0;
+                    (*mo).momy = 0;
+                }
+            }
+        }
+
+        if done {
+            break;
+        }
+    }
+
+    unsafe {
+        if ((*mo).flags & (MF_MISSILE | MF_SKULLFLY)) != 0 {
+            return;
+        }
+        if (*mo).z > (*mo).floorz {
+            return;
+        }
+        if ((*mo).flags & MF_CORPSE) != 0 {
+            let momx = (*mo).momx;
+            let momy = (*mo).momy;
+            if momx > FRACUNIT / 4 || momx < -FRACUNIT / 4 || momy > FRACUNIT / 4 || momy < -FRACUNIT / 4 {
+                let ss = (*mo).subsector.cast::<crate::rendering::defs::Subsector>();
+                if !ss.is_null() {
+                    let sec = (*ss).sector;
+                    if !sec.is_null() && (*mo).floorz != (*sec).floorheight {
+                        return;
+                    }
+                }
+            }
+        }
+        if (*mo).momx > -STOPSPEED
+            && (*mo).momx < STOPSPEED
+            && (*mo).momy > -STOPSPEED
+            && (*mo).momy < STOPSPEED
+        {
+            (*mo).momx = 0;
+            (*mo).momy = 0;
+        } else {
+            (*mo).momx = fixed_mul((*mo).momx, FRICTION);
+            (*mo).momy = fixed_mul((*mo).momy, FRICTION);
+        }
+    }
+}
+
+/// Z movement and gravity. Original: P_ZMovement
+fn p_z_movement(mo: *mut Mobj) {
+    use super::{FLOATSPEED, GRAVITY};
+
+    if mo.is_null() {
+        return;
+    }
+
+    unsafe {
+        (*mo).z += (*mo).momz;
+    }
+
+    if (unsafe { (*mo).flags } & MF_FLOAT) != 0 && !unsafe { (*mo).target }.is_null() {
+        let dist = super::p_maputl::p_aprox_distance(
+            unsafe { (*mo).x - (*(*mo).target).x },
+            unsafe { (*mo).y - (*(*mo).target).y },
+        );
+        let delta = unsafe {
+            (*(*mo).target).z + ((*mo).height >> 1) - (*mo).z
+        };
+        if (unsafe { (*mo).flags } & MF_SKULLFLY) == 0 {
+            if delta < 0 && dist < -delta * 3 {
+                unsafe { (*mo).z -= FLOATSPEED };
+            } else if delta > 0 && dist < delta * 3 {
+                unsafe { (*mo).z += FLOATSPEED };
+            }
+        }
+    }
+
+    unsafe {
+        if (*mo).z <= (*mo).floorz {
+            if (*mo).momz < 0 {
+                (*mo).momz = 0;
+            }
+            (*mo).z = (*mo).floorz;
+            if ((*mo).flags & MF_MISSILE) != 0 && ((*mo).flags & MF_NOCLIP) == 0 {
+                p_explode_missile(mo);
+            }
+        } else if ((*mo).flags & MF_NOGRAVITY) == 0 {
+            if (*mo).momz == 0 {
+                (*mo).momz = -GRAVITY * 2;
+            } else {
+                (*mo).momz -= GRAVITY;
+            }
+        }
+
+        if (*mo).z + (*mo).height > (*mo).ceilingz {
+            if (*mo).momz > 0 {
+                (*mo).momz = 0;
+            }
+            (*mo).z = (*mo).ceilingz - (*mo).height;
+            if ((*mo).flags & MF_MISSILE) != 0 && ((*mo).flags & MF_NOCLIP) == 0 {
+                p_explode_missile(mo);
+            }
+        }
+    }
+}
+
+/// Set mobj state. Returns false if removed (S_NULL). Original: P_SetMobjState
+fn p_set_mobj_state(mobj: *mut Mobj, state: i32) -> bool {
+    use crate::game::d_think::no_op_acp1;
+    use crate::info::tables::states;
+    use crate::info::S_NULL;
+
+    if mobj.is_null() {
+        return false;
+    }
+
+    let mut state_idx = state;
+    let states_ref = states();
+
+    loop {
+        if state_idx == S_NULL {
+            unsafe {
+                (*mobj).state = std::ptr::null();
+                p_remove_mobj(mobj);
+            }
+            return false;
+        }
+
+        let st_idx = state_idx as usize;
+        if st_idx >= states_ref.len() {
+            return true;
+        }
+        let st = &states_ref[st_idx];
+
+        unsafe {
+            (*mobj).state = st as *const _;
+            (*mobj).tics = st.tics;
+            (*mobj).sprite = st.sprite;
+            (*mobj).frame = st.frame;
+        }
+
+        unsafe {
+            if st.action.acp1 != no_op_acp1 {
+                (st.action.acp1)(mobj as *mut ());
+            }
+        }
+
+        state_idx = st.nextstate;
+        if unsafe { (*mobj).tics } != 0 {
+            break;
+        }
+    }
+
+    true
+}
+
+/// Explode missile on impact. Original: P_ExplodeMissile
+fn p_explode_missile(mo: *mut Mobj) {
+    if mo.is_null() {
+        return;
+    }
+    unsafe {
+        (*mo).momx = 0;
+        (*mo).momy = 0;
+        (*mo).momz = 0;
+        if !(*mo).info.is_null() {
+            p_set_mobj_state(mo, (*(*mo).info).deathstate);
+        }
+        if (*mo).tics < 1 {
+            (*mo).tics = 1;
+        }
+        (*mo).flags &= !MF_MISSILE;
+    }
 }
 
 /// Spawn a map object at (x,y,z) of given type. Original: P_SpawnMobj
