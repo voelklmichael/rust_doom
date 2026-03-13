@@ -5,9 +5,16 @@
 
 use crate::m_fixed::{Fixed, FRACBITS, FRACUNIT};
 
+pub mod p_ceilng;
+pub mod p_doors;
+pub mod p_floor;
+pub mod p_lights;
 pub mod p_maputl;
 pub mod p_mobj;
+pub mod p_plats;
 pub mod p_setup;
+pub mod p_sight;
+pub mod p_telept;
 pub mod p_tick;
 
 // =============================================================================

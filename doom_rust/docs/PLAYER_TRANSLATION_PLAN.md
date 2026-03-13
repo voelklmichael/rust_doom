@@ -117,7 +117,7 @@ These must exist or be stubbed before player:
 |------|------|--------------|-------|
 | 1 | **p_local / mod.rs** | r_local, p_spec | Constants, types, re-exports. Start with minimal stub. ✅ Constants, Divline |
 | 2 | **p_mobj.rs** | d_think, doomdata, info, tables, m_fixed | Full `mobj_t`, flags, spawn/remove |
-| 3 | **p_maputl.rs** | p_local, m_bbox, r_state | Blockmap, divline, intercept, path traverse. ✅ P_AproxDistance |
+| 3 | **p_maputl.rs** | p_local, m_bbox, r_state | Blockmap, divline, intercept, path traverse. ✅ P_AproxDistance, P_PointOnLineSide, P_PointOnDivlineSide, P_DivlineSide, P_MakeDivline, P_InterceptVector, P_BoxOnLineSide, P_LineOpening |
 | 4 | **p_tick.rs** | p_local, z_zone, doomstat | Thinker list, P_Ticker. ✅ P_InitThinkers, P_AddThinker, P_RemoveThinker stubs |
 | 5 | **p_setup.rs** | p_local, z_zone, w_wad, m_bbox, g_game, s_sound | Level load, blockmap, reject |
 
@@ -126,13 +126,13 @@ These must exist or be stubbed before player:
 | Step | File | Dependencies | Notes |
 |------|------|--------------|-------|
 | 6 | **p_map.rs** | p_maputl, p_sight, p_local | P_CheckPosition, P_TryMove, P_SlideMove, P_UseLines, attacks |
-| 7 | **p_sight.rs** | p_local, r_state | P_CheckSight |
-| 8 | **p_floor.rs** | p_local, z_zone, s_sound | Floor movers |
-| 9 | **p_ceilng.rs** | p_local, z_zone, s_sound | Ceiling movers |
-| 10 | **p_doors.rs** | p_local, z_zone, s_sound | Door movers |
-| 11 | **p_plats.rs** | p_local, z_zone, s_sound | Platform movers |
-| 12 | **p_lights.rs** | p_local, z_zone | Lighting |
-| 13 | **p_telept.rs** | p_local, s_sound | Teleporters |
+| 7 | **p_sight.rs** | p_local, r_state | P_CheckSight. ✅ Stub (always true) |
+| 8 | **p_floor.rs** | p_local, z_zone, s_sound | Floor movers. ✅ Stub |
+| 9 | **p_ceilng.rs** | p_local, z_zone, s_sound | Ceiling movers. ✅ Stub |
+| 10 | **p_doors.rs** | p_local, z_zone, s_sound | Door movers. ✅ Stub |
+| 11 | **p_plats.rs** | p_local, z_zone, s_sound | Platform movers. ✅ Stub |
+| 12 | **p_lights.rs** | p_local, z_zone | Lighting. ✅ Stub |
+| 13 | **p_telept.rs** | p_local, s_sound | Teleporters. ✅ Stub |
 
 ### Phase 3: Specials & Interaction
 
