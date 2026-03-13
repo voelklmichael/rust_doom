@@ -5,9 +5,10 @@
 // DESCRIPTION:
 //  Thinker list, level ticker.
 //
-// Original: p_tick.h / p_tick.c (partial - thinker list stubs)
+// Original: p_tick.h / p_tick.c
 
-use crate::game::d_think::Thinker;
+use crate::game::d_think::{thinker_marked_removed, Thinker};
+use crate::z_zone::z_free;
 use std::ptr;
 
 /// Both the head and tail of the thinker list.
@@ -43,17 +44,38 @@ pub fn p_add_thinker(thinker: *mut Thinker) {
     }
 }
 
-/// Remove thinker - deferred deallocation.
-/// Original: P_RemoveThinker (lazy; marks for removal)
-pub fn p_remove_thinker(_thinker: *mut Thinker) {
-    // TODO: Set function to invalid, defer actual removal until tick
+/// Remove thinker - deferred deallocation. Marks for removal; actual free in p_run_thinkers.
+/// Original: P_RemoveThinker
+pub fn p_remove_thinker(thinker: *mut Thinker) {
+    if thinker.is_null() {
+        return;
+    }
+    unsafe {
+        (*thinker).function.acp1 = thinker_marked_removed;
+    }
 }
 
-/// Advance all thinkers one tic. Stub - iterates list but does not call think functions yet.
-/// Original: P_Ticker
+/// Run all thinkers. Removes and frees those marked by P_RemoveThinker.
+/// Original: P_RunThinkers
+pub fn p_run_thinkers() {
+    unsafe {
+        let mut current = THINKERCAP.next;
+        while current != &mut THINKERCAP as *mut Thinker {
+            let next = (*current).next;
+            if (*current).function.acp1 == thinker_marked_removed {
+                (*(*current).next).prev = (*current).prev;
+                (*(*current).prev).next = (*current).next;
+                z_free(current as *mut u8);
+            } else {
+                let acp1 = (*current).function.acp1;
+                acp1(current as *mut ());
+            }
+            current = next;
+        }
+    }
+}
+
+/// Advance all thinkers one tic. Original: P_Ticker (partial - no player/menu logic)
 pub fn p_ticker() {
-    // TODO: iterate thinkercap, call thinker.function.acp1(thinker) for each
-    // For now, no-op
+    p_run_thinkers();
 }
-
-// TODO: leveltime - require full thinker iteration and mobj/player logic

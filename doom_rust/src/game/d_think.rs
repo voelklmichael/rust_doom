@@ -83,3 +83,7 @@ impl Default for Thinker {
 
 /// No-op action for thinkers that don't need a think function.
 pub unsafe extern "C" fn no_op() {}
+
+/// Sentinel: when thinker.function.acp1 == this, the thinker is marked for removal.
+/// P_RemoveThinker sets this; P_RunThinkers unlinks and frees.
+pub unsafe extern "C" fn thinker_marked_removed(_: *mut ()) {}

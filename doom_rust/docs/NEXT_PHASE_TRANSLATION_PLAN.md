@@ -130,7 +130,7 @@ doomkeys ───────────────────────�
 5. **p_maputl** – P_BlockLinesIterator, P_BlockThingsIterator, P_PathTraverse, P_SetThingPosition, P_UnsetThingPosition
 6. **p_map** – P_CheckPosition, P_TryMove, P_SlideMove
 7. **p_sight** – P_CheckSight (REJECT + intercept traversal)
-8. **p_mobj** – Extend with thinker, spawn from info (P_SpawnMobj)
+8. **p_mobj** – Extend with thinker, spawn from info (P_SpawnMobj) ✅
 
 ---
 
