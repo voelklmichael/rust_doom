@@ -175,7 +175,7 @@ Rendering depends on (must exist or be stubbed):
 - [x] **v_patch** – patch_t, post_t, column_t
 - [x] **defs** – vertex_t, sector_t, line_t, seg_t, node_t, subsector_t, side_t, drawseg_t, vissprite_t, visplane_t, spritedef_t, etc.
 - [x] **state** – viewwidth, vertexes, segs, sectors, etc.
-- [x] **v_video** – stub (V_Init, V_DrawPatch, V_DrawBlock, etc. – no-op)
+- [x] **v_video** – V_Init, screen buffer (SCREENS, VIEWIMAGE, YLOOKUP, COLUMNOFS)
 - [x] **r_data** – R_InitData, R_PrecacheLevel, R_GetColumn, R_FlatNumForName, R_TextureNumForName, R_CheckTextureNumForName
 - [x] **r_sky** – R_InitSkyMap, skytexture, skytexturemid, SKYFLATNAME
 - [x] **r_main** – R_Init, R_RenderPlayerView, R_SetViewSize, R_PointToAngle, R_PointInSubsector, R_ScaleFromGlobalAngle, lighting LUTs
@@ -187,4 +187,3 @@ Rendering depends on (must exist or be stubbed):
 ### Next Steps
 1. **r_segs** – R_RenderMaskedSegRange (masked mid textures)
 2. **r_things** – R_AddSprites, R_DrawMasked (full impl)
-3. **r_draw** – column/span blitting (spanfunc, colfunc)

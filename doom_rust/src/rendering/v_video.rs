@@ -11,6 +11,24 @@ use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
 use crate::rendering::v_patch::patch_t;
 
 // =============================================================================
+// Screen buffer (for r_draw colfunc/spanfunc)
+// =============================================================================
+
+const SCREEN_SIZE: usize = (SCREENWIDTH * SCREENHEIGHT) as usize;
+
+/// Main screen buffer - 8-bit palette indices, row-major.
+static mut SCREENS: [u8; SCREEN_SIZE] = [0; SCREEN_SIZE];
+
+/// Current drawing target. Points into SCREENS.
+pub static mut VIEWIMAGE: *mut u8 = std::ptr::null_mut();
+
+/// Row offset table: ylookup[y] = VIEWIMAGE + y * SCREENWIDTH.
+pub static mut YLOOKUP: [*mut u8; 200] = [std::ptr::null_mut(); 200];
+
+/// Column offset table for subwindows (columnofs[x] = x for fullscreen).
+pub static mut COLUMNOFS: [i32; 320] = [0; 320];
+
+// =============================================================================
 // Public API (from .h)
 // =============================================================================
 
@@ -29,8 +47,18 @@ pub type VpatchClipFunc = fn(*const patch_t, i32, i32) -> bool;
 /// Set patch clip callback. Stub: no-op.
 pub fn v_set_patch_clip_callback(_func: Option<VpatchClipFunc>) {}
 
-/// Allocate buffer screens. Call before R_Init. Stub: no-op.
-pub fn v_init() {}
+/// Allocate buffer screens. Call before R_Init.
+pub fn v_init() {
+    unsafe {
+        VIEWIMAGE = SCREENS.as_mut_ptr();
+        for y in 0..SCREENHEIGHT {
+            YLOOKUP[y as usize] = SCREENS.as_mut_ptr().add((y as usize) * SCREENWIDTH as usize);
+        }
+        for x in 0..SCREENWIDTH {
+            COLUMNOFS[x as usize] = x;
+        }
+    }
+}
 
 /// Copy rect from source to dest. Stub: no-op.
 pub fn v_copy_rect(
@@ -65,8 +93,31 @@ pub fn v_draw_xla_patch(_x: i32, _y: i32, _patch: *const patch_t) {}
 /// Draw patch direct. Stub: no-op.
 pub fn v_draw_patch_direct(_x: i32, _y: i32, _patch: *const patch_t) {}
 
-/// Draw block of pixels. Stub: no-op.
-pub fn v_draw_block(_x: i32, _y: i32, _width: i32, _height: i32, _src: *const u8) {}
+/// Draw block of pixels.
+pub fn v_draw_block(x: i32, y: i32, width: i32, height: i32, src: *const u8) {
+    unsafe {
+        if VIEWIMAGE.is_null() || src.is_null() {
+            return;
+        }
+        let x = x.max(0).min(SCREENWIDTH - 1);
+        let y = y.max(0).min(SCREENHEIGHT - 1);
+        let w = width.min(SCREENWIDTH - x);
+        let h = height.min(SCREENHEIGHT - y);
+        if w <= 0 || h <= 0 {
+            return;
+        }
+        for row in 0..h {
+            let dest = YLOOKUP[(y + row) as usize];
+            if !dest.is_null() {
+                std::ptr::copy_nonoverlapping(
+                    src.add((row * width) as usize),
+                    dest.add(x as usize),
+                    w as usize,
+                );
+            }
+        }
+    }
+}
 
 /// Mark rect as dirty. Stub: no-op.
 pub fn v_mark_rect(_x: i32, _y: i32, _width: i32, _height: i32) {}

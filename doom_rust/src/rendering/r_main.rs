@@ -504,6 +504,7 @@ fn r_execute_set_view_size() {
 
 /// Called by startup code.
 pub fn r_init() {
+    crate::rendering::v_video::v_init();
 
     crate::rendering::r_data::r_init_data();
     crate::rendering::r_sky::r_init_sky_map();
