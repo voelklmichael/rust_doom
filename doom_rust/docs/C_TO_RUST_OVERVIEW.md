@@ -77,6 +77,7 @@ These modules exist but have minimal or stub implementations.
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
 | **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player (mo, viewz, viewheight, extralight, fixedcolormap, playerstate, health), PlayerState enum, PLAYERS, PLAYERINGAME, PLAYERSTARTS |
 | **player/** | p_*.h / p_*.c | Scaffolded; see below |
+| **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | cheat full; rest stubs |
 
 ### player/ module (src/player/)
 
@@ -108,19 +109,6 @@ C modules with no Rust equivalent yet.
 | d_loop (partial) | TryRunTics, LoopInterface; netgame not ported |
 | d_net | Networking |
 | g_game (partial) | G_Ticker, G_PlayerReborn, G_BuildTiccmd stub; G_InitNew, save/load not ported |
-
-### UI / HUD
-| C Module | Purpose |
-|----------|---------|
-| m_menu | Main menu |
-| m_controls | Control config |
-| m_cheat | Cheat codes |
-| m_config | Configuration |
-| hu_stuff | Heads-up display |
-| hu_lib | HUD font |
-| st_stuff | Status bar |
-| st_lib | Status bar lib |
-| wi_stuff | Intermission screen |
 
 ### Other
 | C Module | Purpose |

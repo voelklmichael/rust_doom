@@ -4,6 +4,8 @@ Plan for porting the Doom UI and HUD C modules to Rust. All files go into the `u
 
 **Source:** `doomgeneric/doomgeneric/m_*.c`, `hu_*.c`, `st_*.c`, `wi_*.c` and corresponding `.h` files
 
+**Current status:** Scaffold complete. cheat.rs fully implemented; controls, st_lib, hu_lib, config, hu_stuff, st_stuff, wi_stuff, menu are stubs.
+
 ---
 
 ## Module Structure

@@ -22,5 +22,6 @@ pub mod player;
 pub mod rendering;
 pub mod sha1_mod;
 pub mod sound;
+pub mod ui_hud;
 pub mod wad;
 pub mod z_zone;
