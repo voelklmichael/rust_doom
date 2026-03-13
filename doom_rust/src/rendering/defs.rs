@@ -43,13 +43,7 @@ pub struct Vertex {
     pub y: Fixed,
 }
 
-/// Thinker stub - minimal for degenmobj. Full def in d_think.
-#[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct Thinker {
-    pub prev: *mut Thinker,
-    pub next: *mut Thinker,
-}
+pub use crate::d_think::Thinker;
 
 /// Degen mobj for sector sound origin.
 #[repr(C)]

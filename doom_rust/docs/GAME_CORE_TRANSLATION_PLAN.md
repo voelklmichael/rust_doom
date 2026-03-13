@@ -12,10 +12,10 @@ Plan for porting the next set of C modules that unblock the player module and en
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| **Phase 1** | Not started | d_think, d_event |
-| **Phase 2** | Not started | info, d_items |
-| **Phase 3** | Not started | i_timer, doomdef extension |
-| **Phase 4** | Not started | d_main, d_loop, g_game |
+| **Phase 1** | ✅ Done | d_think, d_event |
+| **Phase 2** | Partial | d_items done; info not started |
+| **Phase 3** | ✅ Done | i_timer, doomdef extension |
+| **Phase 4** | ✅ Done | d_main, d_loop, g_game (stubs) |
 | **Phase 5** | Not started | dstrings (optional) |
 
 ---

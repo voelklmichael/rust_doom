@@ -7,7 +7,7 @@
 //
 // Original: p_tick.h / p_tick.c (partial - thinker list stubs)
 
-use crate::rendering::defs::Thinker;
+use crate::d_think::Thinker;
 use std::ptr;
 
 /// Both the head and tail of the thinker list.
@@ -15,6 +15,9 @@ use std::ptr;
 pub static mut THINKERCAP: Thinker = Thinker {
     prev: ptr::null_mut(),
     next: ptr::null_mut(),
+    function: crate::d_think::ActionF {
+        acv: crate::d_think::no_op,
+    },
 };
 
 /// Initialize thinker list.
@@ -46,4 +49,11 @@ pub fn p_remove_thinker(_thinker: *mut Thinker) {
     // TODO: Set function to invalid, defer actual removal until tick
 }
 
-// TODO: P_Ticker, leveltime - require full thinker iteration and mobj/player logic
+/// Advance all thinkers one tic. Stub - iterates list but does not call think functions yet.
+/// Original: P_Ticker
+pub fn p_ticker() {
+    // TODO: iterate thinkercap, call thinker.function.acp1(thinker) for each
+    // For now, no-op
+}
+
+// TODO: leveltime - require full thinker iteration and mobj/player logic

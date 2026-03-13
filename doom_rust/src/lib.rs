@@ -1,9 +1,15 @@
 //! Doom WAD library - WAD file handling, zone allocator, and related utilities.
 
 pub mod config;
+pub mod d_event;
 pub mod d_iwad;
+pub mod d_items;
+pub mod d_loop;
+pub mod d_main;
 pub mod d_mode;
+pub mod d_think;
 pub mod d_ticcmd;
+pub mod g_game;
 pub mod doomdata;
 pub mod doomdef;
 pub mod doomstat;
@@ -12,6 +18,7 @@ pub mod doomtype;
 pub mod geometry;
 pub mod i_swap;
 pub mod i_system;
+pub mod i_timer;
 pub mod m_fixed;
 pub mod m_argv;
 pub mod m_misc;
