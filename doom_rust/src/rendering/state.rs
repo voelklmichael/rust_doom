@@ -83,6 +83,8 @@ pub static mut VIEWX: Fixed = 0;
 pub static mut VIEWY: Fixed = 0;
 pub static mut VIEWZ: Fixed = 0;
 pub static mut VIEWANGLE: Angle = 0;
+/// Offset added to view angle (for demo playback, camera effects). Original: viewangleoffset.
+pub static mut VIEWANGLEOFFSET: Angle = 0;
 
 pub static mut CLIPANGLE: Angle = 0;
 

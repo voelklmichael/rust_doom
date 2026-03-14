@@ -30,7 +30,6 @@ These modules have been ported from C with full or near-full functionality.
 | ↳ s_sound | s_sound.h/c | S_Init, S_StartSound, S_StopSound, channel logic, stereo |
 | ↳ memio | memio.h/c | MemFileRead, MemFileWrite, memory streams |
 | ↳ mus2mid | mus2mid.h/c | MUS→MIDI conversion |
-| ↳ r_angle | r_main.c (partial) | R_PointToAngle2 for stereo positioning |
 | **z_zone** | z_zone.h/c | Z_Init, Z_Malloc, Z_Free, Z_ChangeTag, purge tags. Known: base=null during purge (corruption) |
 | **wad/** | | |
 | ↳ w_wad | w_wad.h/c | W_AddFile, W_ReadLump, W_CacheLump*, hash table |
@@ -58,12 +57,12 @@ These modules have been ported from C with full or near-full functionality.
 | **rendering/** | | Scene rendering (BSP, visplanes, sprites) |
 | ↳ defs | r_defs.h | vertex_t, sector_t, line_t, seg_t, node_t, subsector_t, etc. |
 | ↳ m_bbox | m_bbox.h/c | M_ClearBox, M_AddToBox, bbox indices; shared util (also used by player::p_maputl) |
-| ↳ r_main | r_main.h/c | R_Init, R_RenderPlayerView, R_PointToAngle, R_PointInSubsector |
+| ↳ r_main | r_main.h/c | R_Init, R_RenderPlayerView, R_SetViewSize, R_ExecuteSetViewSize (calls r_init_buffer), R_PointToAngle, R_PointToAngle2, R_PointToDist, R_PointInSubsector, R_PointOnSide, R_PointOnSegSide, R_ScaleFromGlobalAngle, R_AddPointToBox, R_InitTextureMapping, R_InitLightTables, viewangleoffset, pspritescale, pspriteiscale, screenheightarray, yslope, distscale |
 | ↳ r_bsp | r_bsp.h/c | R_RenderBSPNode |
 | ↳ r_data | r_data.h/c | R_InitData, R_PrecacheLevel, texture/flat/sprite loading |
 | ↳ r_segs | r_segs.h/c | R_StoreWallRange, R_RenderMaskedSegRange |
 | ↳ r_plane | r_plane.h/c | R_CheckPlane, R_DrawPlanes |
-| ↳ r_draw | r_draw.h/c | Column drawing, R_VideoErase |
+| ↳ r_draw | r_draw.h/c | colfunc, spanfunc, fuzzcolfunc, transcolfunc (high/low by detailshift), R_InitBuffer, R_VideoErase |
 | ↳ r_things | r_things.h/c | Sprite/thing rendering |
 | ↳ r_sky | r_sky.h/c | Sky texture |
 | ↳ v_patch | v_patch.h | patch_t, post_t |

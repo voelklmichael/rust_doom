@@ -12,6 +12,7 @@ use crate::geometry::{
     finecosine, finesine, finetangent, slope_div, tantoangle, Angle, ANG90, ANG180, ANG270,
     ANGLETOFINESHIFT, DBITS, FINEANGLES,
 };
+use crate::rendering::r_draw;
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
 use crate::rendering::defs::{Node, Seg, Subsector};
 use crate::rendering::m_bbox::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
@@ -471,10 +472,36 @@ fn r_execute_set_view_size() {
         CENTERYFRAC = (CENTERY << FRACBITS) as Fixed;
         PROJECTION = CENTERXFRAC;
 
-        // colfunc, basecolfunc, fuzzcolfunc, transcolfunc, spanfunc - set by r_draw
-        // R_InitBuffer - from r_draw, stub for now
-        // pspritescale, pspriteiscale - from r_things
-        // screenheightarray, yslope, distscale - from r_draw
+        // Thing clipping - screenheightarray (r_clear_planes also sets per-frame)
+        for i in 0..(state::VIEWWIDTH as usize) {
+            r_draw::SCREENHEIGHTARRAY[i] = state::VIEWHEIGHT as i16;
+        }
+
+        // Plane slopes - yslope (C formula)
+        for i in 0..(state::VIEWHEIGHT as usize) {
+            let dy = ((i as i32 - state::VIEWHEIGHT / 2) << FRACBITS) + FRACUNIT / 2;
+            let dy = dy.abs().max(1);
+            r_draw::YSLOPE[i] = fixed_div(
+                ((state::VIEWWIDTH << setdetail) / 2 * FRACUNIT) as Fixed,
+                dy as Fixed,
+            );
+        }
+
+        // distscale (C formula: FRACUNIT/cos)
+        for i in 0..(state::VIEWWIDTH as usize) {
+            let cosadj = finecosine((state::XTOVIEWANGLE[i] >> ANGLETOFINESHIFT) as usize).abs();
+            r_draw::DISTSCALE[i] = fixed_div(FRACUNIT, cosadj.max(1));
+        }
+
+        // Psprite scales
+        r_draw::PSPRITESCALE = (FRACUNIT * state::VIEWWIDTH / SCREENWIDTH) as Fixed;
+        r_draw::PSPRITEISCALE = if state::VIEWWIDTH != 0 {
+            (FRACUNIT as u64 * SCREENWIDTH as u64 / state::VIEWWIDTH as u64) as u32
+        } else {
+            0
+        };
+
+        r_draw::r_init_buffer(state::SCALEDVIEWWIDTH, state::VIEWHEIGHT);
     }
 
     r_init_texture_mapping();
@@ -570,7 +597,7 @@ pub fn r_setup_frame(player: &ViewPlayerStub) {
     unsafe {
         state::VIEWX = player.mo_x;
         state::VIEWY = player.mo_y;
-        state::VIEWANGLE = player.mo_angle;
+        state::VIEWANGLE = player.mo_angle.wrapping_add(state::VIEWANGLEOFFSET);
         state::VIEWZ = player.viewz;
         EXTRALIGHT = player.extralight;
 
