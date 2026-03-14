@@ -1,4 +1,4 @@
-use doom_rust::{game::statdump, m_argv, wad, z_zone};
+use doom_rust::{game::{d_main, statdump}, m_argv, wad, z_zone};
 
 fn main() {
     // Initialize command line
@@ -17,4 +17,7 @@ fn main() {
 
     // Dump statistics if -statdump was used (captured during level completions)
     statdump::stat_dump();
+
+    // Shutdown: display ENDOOM lump if present (80×25 text screen)
+    d_main::d_shutdown();
 }

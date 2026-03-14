@@ -73,18 +73,23 @@ Already implemented in `src/i_timer.rs`:
 
 | Item        | C Source   | Rust Target              | Notes                                      |
 |-------------|------------|--------------------------|--------------------------------------------|
-| I_VideoBuffer | i_video.h | `rendering::VIEWIMAGE`   | Already provided by v_video                |
-| I_ReadScreen  | i_video.c | `v_read_screen`         | ✅ Done in v_video                          |
-| I_InitGraphics | i_video.c | `input::i_video::i_init_graphics` | Platform: create window, alloc buffer |
-| I_SetPalette  | i_video.c | same                     | Apply 256-color palette to display         |
-| I_UpdateNoBlit | i_video.c | same                    | Copy buffer to screen (no vsync)            |
-| I_FinishUpdate | i_video.c | same                    | Present frame, vsync                        |
-| I_SetWindowTitle | i_video.c | same                  | Window title                                |
-| screen_mode_t | i_video.h | struct                   | width, height, InitMode, DrawScreen, poor_quality |
+| I_VideoBuffer | i_video.h | `i_video_buffer()` → VIEWIMAGE | ✅ Done                                   |
+| I_ReadScreen  | i_video.c | `i_read_screen` (wraps v_read_screen) | ✅ Done                             |
+| I_InitGraphics | i_video.c | `i_init_graphics` | Stub: platform create window, alloc buffer |
+| I_SetPalette  | i_video.c | `i_set_palette` | Stub: apply 256-color palette              |
+| I_GetPaletteIndex | i_video.c | `i_get_palette_index` | Stub: RGB → palette index              |
+| I_UpdateNoBlit | i_video.c | `i_update_no_blit` | Stub: copy buffer to screen (no vsync)     |
+| I_FinishUpdate | i_video.c | `i_finish_update` | Stub: present frame, vsync                 |
+| I_SetWindowTitle | i_video.c | `i_set_window_title` | Stub: window title                        |
+| I_SetGrabMouseCallback | i_video.c | `i_set_grab_mouse_callback` | Stub                    |
+| screen_mode_t | i_video.h | `ScreenMode` struct | width, height, init_mode, draw_screen, poor_quality |
+| struct color | i_video.h | `Color` struct | r, g, b, a (8-bit)                          |
 
 **Dependencies:** doomdef (SCREENWIDTH, SCREENHEIGHT), v_video, z_zone.
 
 **Strategy:** Stub initially. Real impl needs winit/SDL/minifb or similar. v_video already provides SCREENS buffer; i_video would blit it to the platform window.
+
+**Current:** API surface complete (ScreenMode, Color, i_read_screen, i_get_palette_index, i_set_grab_mouse_callback). Init/palette/blit/title stubs in place.
 
 ---
 
@@ -198,7 +203,7 @@ Already implemented in `src/i_timer.rs`:
 | Phase | Module   | Effort | Status   |
 |-------|----------|--------|----------|
 | 1     | i_timer  | —      | ✅ Done  |
-| 2     | i_video  | Large  | Stub     |
+| 2     | i_video  | Large  | API done, impl stubbed |
 | 3     | i_input  | Medium | Stub     |
 | 4     | i_joystick | Medium | Stub   |
 | 5     | i_scale  | Small  | Stub     |

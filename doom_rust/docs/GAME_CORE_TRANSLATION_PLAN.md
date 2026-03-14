@@ -147,11 +147,11 @@ Check existing `doomdef.rs`; add `gameaction_t`, `gamestate_t` if missing.
 
 | Item | C Source | Rust Target | Notes |
 |------|----------|-------------|-------|
-| API | d_main.h/c | `src/d_main.rs` | `D_ProcessEvents`, `D_PageTicker`, `D_PageDrawer`, `D_AdvanceDemo`, `D_StartTitle` |
+| API | d_main.h/c | `src/d_main.rs` | `D_ProcessEvents`, `D_Display`, `D_Shutdown`, `D_PageTicker`, `D_PageDrawer`, `D_AdvanceDemo`, `D_StartTitle` |
 | Globals | d_main.h | same | `gameaction` |
 | Dependencies | doomdef | doomdef | gameaction_t |
 
-**Note:** d_main.c also contains `D_DoomMain` – the true entry point. May defer full D_DoomMain; start with stubs for `D_ProcessEvents`, etc.
+**Note:** d_main.c also contains `D_DoomMain` – the true entry point. May defer full D_DoomMain; start with stubs for `D_ProcessEvents`, etc. **D_Display** ✅ dispatches by gamestate (Level→ST/R_Render/AM/HU, Intermission→WI, Finale→F_Drawer, DemoScreen→D_PageDrawer), then M_Drawer, I_FinishUpdate. **D_Shutdown** ✅ calls I_EndoomFromWad on exit.
 
 ### 4.2 d_loop
 

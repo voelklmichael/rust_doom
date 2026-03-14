@@ -16,6 +16,37 @@ pub const SCREENHEIGHT_4_3: i32 = 240;
 /// Max mouse buttons.
 pub const MAX_MOUSE_BUTTONS: i32 = 8;
 
+/// Palette color (8-bit RGBA). Original: struct color
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
+
+/// Screen mode descriptor. Original: screen_mode_t
+#[derive(Clone, Debug)]
+pub struct ScreenMode {
+    pub width: i32,
+    pub height: i32,
+    /// Called with palette when switching to this mode. None = no init.
+    pub init_mode: Option<fn(*const u8)>,
+    /// Draw screen region. Returns true if successful.
+    pub draw_screen: Option<fn(i32, i32, i32, i32) -> bool>,
+    /// If true, autoadjust prefers other modes in fullscreen (poor quality).
+    pub poor_quality: bool,
+}
+
+/// Callback for mouse grab. Original: grabmouse_callback_t
+pub type GrabmouseCallback = fn() -> bool;
+
+/// Set callback for mouse grab. Original: I_SetGrabMouseCallback
+pub fn i_set_grab_mouse_callback(_callback: Option<GrabmouseCallback>) {
+    // Stub
+}
+
 /// Initialize graphics. Platform: create window, alloc buffer.
 /// Original: I_InitGraphics
 pub fn i_init_graphics() {
@@ -38,6 +69,13 @@ pub fn i_shutdown_graphics() {
 /// Original: I_SetPalette
 pub fn i_set_palette(_palette: *const u8) {
     // Stub: platform-specific
+}
+
+/// Find palette index closest to given RGB. Original: I_GetPaletteIndex
+pub fn i_get_palette_index(r: u8, g: u8, b: u8) -> i32 {
+    // Stub: would search palette (768 bytes: 256 * 3) for closest match
+    let _ = (r, g, b);
+    0
 }
 
 /// Copy buffer to screen (no vsync).
@@ -86,4 +124,9 @@ pub fn i_enable_loading_disk() {
 /// Original: I_VideoBuffer
 pub fn i_video_buffer() -> *mut u8 {
     unsafe { VIEWIMAGE }
+}
+
+/// Copy screen buffer to destination. Original: I_ReadScreen
+pub fn i_read_screen(dest: *mut u8) {
+    crate::rendering::v_read_screen(dest);
 }

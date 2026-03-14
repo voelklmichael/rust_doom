@@ -34,7 +34,8 @@ pub use v_patch::{column_t, patch_t, post_t};
 pub use r_main::{
     r_add_point_to_box, r_init, r_point_in_subsector, r_point_on_seg_side, r_point_on_side,
     r_point_to_angle, r_point_to_angle2, r_point_to_dist, r_render_player_view,
-    r_scale_from_global_angle, r_set_view_size, r_setup_frame, ViewPlayerStub,
+    r_scale_from_global_angle, r_set_view_size, r_setup_frame, view_player_from_console,
+    ViewPlayerStub,
     LIGHTLEVELS, MAXLIGHTSCALE, MAXLIGHTZ, NF_SUBSECTOR, NUMCOLORMAPS, VALIDCOUNT,
     VIEWWINDOWX, VIEWWINDOWY,
 };

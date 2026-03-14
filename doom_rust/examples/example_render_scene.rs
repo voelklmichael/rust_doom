@@ -12,39 +12,13 @@
 use doom_rust::doomdef::{SCREENHEIGHT, SCREENWIDTH};
 use doom_rust::m_argv;
 use doom_rust::player::p_setup;
-use doom_rust::rendering::{r_init, r_render_player_view, ViewPlayerStub, VIEWIMAGE};
+use doom_rust::rendering::{r_init, r_render_player_view, view_player_from_console, VIEWIMAGE};
 use doom_rust::wad;
 use doom_rust::z_zone;
 use image::{ImageBuffer, RgbaImage};
 use std::env;
 use std::fs;
 use std::path::Path;
-
-/// Build ViewPlayerStub from the spawned console player.
-fn view_player_from_console() -> Option<ViewPlayerStub> {
-    use doom_rust::doomstat::{CONSOLEPLAYER, PLAYERS};
-
-    unsafe {
-        let idx = CONSOLEPLAYER as usize;
-        if idx >= doom_rust::doomdef::MAXPLAYERS {
-            return None;
-        }
-        let p = &PLAYERS[idx];
-        let mo = p.mo;
-        if mo.is_null() {
-            return None;
-        }
-        let mo = mo as *const doom_rust::player::p_mobj::Mobj;
-        Some(ViewPlayerStub {
-            mo_x: (*mo).x,
-            mo_y: (*mo).y,
-            mo_angle: (*mo).angle,
-            viewz: p.viewz,
-            extralight: p.extralight,
-            fixedcolormap: p.fixedcolormap,
-        })
-    }
-}
 
 fn main() {
     let args: Vec<String> = env::args().collect();

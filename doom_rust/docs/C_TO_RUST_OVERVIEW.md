@@ -124,7 +124,7 @@ C modules with no Rust equivalent yet.
 ### Game Core
 | C Module | Purpose |
 |----------|---------|
-| d_main (partial) | D_ProcessEvents, gameaction; D_DoomMain not ported |
+| d_main (partial) | D_ProcessEvents, D_Display, D_Shutdown, gameaction; D_DoomMain not ported |
 | d_loop (partial) | TryRunTics, LoopInterface; netgame not ported |
 | d_net | Networking |
 | g_game (partial) | G_Ticker (incl. F_Ticker when Finale), G_Responder (incl. F_Responder when Finale), G_PlayerReborn, G_BuildTiccmd stub; G_InitNew, save/load not ported |
@@ -164,6 +164,6 @@ C modules with no Rust equivalent yet.
 **Foundation:** WAD, zone, sound, geometry, types, rendering (scene rendering works).  
 **Player:** p_setup, p_mobj, p_map, p_sight, p_maputl, p_tick working; P_SpawnPlayer, G_PlayerReborn done. example_render_scene blocked by z_zone corruption.  
 **UI/HUD:** All 9 modules complete (cheat, controls, config, hu_lib, hu_stuff, st_lib, st_stuff, wi_stuff, menu).  
-**Game:** f_finale (end-game screens), f_wipe (ColorXForm + Melt), statdump; g_game wired to F_Ticker/F_Responder when GAMESTATE=Finale. Display loop should call `f_finale::f_drawer()` when in Finale.
+**Game:** f_finale (end-game screens), f_wipe (ColorXForm + Melt), statdump; g_game wired to F_Ticker/F_Responder when GAMESTATE=Finale. `d_display()` dispatches to ST_Drawer, R_RenderPlayerView/AM_Drawer, HU_Drawer, WI_Drawer, F_Drawer, D_PageDrawer by gamestate; calls `i_finish_update()`. `d_shutdown()` displays ENDOOM on exit.
 
 See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `NEXT_PHASE_TRANSLATION_PLAN.md`, `UI_HUD_TRANSLATION_PLAN.md`, `INPUT_TRANSLATION_PLAN.md`
