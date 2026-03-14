@@ -17,6 +17,7 @@ These modules have been ported from C with full or near-full functionality.
 | **doomtype** | doomtype.h | Boolean, Byte, strcasecmp, DIR_SEPARATOR, etc. |
 | **doomdef** | doomdef.h | MAXPLAYERS, Gamestate, Gameaction, Card, Weapontype, Ammotype, Powertype, screen dims, power durations, MTF_* skill flags, BLOCK_SIZE |
 | **doomdata** | doomdata.h | MapThing, MapVertex, MapLineDef, MapSideDef, MapSector, MapSeg, MapSubsector, MapNode, MTF_NOTSINGLE |
+| **doomstat** | doomstat.h/c, d_player.h | player_t (Player), wbplayerstruct_t (WbPlayerStruct), wbstartstruct_t (WbStartStruct), Pspdef, all globals (GAMEMODE, GAMEMAP, PLAYERS, etc.), logical_gamemission |
 | **doomfeatures** | doomfeatures.h | FEATURE_SOUND, etc. |
 | **d_mode** | d_mode.h | GameMission, GameMode, GameVersion, Skill |
 | **d_ticcmd** | d_ticcmd.h | Ticcmd |
@@ -77,7 +78,6 @@ These modules exist but have minimal or stub implementations.
 | Rust Module | C Source(s) | Status |
 |-------------|-------------|--------|
 | **i_system** | i_system.h/c | Stub: I_ZoneBase, I_Error, I_BeginRead, I_EndRead (no I_GetTime, I_Init, etc.) |
-| **doomstat** | doomstat.h/c | Partial: globals (GAMEMODE, GAMEMAP, etc.), Player (mo, viewz, viewheight, extralight, fixedcolormap, playerstate, health), PlayerState enum, PLAYERS, PLAYERINGAME, PLAYERSTARTS; WbStartStruct (epsd, last, next, pnum, plyr), WbPlayerStruct |
 | **player/** | p_*.h / p_*.c | Scaffolded; see below |
 | **ui_hud** | m_menu, m_controls, m_cheat, m_config, hu_*, st_*, wi_stuff | All 9 modules full: cheat, st_lib, hu_lib, hu_stuff, st_stuff, wi_stuff, config, controls, menu. Save string input, Read This screen, Heretic/Hexen/Strife controls. v_video, r_draw. |
 

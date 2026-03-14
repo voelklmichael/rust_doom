@@ -7,7 +7,8 @@
 //
 // Original: p_pspr.h / p_pspr.c (stub)
 
-use crate::m_fixed::Fixed;
+/// Re-export Pspdef from doomstat (avoids circular dependency).
+pub use crate::doomstat::Pspdef;
 
 /// Overlay psprites - weapon and muzzle flash.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -16,17 +17,6 @@ pub enum Psprnum {
     Weapon = 0,
     Flash = 1,
     NumPsprites = 2,
-}
-
-/// Player sprite overlay - weapon/flash position on screen.
-#[repr(C)]
-#[derive(Debug)]
-pub struct Pspdef {
-    /// NULL state means not active.
-    pub state: *mut std::ffi::c_void,
-    pub tics: i32,
-    pub sx: Fixed,
-    pub sy: Fixed,
 }
 
 /// Setup psprites for player. Original: P_SetupPsprites

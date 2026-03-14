@@ -5,7 +5,7 @@
 // DESCRIPTION:
 //   All the global variables that store the internal state.
 //
-// Original: doomstat.h + doomstat.c
+// Original: doomstat.h + doomstat.c + d_player.h (player_t, wbplayerstruct_t, wbstartstruct_t)
 
 use std::sync::atomic::AtomicI32;
 
@@ -20,6 +20,32 @@ use crate::m_fixed::Fixed;
 pub const CF_NOCLIP: i32 = 1;
 pub const CF_GODMODE: i32 = 2;
 pub const CF_NOMOMENTUM: i32 = 4;
+
+/// Number of overlay psprites (weapon, flash).
+pub const NUMPSPRITES: usize = 2;
+
+/// Player sprite overlay - weapon/flash position on screen (pspdef_t in p_pspr.h).
+/// Defined here to avoid circular dependency; p_pspr re-exports this.
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Pspdef {
+    /// NULL state means not active.
+    pub state: *mut std::ffi::c_void,
+    pub tics: i32,
+    pub sx: Fixed,
+    pub sy: Fixed,
+}
+
+impl Default for Pspdef {
+    fn default() -> Self {
+        Self {
+            state: std::ptr::null_mut(),
+            tics: 0,
+            sx: 0,
+            sy: 0,
+        }
+    }
+}
 
 /// Player state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -41,10 +67,17 @@ pub struct Player {
     /// Player mobj (Mobj*).
     pub mo: *mut std::ffi::c_void,
     pub playerstate: PlayerState,
+    /// Buffered input per game tick.
+    pub cmd: Ticcmd,
+    /// Focal origin above r.z.
     pub viewz: Fixed,
+    /// Base height above floor for viewz.
     pub viewheight: Fixed,
-    pub extralight: i32,
-    pub fixedcolormap: i32,
+    /// Bob/squat speed.
+    pub deltaviewheight: Fixed,
+    /// Bounded/scaled total momentum.
+    pub bob: Fixed,
+    /// Health (used between levels; mo->health during levels).
     pub health: i32,
     /// Armor points (0–200).
     pub armorpoints: i32,
@@ -67,14 +100,36 @@ pub struct Player {
     pub ammo: [i32; NUMAMMO],
     /// Max ammo per type.
     pub maxammo: [i32; NUMAMMO],
+    /// True if attack button down last tic.
+    pub attackdown: i32,
+    /// True if use button down last tic.
+    pub usedown: i32,
     /// Cheat flags (CF_*).
     pub cheats: i32,
+    /// Refired shots are less accurate.
+    pub refire: i32,
+    /// For intermission stats.
+    pub killcount: i32,
+    pub itemcount: i32,
+    pub secretcount: i32,
     /// Hint message (e.g. "Picked up the armor").
     pub message: Option<String>,
     /// Tics of damage flash (red palette). Decremented each tic.
     pub damagecount: i32,
     /// Tics of bonus/pickup flash. Decremented each tic.
     pub bonuscount: i32,
+    /// Who did damage (NULL for floors/ceilings).
+    pub attacker: *mut std::ffi::c_void,
+    /// So gun flashes light up areas.
+    pub extralight: i32,
+    /// Current PLAYPAL; can be set to REDCOLORMAP for pain, etc.
+    pub fixedcolormap: i32,
+    /// Player skin colorshift: 0-3 for which color to draw player.
+    pub colormap: i32,
+    /// Overlay view sprites (gun, etc).
+    pub psprites: [Pspdef; NUMPSPRITES],
+    /// True if secret level has been done.
+    pub didsecret: bool,
 }
 
 impl Default for Player {
@@ -82,10 +137,11 @@ impl Default for Player {
         Self {
             mo: std::ptr::null_mut(),
             playerstate: PlayerState::Reborn,
+            cmd: Ticcmd::default(),
             viewz: 0,
             viewheight: 0,
-            extralight: 0,
-            fixedcolormap: 0,
+            deltaviewheight: 0,
+            bob: 0,
             health: 100,
             armorpoints: 0,
             armortype: 0,
@@ -108,24 +164,44 @@ impl Default for Player {
             ],
             ammo: [50, 0, 0, 0],  // 50 bullets, no shells/cells/missiles
             maxammo: [200, 50, 300, 50],
+            attackdown: 0,
+            usedown: 0,
             cheats: 0,
+            refire: 0,
+            killcount: 0,
+            itemcount: 0,
+            secretcount: 0,
             message: None,
             damagecount: 0,
             bonuscount: 0,
+            attacker: std::ptr::null_mut(),
+            extralight: 0,
+            fixedcolormap: 0,
+            colormap: 0,
+            psprites: [Pspdef::default(); NUMPSPRITES],
+            didsecret: false,
         }
     }
 }
 
 /// Intermission player stats (wbplayerstruct_t in C).
+/// C fields: in, skills, sitems, ssecret, stime, frags, score.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct WbPlayerStruct {
+    /// Whether the player is in game.
     pub in_game: i32,
+    /// Kills (C: skills).
     pub kills: i32,
+    /// Items collected (C: sitems).
     pub items: i32,
+    /// Secrets found (C: ssecret).
     pub secret: i32,
+    /// Time in tics (C: stime).
     pub time: i32,
     /// Frags per opponent (deathmatch). frags[i] = frags on player i.
     pub frags: [i32; crate::doomdef::MAXPLAYERS],
+    /// Current score on entry, modified on return (C: score).
+    pub score: i32,
 }
 
 /// Intermission parameters (wbstartstruct_t in C).
@@ -133,20 +209,24 @@ pub struct WbPlayerStruct {
 pub struct WbStartStruct {
     /// Episode (0-based).
     pub epsd: i32,
+    /// If true, splash the secret level.
+    pub didsecret: bool,
     /// Last level completed (0-based).
     pub last: i32,
     /// Next level to enter (0-based).
     pub next: i32,
-    /// Number of players.
-    pub pnum: i32,
     /// Max kills in level (for percentage).
     pub maxkills: i32,
     /// Max items in level (for percentage).
     pub maxitems: i32,
     /// Max secrets in level (for percentage).
     pub maxsecret: i32,
+    /// Max frags in level (deathmatch).
+    pub maxfrags: i32,
     /// Par time in tics.
     pub partime: i32,
+    /// Index of this player in game.
+    pub pnum: i32,
     /// Per-player stats.
     pub plyr: [WbPlayerStruct; crate::doomdef::MAXPLAYERS],
 }
@@ -225,10 +305,22 @@ pub const MAX_DM_STARTS: usize = 10;
 const DEFAULT_PLAYER: Player = Player {
     mo: std::ptr::null_mut(),
     playerstate: PlayerState::Reborn,
+    cmd: Ticcmd {
+        forwardmove: 0,
+        sidemove: 0,
+        angleturn: 0,
+        chatchar: 0,
+        buttons: 0,
+        consistancy: 0,
+        buttons2: 0,
+        inventory: 0,
+        lookfly: 0,
+        arti: 0,
+    },
     viewz: 0,
     viewheight: 0,
-    extralight: 0,
-    fixedcolormap: 0,
+    deltaviewheight: 0,
+    bob: 0,
     health: 100,
     armorpoints: 0,
     armortype: 0,
@@ -243,10 +335,22 @@ const DEFAULT_PLAYER: Player = Player {
     ],
     ammo: [50, 0, 0, 0],
     maxammo: [200, 50, 300, 50],
+    attackdown: 0,
+    usedown: 0,
     cheats: 0,
+    refire: 0,
+    killcount: 0,
+    itemcount: 0,
+    secretcount: 0,
     message: None,
     damagecount: 0,
     bonuscount: 0,
+    attacker: std::ptr::null_mut(),
+    extralight: 0,
+    fixedcolormap: 0,
+    colormap: 0,
+    psprites: [Pspdef { state: std::ptr::null_mut(), tics: 0, sx: 0, sy: 0 }; NUMPSPRITES],
+    didsecret: false,
 };
 
 pub static mut PLAYERS: [Player; MAXPLAYERS] = [DEFAULT_PLAYER; MAXPLAYERS];
@@ -263,17 +367,20 @@ const DEFAULT_WBPLAYER: WbPlayerStruct = WbPlayerStruct {
     secret: 0,
     time: 0,
     frags: [0; crate::doomdef::MAXPLAYERS],
+    score: 0,
 };
 
 pub static mut WMINFO: WbStartStruct = WbStartStruct {
     epsd: 0,
+    didsecret: false,
     last: 0,
     next: 0,
-    pnum: 0,
     maxkills: 0,
     maxitems: 0,
     maxsecret: 0,
+    maxfrags: 0,
     partime: 0,
+    pnum: 0,
     plyr: [DEFAULT_WBPLAYER; crate::doomdef::MAXPLAYERS],
 };
 
