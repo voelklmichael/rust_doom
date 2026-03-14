@@ -94,10 +94,14 @@ All p_* C modules are scaffolded in `player/`. See `docs/PLAYER_TRANSLATION_PLAN
 | **p_tick** | Working | P_InitThinkers, P_AddThinker, P_RemoveThinker, P_RunThinkers, P_Ticker |
 | **p_map** | Working | P_CheckPosition, P_TryMove, P_TeleportMove, P_SlideMove |
 | **p_sight** | Working | P_CheckSight (REJECT + BSP traversal) |
-| **p_spec** | Partial | get_next_sector |
-| **p_floor, p_ceilng, p_doors, p_plats, p_lights, p_telept** | Stub | Module structure only |
-| **p_switch, p_inter** | Stub | API stubs |
-| **p_pspr, p_user, p_enemy, p_saveg** | Stub | API stubs |
+| **p_spec** | Partial | get_next_sector, P_CrossSpecialLine, P_UseSpecialLine, P_ShootSpecialLine; dispatches to EV_* (floor, teleport working) |
+| **p_floor** | Working | EV_DoFloor (types 1,2,4,5,6), T_MoveFloor, find_lowest/highest_floor_surrounding |
+| **p_ceilng, p_doors, p_plats** | Stub | EV_DoCeiling, EV_DoDoor, EV_DoPlat API stubs |
+| **p_lights** | Partial | EV_LightTurnOn; EV_StartLightStrobing/Flickering stubs (need T_* thinkers) |
+| **p_telept** | Working | EV_Teleport: find MO_TELEPORTMAN by tag, P_TeleportMove |
+| **p_switch, p_inter** | Stub | P_UseSpecialLine, P_ChangeSwitchTexture; P_TouchSpecialThing, P_DamageMobj, P_Give*Ammo/Weapon/Body/Armor |
+| **p_pspr, p_user, p_saveg** | Stub | P_SetupPsprites, P_MovePsprites, P_DropWeapon; P_PlayerThink, P_Thrust, P_CalcHeight, P_MovePlayer; P_Archive* |
+| **p_enemy** | Partial | P_NoiseAlert (sets sector.soundtarget for adjacent sectors) |
 
 ### ui_hud/ module (src/ui_hud/)
 

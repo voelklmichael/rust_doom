@@ -20,7 +20,7 @@ const _SPR_PLAY: Spritenum = 58; // Player
 pub const NUMSTATES: usize = 10;
 
 /// Number of mobj types. Full Doom has ~150.
-pub const NUMMOBJTYPES: usize = 5;
+pub const NUMMOBJTYPES: usize = 6;
 
 /// MT_PLAYER
 pub const MT_PLAYER: Mobjtype = 0;
@@ -32,6 +32,8 @@ pub const MT_TROOP: Mobjtype = 2;
 pub const MT_SERGEANT: Mobjtype = 3;
 /// MT_HEAD (cacodemon - placeholder)
 pub const MT_HEAD: Mobjtype = 4;
+/// MT_TELEPORTMAN (teleport destination marker - invisible, doomednum 14)
+pub const MT_TELEPORTMAN: Mobjtype = 5;
 
 fn state_null() -> State {
     State {
@@ -185,4 +187,29 @@ pub static MOBJINFO: [Mobjinfo; NUMMOBJTYPES] = [
         flags: 0,
         raisestate: 0,
     }, // MT_HEAD
+    Mobjinfo {
+        doomednum: 14,
+        spawnstate: 0,
+        spawnhealth: 1000,
+        seestate: 0,
+        seesound: 0,
+        reactiontime: 0,
+        attacksound: 0,
+        painstate: 0,
+        painchance: 0,
+        painsound: 0,
+        meleestate: 0,
+        missilestate: 0,
+        deathstate: 0,
+        xdeathstate: 0,
+        deathsound: 0,
+        speed: 0,
+        radius: 16,
+        height: 16,
+        mass: 100,
+        damage: 0,
+        activesound: 0,
+        flags: 16, // MF_NOBLOCKMAP - teleport dest doesn't block
+        raisestate: 0,
+    }, // MT_TELEPORTMAN
 ];

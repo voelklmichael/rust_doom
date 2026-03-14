@@ -574,8 +574,9 @@ pub fn p_spawn_map_thing(mthing: &MapThing) {
         return;
     }
     // Skill: bits 1=easy, 2=normal, 4=hard, 8=nightmare. Spawn if any skill bit set.
+    // Teleport dest (MT_TELEPORTMAN) spawns regardless of skill.
     let skill_bits = mthing.options as i32 & 0xF;
-    if skill_bits == 0 {
+    if skill_bits == 0 && mobj_type != crate::info::MT_TELEPORTMAN {
         return;
     }
 

@@ -5,5 +5,5 @@
 pub mod types;
 pub mod tables;
 
-pub use tables::{states, MOBJINFO, MT_PLAYER, NUMMOBJTYPES, NUMSTATES};
+pub use tables::{states, MOBJINFO, MT_PLAYER, MT_TELEPORTMAN, NUMMOBJTYPES, NUMSTATES};
 pub use types::{Mobjinfo, Mobjtype, Spritenum, State, Statenum, S_NULL};

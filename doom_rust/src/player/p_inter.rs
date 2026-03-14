@@ -75,5 +75,28 @@ fn player_index_from_mobj(mo: *mut Mobj) -> Option<usize> {
     None
 }
 
-// TODO: P_GivePower, P_GiveAmmo, P_GiveWeapon, P_GiveBody, P_GiveArmor, etc.
-// TODO: maxammo, clipammo - in p_local.h
+/// Give ammo to player. Original: P_GiveAmmo. Returns true if gave any.
+pub fn p_give_ammo(_player: *mut std::ffi::c_void, _ammo: i32, _num: i32) -> bool {
+    let _ = (_player, _ammo, _num);
+    false
+}
+
+/// Give weapon to player. Original: P_GiveWeapon. Returns true if gave.
+pub fn p_give_weapon(_player: *mut std::ffi::c_void, _weapon: i32, _dropped: bool) -> bool {
+    let _ = (_player, _weapon, _dropped);
+    false
+}
+
+/// Give health to player. Original: P_GiveBody. Returns true if gave.
+pub fn p_give_body(_player: *mut std::ffi::c_void, _num: i32) -> bool {
+    let _ = (_player, _num);
+    false
+}
+
+/// Give armor to player. Original: P_GiveArmor. Returns true if gave.
+pub fn p_give_armor(_player: *mut std::ffi::c_void, _armortype: i32, _armorbonus: i32) -> bool {
+    let _ = (_player, _armortype, _armorbonus);
+    false
+}
+
+// TODO: P_GivePower, maxammo, clipammo - in p_local.h

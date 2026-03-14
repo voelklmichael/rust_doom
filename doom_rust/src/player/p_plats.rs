@@ -7,4 +7,17 @@
 //
 // Original: p_plats.c (stub)
 
-// TODO: T_PlatRaise, EV_DoPlat, etc. - require sector_t, thinker_t, s_sound
+use crate::rendering::defs::Line;
+
+/// Execute platform special. Original: EV_DoPlat
+/// Returns true if a platform mover was started.
+pub fn ev_do_plat(
+    _line: *const Line,
+    _plattype: i32,
+    _amount: i32,
+) -> bool {
+    let _ = (_line, _plattype, _amount);
+    false
+}
+
+// TODO: T_PlatRaise (thinker) - require thinker_t, s_sound

@@ -40,6 +40,24 @@ pub fn p_write_save_game_eof() {
     // TODO
 }
 
-// TODO: P_ArchivePlayers, P_UnArchivePlayers, P_ArchiveWorld, P_UnArchiveWorld,
-// P_ArchiveThinkers, P_UnArchiveThinkers, P_ArchiveSpecials, P_UnArchiveSpecials
-// Require: g_game, dstrings, full thinker/mobj/sector serialization
+/// Archive players to save stream. Original: P_ArchivePlayers
+pub fn p_archive_players() {
+    // TODO: serialize player_t
+}
+
+/// Unarchive players from save stream. Original: P_UnArchivePlayers
+pub fn p_unarchive_players() {
+    // TODO: deserialize player_t
+}
+
+/// Archive world (mobjs, sectors). Original: P_ArchiveWorld
+pub fn p_archive_world() {
+    // TODO: serialize thinkers, sectors
+}
+
+/// Unarchive world. Original: P_UnArchiveWorld
+pub fn p_unarchive_world() {
+    // TODO: deserialize
+}
+
+// TODO: P_ArchiveThinkers, P_UnArchiveThinkers, P_ArchiveSpecials, P_UnArchiveSpecials
