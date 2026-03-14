@@ -44,8 +44,11 @@ pub fn m_check_parm_with_args(check: &str, num_args: usize) -> usize {
     if argc <= num_args {
         return 0;
     }
-    for i in 1..(argc - num_args) {
-        if argv[i].eq_ignore_ascii_case(check) {
+    for (i, arg) in argv.iter().enumerate() {
+        if i >= argc - num_args {
+            break;
+        }
+        if arg.eq_ignore_ascii_case(check) {
             return i;
         }
     }
