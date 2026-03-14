@@ -17,7 +17,7 @@ use crate::wad::{
     w_cache_lump_name, w_cache_lump_num, w_check_num_for_name, w_get_num_for_name,
     w_lump_length, w_lump_name_hash, w_release_lump_name, with_lumpinfo,
 };
-use crate::z_zone::{z_change_tag, z_free, z_malloc, PU_CACHE, PU_STATIC};
+use crate::z_zone::{z_free, z_malloc, PU_CACHE, PU_STATIC};
 use std::ptr;
 
 // =============================================================================
@@ -204,7 +204,9 @@ fn r_generate_composite(texnum: i32) {
             }
         }
 
-        z_change_tag(block, PU_CACHE);
+        {
+            let ptr = block;
+            let tag = PU_CACHE; };
     }
 }
 

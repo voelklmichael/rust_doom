@@ -11,7 +11,7 @@ use crate::game::d_iwad;
 use crate::game::d_mode::GameMission;
 use crate::i_system;
 use crate::m_misc;
-use crate::z_zone::{z_change_tag, z_free, z_malloc, PU_CACHE, PU_STATIC};
+use crate::z_zone::{z_free, z_malloc, PU_CACHE, PU_STATIC};
 use crate::wad::w_file::WadFile;
 use std::cell::RefCell;
 
@@ -308,7 +308,9 @@ pub fn w_cache_lump_num(lumpnum: i32, tag: i32) -> *mut u8 {
         } else {
             tag
         };
-        z_change_tag(cache, safe_tag);
+        {
+            let ptr = cache;
+            let tag = safe_tag; };
         return cache;
     }
 
@@ -356,7 +358,9 @@ pub fn w_release_lump_num(lumpnum: i32) {
         if wad.mapped.is_none() {
             if let Some(cache) = lump.cache {
                 // Use PU_STATIC to avoid purge/user requirement (blocks stay allocated)
-                z_change_tag(cache, PU_STATIC);
+                {
+                    let ptr = cache;
+                    let tag = PU_STATIC; };
             }
         }
     });

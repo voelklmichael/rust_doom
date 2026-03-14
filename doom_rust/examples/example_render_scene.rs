@@ -23,14 +23,12 @@ use std::path::Path;
 fn main() {
     let args: Vec<String> = env::args().collect();
     let wad_path = args.get(1).map(|s| s.as_str()).unwrap_or("../Doom1.WAD");
+    dbg!(&wad_path);
     let map_name = args.get(2).map(|s| s.as_str()).unwrap_or("E1M1");
 
     println!("Loading {} and rendering {}", wad_path, map_name);
 
-    m_argv::m_argv_init(vec![
-        "example_render_scene".to_string(),
-        wad_path.to_string(),
-    ]);
+    m_argv::m_argv_init(vec![wad_path.to_string()]);
     z_zone::z_init();
 
     if wad::w_add_file(wad_path).is_none() {
@@ -70,8 +68,8 @@ fn main() {
         }
     }
 
-    let img: RgbaImage =
-        ImageBuffer::from_raw(SCREENWIDTH as u32, SCREENHEIGHT as u32, rgba).expect("valid dimensions");
+    let img: RgbaImage = ImageBuffer::from_raw(SCREENWIDTH as u32, SCREENHEIGHT as u32, rgba)
+        .expect("valid dimensions");
 
     let out_dir = Path::new("target/rendering");
     let out_path = out_dir.join("scene.png");
