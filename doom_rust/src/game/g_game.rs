@@ -10,15 +10,21 @@
 use super::d_event::Event;
 use super::d_main::{GAMEACTION, SAVEGAMESLOT};
 use super::d_ticcmd::Ticcmd;
+use super::f_finale;
 use crate::deh::misc::DEH_DEFAULT_INITIAL_HEALTH;
-use crate::doomdef::Gameaction;
+use crate::doomdef::{Gameaction, Gamestate};
 use crate::doomstat::{Player, PlayerState, GAMEEPISODE, GAMEMAP, GAMESKILL, PLAYERS};
 use crate::game::d_mode::Skill;
 use crate::player::p_tick;
 
 /// Advance game one tic. Calls P_Ticker, ST_Ticker, AM_Ticker, HU_Ticker.
+/// When GAMESTATE is Finale, calls F_Ticker instead.
 /// Original: G_Ticker
 pub fn g_ticker() {
+    if unsafe { crate::doomstat::GAMESTATE == Gamestate::Finale } {
+        f_finale::f_ticker();
+        return;
+    }
     p_tick::p_ticker();
     crate::ui_hud::st_ticker();
     crate::ui_hud::am_ticker();
@@ -41,9 +47,12 @@ pub fn g_player_reborn(player: usize) {
     }
 }
 
-/// Handle input event. Dispatches to am_responder, st_responder, etc.
+/// Handle input event. Dispatches to F_Responder when in Finale, else am_responder, st_responder.
 /// Original: G_Responder
 pub fn g_responder(ev: &Event) -> bool {
+    if unsafe { crate::doomstat::GAMESTATE == Gamestate::Finale } {
+        return f_finale::f_responder(ev);
+    }
     crate::ui_hud::am_responder(ev) || crate::ui_hud::st_responder(ev) as bool
 }
 

@@ -53,6 +53,6 @@ pub use v_video::{
     v_draw_horiz_line, v_draw_mouse_speed_box, v_draw_patch, v_draw_patch_direct,
     v_draw_patch_flipped, v_draw_raw_screen, v_draw_shadowed_patch, v_draw_tl_patch,
     v_draw_vert_line, v_draw_xla_patch, v_init, v_load_tint_table, v_load_xla_table,
-    v_mark_rect, v_restore_buffer, v_screen_shot, v_set_patch_clip_callback, v_use_buffer,
+    v_mark_rect, v_read_screen, v_restore_buffer, v_screen_shot, v_set_patch_clip_callback, v_use_buffer,
     CENTERY, DIRTYBOX, TINTTABLE, VIEWIMAGE,
 };

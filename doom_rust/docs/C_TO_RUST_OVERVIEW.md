@@ -130,8 +130,8 @@ C modules with no Rust equivalent yet.
 | C Module | Purpose |
 |----------|---------|
 | info | Thing/mobjs info tables – minimal done (State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD) |
-| f_finale | End-game screens |
-| f_wipe | Screen wipe |
+| f_finale | End-game screens (game/f_finale.rs: F_StartFinale, F_Responder, F_Ticker, F_Drawer stub) |
+| f_wipe | Screen wipe (game/f_wipe.rs: wipe_StartScreen, wipe_EndScreen, wipe_ScreenWipe ColorXForm) |
 | i_timer | Timing |
 | i_video | Video init |
 | i_input | Input handling |

@@ -196,6 +196,15 @@ pub fn v_draw_vert_line(_x: i32, _y: i32, _h: i32, _c: u8) {}
 /// Draw box outline. Stub: no-op.
 pub fn v_draw_box(_x: i32, _y: i32, _w: i32, _h: i32, _c: u8) {}
 
+/// Copy current screen buffer to dest. For wipe/finale. Original: I_ReadScreen
+pub fn v_read_screen(dest: *mut u8) {
+    unsafe {
+        if !VIEWIMAGE.is_null() && !dest.is_null() {
+            std::ptr::copy_nonoverlapping(VIEWIMAGE, dest, SCREEN_SIZE);
+        }
+    }
+}
+
 /// Draw raw screen lump. Stub: no-op.
 pub fn v_draw_raw_screen(_raw: *const u8) {}
 

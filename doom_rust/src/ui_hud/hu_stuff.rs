@@ -164,6 +164,28 @@ pub fn hu_write_text(x: i32, y: i32, s: &str) {
     }
 }
 
+/// Draw a single character at (x,y). Returns width in pixels, or 4 for non-drawable chars.
+/// Used by finale text scroll. Original: used in F_TextWrite.
+pub fn hu_draw_char(x: i32, y: i32, c: u8) -> i32 {
+    unsafe {
+        if HU_FONT[0].is_null() {
+            return 4;
+        }
+        let c_upper = if c >= b'a' && c <= b'z' { c - 32 } else { c };
+        let idx = (c_upper as i32) - (HU_FONTSTART as i32);
+        if idx < 0 || idx >= HU_FONTSIZE as i32 {
+            return 4;
+        }
+        let patch = HU_FONT[idx as usize];
+        if patch.is_null() {
+            return 4;
+        }
+        let w = (*patch).width as i32;
+        crate::rendering::v_draw_patch_direct(x, y, patch);
+        w
+    }
+}
+
 /// String width in pixels using HU_FONT.
 pub fn hu_string_width(s: &str) -> i32 {
     unsafe {

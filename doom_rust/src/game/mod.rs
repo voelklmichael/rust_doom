@@ -5,6 +5,8 @@
 pub mod d_event;
 pub mod dstrings;
 pub mod d_iwad;
+pub mod f_finale;
+pub mod f_wipe;
 pub mod d_items;
 pub mod d_loop;
 pub mod d_main;
