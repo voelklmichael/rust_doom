@@ -3,6 +3,7 @@
 //! Original C: m_menu, m_controls, m_cheat, m_config, hu_stuff, hu_lib,
 //! st_stuff, st_lib, wi_stuff.
 
+pub mod am_map;
 pub mod cheat;
 pub mod config;
 pub mod controls;
@@ -26,6 +27,7 @@ pub use controls::{
     m_bind_weapon_controls,
 };
 pub use hu_stuff::{hu_dequeue_chat_char, hu_drawer, hu_erase, hu_init, hu_responder, hu_set_message, hu_start, hu_string_width, hu_ticker, hu_write_text};
+pub use am_map::{am_drawer, am_responder, am_start, am_stop, am_ticker};
 pub use menu::{m_drawer, m_init, m_responder, m_start_control_panel, m_ticker};
 pub use st_stuff::{st_drawer, st_init, st_responder, st_start, st_ticker};
 pub use wi_stuff::{wi_drawer, wi_end, wi_set_accelerate, wi_start, wi_ticker};

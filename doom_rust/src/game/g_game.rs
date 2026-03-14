@@ -16,10 +16,13 @@ use crate::doomstat::{Player, PlayerState, GAMEEPISODE, GAMEMAP, GAMESKILL, PLAY
 use crate::game::d_mode::Skill;
 use crate::player::p_tick;
 
-/// Advance game one tic. Calls P_Ticker.
+/// Advance game one tic. Calls P_Ticker, ST_Ticker, AM_Ticker, HU_Ticker.
 /// Original: G_Ticker
 pub fn g_ticker() {
     p_tick::p_ticker();
+    crate::ui_hud::st_ticker();
+    crate::ui_hud::am_ticker();
+    crate::ui_hud::hu_ticker();
 }
 
 /// Reset player for respawn. Original: G_PlayerReborn
@@ -38,10 +41,10 @@ pub fn g_player_reborn(player: usize) {
     }
 }
 
-/// Handle input event. Stub - returns false (event not consumed).
+/// Handle input event. Dispatches to am_responder, st_responder, etc.
 /// Original: G_Responder
-pub fn g_responder(_ev: &Event) -> bool {
-    false
+pub fn g_responder(ev: &Event) -> bool {
+    crate::ui_hud::am_responder(ev) || crate::ui_hud::st_responder(ev) as bool
 }
 
 /// Build ticcmd from current input state. Stub - zeroes cmd.

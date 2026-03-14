@@ -4,7 +4,7 @@ Plan for porting the Doom UI and HUD C modules to Rust. All files go into the `u
 
 **Source:** `doomgeneric/doomgeneric/m_*.c`, `hu_*.c`, `st_*.c`, `wi_*.c` and corresponding `.h` files
 
-**Current status:** All 9 modules implemented. cheat, st_lib, hu_lib, hu_stuff full; st_stuff (ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder, w_health/w_armor, cheats); wi_stuff (WI_Start, WI_Ticker, WI_Drawer, WI_End, INTERPIC/WIMAP); config (M_LoadDefaults, M_SaveDefaults, variable store, m_set_variable → m_update_control_from_config); controls (M_BindBaseControls, M_BindHereticControls, M_BindHexenControls, M_BindStrifeControls, M_BindWeaponControls, M_BindMapControls, M_BindMenuControls, m_sync_controls_to_config); menu (M_Init, M_Responder, M_Drawer, main/episode/newgame/options/sound/load/save, Read This screen, save string input for new saves); v_video, r_draw.
+**Current status:** All 10 modules implemented. cheat, st_lib, hu_lib, hu_stuff full; st_stuff (ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder, w_health/w_armor, cheats); wi_stuff (WI_Start, WI_Ticker, WI_Drawer, WI_End, INTERPIC/WIMAP); config (M_LoadDefaults, M_SaveDefaults, variable store, m_set_variable → m_update_control_from_config); controls (M_BindBaseControls, M_BindHereticControls, M_BindHexenControls, M_BindStrifeControls, M_BindWeaponControls, M_BindMapControls, M_BindMenuControls, m_sync_controls_to_config); menu (M_Init, M_Responder, M_Drawer, main/episode/newgame/options/sound/load/save, Read This screen, save string input for new saves); am_map (AM_Start, AM_Stop, AM_Responder, AM_Ticker, AM_Drawer, pan/zoom, follow, grid, marks, iddt); v_video, r_draw.
 
 ---
 
@@ -13,6 +13,7 @@ Plan for porting the Doom UI and HUD C modules to Rust. All files go into the `u
 ```
 src/ui_hud/
 ├── mod.rs           # Re-exports, module organization
+├── am_map.rs        # am_map.h + am_map.c  (~1356 lines)
 ├── menu.rs          # m_menu.h + m_menu.c  (~2125 lines)
 ├── controls.rs      # m_controls.h + m_controls.c  (~398 lines)
 ├── cheat.rs         # m_cheat.h + m_cheat.c  (~89 lines)
@@ -267,6 +268,7 @@ pub use menu::{M_Init, M_Responder, M_Ticker, M_Drawer, M_StartControlPanel};
 | **st_stuff.rs** | ✅ Full | ST_Init, ST_Start, ST_Drawer, ST_Ticker, ST_Responder; w_health, w_armor, w_ready, w_arms, w_armsbg, w_faces, w_keyboxes; cheats: god, idfa, idkfa, noclip, idmus, idclev, idbehold*, idchoppers; palette effects; Player wired |
 | **wi_stuff.rs** | ✅ Full | WI_Start, WI_Ticker, WI_Drawer, WI_End; stats; animated stat counting; par time; wi_set_accelerate; animated background (WIA*); "Finished!" / "Entering" + level names; WILV/CWILV patches |
 | **menu.rs** | ✅ Full | M_Init, M_StartControlPanel; M_Responder; M_Drawer (main/episode/newgame/options/sound/load/save, thermo, skull); Load/Save borders + strings + slot activation; save string input for new saves; Read This screen (HELP1); m_set_screenblocks, m_set_detail_level |
+| **am_map.rs** | ✅ Full | AM_Start, AM_Stop, AM_Responder, AM_Ticker, AM_Drawer; pan/zoom, follow player, grid, marks, iddt cheat; Cohen–Sutherland clipping, Bresenham lines; wired into g_responder, g_ticker, st_responder (AM_MSGENTERED/AM_MSGEXITED) |
 
 ## Stub Strategy (Historical)
 
@@ -304,7 +306,7 @@ For initial scaffold:
 
 | Module | Remaining |
 |--------|-----------|
-| **All** | — (UI/HUD translation complete) |
+| **am_map** | When game loop draws: call `am_drawer` instead of `r_render_player_view` when `AUTOMAPACTIVE` |
 
 ---
 

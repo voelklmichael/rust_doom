@@ -33,8 +33,9 @@ pub fn set_savegame_description(desc: &[u8]) {
 /// Read events from all input devices.
 /// Original: D_ProcessEvents
 pub fn d_process_events() {
-    while d_pop_event().is_some() {
-        // Consume events; G_Responder would handle them
+    use super::g_game::g_responder;
+    while let Some(ev) = d_pop_event() {
+        g_responder(&ev);
     }
 }
 

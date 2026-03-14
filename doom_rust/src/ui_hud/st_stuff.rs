@@ -464,6 +464,10 @@ const INVISTICS: i32 = 60 * TICRATE;
 const INFRATICS: i32 = 120 * TICRATE;
 const IRONTICS: i32 = 60 * TICRATE;
 
+const AM_MSGHEADER: i32 = (('a' as i32) << 24) | (('m' as i32) << 16);
+const AM_MSGENTERED: i32 = AM_MSGHEADER | (('e' as i32) << 8);
+const AM_MSGEXITED: i32 = AM_MSGHEADER | (('x' as i32) << 8);
+
 pub fn st_responder(ev: &Event) -> Boolean {
     use crate::deh::misc::{
         DEH_DEFAULT_GOD_MODE_HEALTH, DEH_DEFAULT_IDFA_ARMOR, DEH_DEFAULT_IDFA_ARMOR_CLASS,
@@ -475,6 +479,20 @@ pub fn st_responder(ev: &Event) -> Boolean {
     use crate::game::g_game::g_defered_init_new;
     use crate::sound::{s_change_music, MusicEnum};
     unsafe {
+        // Filter automap on/off (from am_map AM_MSGENTERED/AM_MSGEXITED)
+        if ev.ev_type == EvType::KeyUp && (ev.data1 as u32 & 0xffff0000) == AM_MSGHEADER as u32 {
+            match ev.data1 {
+                AM_MSGENTERED => {
+                    ST_GAMESTATE = StStateEnum::AutomapState;
+                    ST_FIRSTTIME = true;
+                }
+                AM_MSGEXITED => {
+                    ST_GAMESTATE = StStateEnum::FirstPersonState;
+                }
+                _ => {}
+            }
+        }
+
         if ev.ev_type == EvType::KeyDown {
             let idx = CONSOLEPLAYER as usize;
             let plyr = &mut PLAYERS[idx];

@@ -77,3 +77,11 @@ pub const GGSAVED: &str = "game saved.";
 
 /// "empty slot"
 pub const EMPTYSTRING: &str = "empty slot";
+
+// Automap strings (AMSTR_*)
+pub const AMSTR_FOLLOWON: &str = "Follow Mode ON";
+pub const AMSTR_FOLLOWOFF: &str = "Follow Mode OFF";
+pub const AMSTR_GRIDON: &str = "Grid ON";
+pub const AMSTR_GRIDOFF: &str = "Grid OFF";
+pub const AMSTR_MARKEDSPOT: &str = "Marked Spot";
+pub const AMSTR_MARKSCLEARED: &str = "All Marks Cleared";

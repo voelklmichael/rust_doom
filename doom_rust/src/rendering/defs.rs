@@ -23,6 +23,8 @@ pub const ML_TWOSIDED: i16 = 4;
 pub const ML_DONTPEGTOP: i16 = 8;
 pub const ML_DONTPEGBOTTOM: i16 = 16;
 pub const ML_MAPPED: i16 = 256;
+pub const ML_SECRET: i16 = 32;
+pub const ML_DONTDRAW: i16 = 128;
 
 /// Silhouette flags for clipping segs and sprites.
 pub const SIL_NONE: i32 = 0;
