@@ -7,9 +7,9 @@
 //
 // Original: m_misc.h / m_misc.c
 
-use crate::doomtype::{Boolean, Byte, DIR_SEPARATOR};
+use crate::doomtype::{Boolean, DIR_SEPARATOR};
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
+use std::io::{Seek, SeekFrom};
 
 /// Copy string with size limit. Returns true if src fit entirely.
 pub fn m_string_copy(dest: &mut [u8], src: &str) -> Boolean {
@@ -41,13 +41,11 @@ pub fn m_extract_file_base(path: &str, dest: &mut [u8; 8]) {
     let filename = &path[start..];
 
     // Copy up to 8 chars, stop at '.'
-    let mut len = 0usize;
-    for &b in filename {
+    for (len, &b) in filename.iter().enumerate() {
         if b == b'.' || len >= 8 {
             break;
         }
         dest[len] = b.to_ascii_uppercase();
-        len += 1;
     }
 }
 
@@ -55,8 +53,8 @@ trait ToAsciiUppercase {
     fn to_ascii_uppercase(self) -> u8;
 }
 impl ToAsciiUppercase for u8 {
-    fn to_ascii_uppercase(self) -> u8 {
-        if (b'a'..=b'z').contains(&self) {
+    fn to_ascii_uppercase(self: u8) -> u8 {
+        if self.is_ascii_lowercase() {
             self - 32
         } else {
             self

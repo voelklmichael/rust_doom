@@ -11,7 +11,6 @@ use crate::config;
 use crate::doomtype::Byte;
 use crate::m_argv;
 use crate::wad::w_file_stdc;
-use std::sync::OnceLock;
 
 // --- Public API (from w_file.h) ---
 

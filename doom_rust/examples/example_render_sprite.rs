@@ -136,7 +136,10 @@ fn main() {
         let entry = entry.expect("read dir entry");
         let path = entry.path();
         if path.is_file() {
-            let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("unknown");
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("unknown");
             let sprite_data = match fs::read(&path) {
                 Ok(data) => data,
                 Err(e) => {
@@ -154,7 +157,8 @@ fn main() {
             };
 
             let rgba = palette_to_rgba(&pixels, palette);
-            let img: RgbaImage = ImageBuffer::from_raw(width, height, rgba).expect("valid dimensions");
+            let img: RgbaImage =
+                ImageBuffer::from_raw(width, height, rgba).expect("valid dimensions");
             let out_path = out_dir.join(format!("{}.png", name));
             img.save(&out_path).expect("save PNG");
             count += 1;

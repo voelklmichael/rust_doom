@@ -41,12 +41,18 @@ impl Sha1Context {
 
     /// Original: SHA1_UpdateInt32
     pub fn update_int32(&mut self, val: u32) {
-        self.hasher.update(&val.to_le_bytes());
+        self.hasher.update(val.to_le_bytes());
     }
 
     /// Original: SHA1_UpdateString
     pub fn update_string(&mut self, s: &str) {
         self.hasher.update(s.as_bytes());
-        self.hasher.update(&[0u8]); // null terminator
+        self.hasher.update([0u8]); // null terminator
+    }
+}
+
+impl Default for Sha1Context {
+    fn default() -> Self {
+        Self::new()
     }
 }

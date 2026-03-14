@@ -12,7 +12,6 @@ use crate::game::d_mode::GameMission;
 use crate::i_system;
 use crate::m_misc;
 use crate::wad::w_file::WadFile;
-use crate::z_zone::{z_free, PU_CACHE, PU_STATIC};
 use std::cell::RefCell;
 use std::sync::Arc;
 
@@ -150,7 +149,7 @@ pub fn w_add_file(filename: &str) -> Option<usize> {
                 let offset = i * 16;
                 let filepos = i32::from_le_bytes(fileinfo[offset..offset + 4].try_into().unwrap());
                 let size = i32::from_le_bytes(fileinfo[offset + 4..offset + 8].try_into().unwrap());
-                let mut name = fileinfo[offset + 8..offset + 16].try_into().unwrap();
+                let name = fileinfo[offset + 8..offset + 16].try_into().unwrap();
 
                 state.lumpinfo[startlump + i] = LumpInfo {
                     name,
@@ -214,9 +213,6 @@ pub fn w_check_num_for_name(name: &str) -> i32 {
         if numlumps == 0 {
             return -1;
         }
-
-        let name_bytes = name.as_bytes();
-        let cmp_len = name_bytes.len().min(8);
 
         if let Some(ref lumphash) = state.lumphash {
             let hash = (w_lump_name_hash(name) as usize) % numlumps;
@@ -291,7 +287,7 @@ pub fn w_read_lump(lump: usize, dest: &mut [u8]) {
 }
 
 /// Original: W_CacheLumpNum
-pub fn w_cache_lump_num(lumpnum: i32, tag: i32) -> LumpCache {
+pub fn w_cache_lump_num(lumpnum: i32, _tag: i32) -> LumpCache {
     let (wad_index, position, size, has_mapped) = wad_state_read(|state| {
         let numlumps = state.lumpinfo.len();
         if (lumpnum as usize) >= numlumps {
@@ -320,12 +316,6 @@ pub fn w_cache_lump_num(lumpnum: i32, tag: i32) -> LumpCache {
         return cache.clone();
     }
 
-    // Allocate: use PU_STATIC when tag is purgable to avoid needing user (avoids zone purge issues)
-    let alloc_tag = if tag >= crate::z_zone::PU_PURGELEVEL {
-        crate::z_zone::PU_STATIC
-    } else {
-        tag
-    };
     let mut cache = vec![0u8; size];
     i_system::i_begin_read();
     let n = wad_state_read(|state| {

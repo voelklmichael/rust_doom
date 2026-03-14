@@ -30,7 +30,9 @@ pub fn w_checksum(digest: &mut Sha1Digest) {
 fn checksum_add_lump(ctx: &mut Sha1Context, lump: &LumpInfo) {
     // M_StringCopy(buf, lump->name, sizeof(buf)); SHA1_UpdateString(sha1_context, buf);
     let mut buf = [0u8; 9];
-    let name_str = std::str::from_utf8(&lump.name).unwrap_or("").trim_end_matches('\0');
+    let name_str = std::str::from_utf8(&lump.name)
+        .unwrap_or("")
+        .trim_end_matches('\0');
     m_misc::m_string_copy(&mut buf, name_str);
     ctx.update(&buf[..=buf.iter().position(|&b| b == 0).unwrap_or(8)]);
     ctx.update_int32(lump.wad_file_index as u32);

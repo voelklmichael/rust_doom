@@ -13,8 +13,8 @@ pub use w_checksum::w_checksum;
 pub use w_file::{w_open_file, WadFile};
 pub use w_main::w_parse_command_line;
 pub use w_merge::{
-    w_merge_file, w_nwt_dash_merge, w_nwt_merge_file, w_print_directory,
-    W_NWT_MERGE_FLATS, W_NWT_MERGE_SPRITES,
+    w_merge_file, w_nwt_dash_merge, w_nwt_merge_file, w_print_directory, W_NWT_MERGE_FLATS,
+    W_NWT_MERGE_SPRITES,
 };
 pub use w_wad::{
     numlumps, w_add_file, w_cache_lump_name, w_cache_lump_num, w_check_correct_iwad,

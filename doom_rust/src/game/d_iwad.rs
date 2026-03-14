@@ -68,6 +68,7 @@ fn mission_from_filename(path: &str) -> GameMission {
 /// Original: d_iwad.c D_TryFindWADByName
 pub fn d_try_find_wad_by_name(filename: &str) -> String {
     if std::path::Path::new(filename).exists() {
+        dbg!("this is not really implemented");
         filename.to_string()
     } else {
         filename.to_string()
