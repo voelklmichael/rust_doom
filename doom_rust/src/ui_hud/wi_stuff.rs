@@ -1107,6 +1107,7 @@ fn wi_update_stats() {
 }
 
 pub fn wi_start(wbstartstruct: &crate::doomstat::WbStartStruct) {
+    crate::game::statdump::stat_copy(wbstartstruct);
     unsafe {
         WI_STATE = WiStateEnum::StatCount;
         WI_BCNT = 0;

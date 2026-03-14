@@ -1,4 +1,4 @@
-use doom_rust::{m_argv, wad, z_zone};
+use doom_rust::{game::statdump, m_argv, wad, z_zone};
 
 fn main() {
     // Initialize command line
@@ -14,4 +14,7 @@ fn main() {
     } else {
         println!("Hello, world! (No WAD files specified - use -file <wad> to load)");
     }
+
+    // Dump statistics if -statdump was used (captured during level completions)
+    statdump::stat_dump();
 }
