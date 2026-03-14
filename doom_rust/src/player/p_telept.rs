@@ -42,8 +42,7 @@ pub fn ev_teleport(line: *const Line, _side: i32, thing: *mut Mobj) -> bool {
 
 /// Find a MO_TELEPORTMAN in a sector with the given tag. Returns first found.
 fn find_teleport_dest(tag: i32) -> *mut Mobj {
-    let sectors = unsafe { state::SECTORS };
-    let numsectors = unsafe { state::NUMSECTORS };
+    let (sectors, numsectors) = state::with_state(|s| (s.sectors, s.numsectors));
     if sectors.is_null() || numsectors <= 0 {
         return std::ptr::null_mut();
     }

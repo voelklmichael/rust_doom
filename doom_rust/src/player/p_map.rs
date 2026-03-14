@@ -142,7 +142,7 @@ pub fn p_check_position(thing: *mut Mobj, x: Fixed, y: Fixed) -> bool {
     if thing.is_null() {
         return false;
     }
-    let (bmaporgx, bmaporgy) = unsafe { (state::BMAPORGX, state::BMAPORGY) };
+    let (bmaporgx, bmaporgy) = state::with_state(|s| (s.bmaporgx, s.bmaporgy));
     unsafe {
         TMTHING = thing;
         TMFLAGS = (*thing).flags;
@@ -236,7 +236,7 @@ pub fn p_try_move(thing: *mut Mobj, x: Fixed, y: Fixed) -> bool {
     }
     p_set_thing_position(thing);
     if (unsafe { (*thing).flags } & (MF_TELEPORT | MF_NOCLIP)) == 0 {
-        let lines = unsafe { state::LINES };
+        let lines = state::with_state(|s| s.lines);
         while unsafe { NUMSPECHIT } > 0 {
             unsafe {
                 NUMSPECHIT -= 1;

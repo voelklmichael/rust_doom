@@ -74,9 +74,9 @@ static mut MASKEDTEXTURECOL: *mut i16 = ptr::null_mut();
 
 fn r_render_seg_loop() {
     unsafe {
-        let viewheight = state::VIEWHEIGHT;
-        let floorplane = state::FLOORPLANE;
-        let ceilingplane = state::CEILINGPLANE;
+        let viewheight = state::with_state(|s| s.viewheight);
+        let floorplane = state::with_state(|s| s.floorplane);
+        let ceilingplane = state::with_state(|s| s.ceilingplane);
 
         let mut rw_x = RW_X;
         let stopx = RW_STOPX;
@@ -123,10 +123,10 @@ fn r_render_seg_loop() {
             }
 
             let texturecolumn: i32 = if SEGTEXTURED {
-                let angle = (RW_CENTERANGLE.wrapping_add(state::XTOVIEWANGLE[rw_x as usize]))
+                let angle = (RW_CENTERANGLE.wrapping_add(state::with_state(|s| s.xtoviewangle[rw_x as usize])))
                     >> ANGLETOFINESHIFT;
                 let tanval = finetangent(angle as usize);
-                (RW_OFFSET - fixed_mul(tanval, state::RW_DISTANCE)) >> FRACBITS
+                (RW_OFFSET - fixed_mul(tanval, state::with_state(|s| s.rw_distance))) >> FRACBITS
             } else {
                 0
             };
@@ -224,24 +224,24 @@ fn r_render_seg_loop() {
 /// Store wall range and render. Populates drawsegs, draws walls, marks floor/ceiling.
 pub fn r_store_wall_range(start: i32, stop: i32) {
     unsafe {
-        let ds_p = state::DS_P;
+        let ds_p = state::with_state(|s| s.ds_p);
         if ds_p.is_null() {
             return;
         }
-        if ds_p as *const _ >= state::DRAWSEGS.as_ptr().add(MAXDRAWSEGS) {
+        if ds_p as *const _ >= state::with_state(|s| s.drawsegs.as_ptr().add(MAXDRAWSEGS)) {
             return;
         }
 
-        let viewwidth = state::VIEWWIDTH;
-        let viewheight = state::VIEWHEIGHT;
-        let viewz = state::VIEWZ;
+        let viewwidth = state::with_state(|s| s.viewwidth);
+        let viewheight = state::with_state(|s| s.viewheight);
+        let viewz = state::with_state(|s| s.viewz);
         if start >= viewwidth || start > stop {
             return;
         }
 
-        let curline = state::CURLINE;
-        let frontsector = state::FRONTSECTOR;
-        let backsector = state::BACKSECTOR;
+        let curline = state::with_state(|s| s.curline);
+        let frontsector = state::with_state(|s| s.frontsector);
+        let backsector = state::with_state(|s| s.backsector);
 
         if curline.is_null() || frontsector.is_null() {
             return;
@@ -253,12 +253,14 @@ pub fn r_store_wall_range(start: i32, stop: i32) {
         if !linedef.is_null() {
             (*linedef).flags |= crate::rendering::defs::ML_MAPPED;
         }
-        state::SIDEDEF = sidedef;
-        state::LINEDEF = linedef;
+        state::with_state_mut(|s| {
+            s.sidedef = sidedef;
+            s.linedef = linedef;
+        });
 
-        let rw_angle1 = state::RW_ANGLE1 as u32;
+        let rw_angle1 = state::with_state(|s| s.rw_angle1) as u32;
         let rw_normalangle = (*curline).angle + ANG90;
-        state::RW_NORMALANGLE = rw_normalangle;
+        state::with_state_mut(|s| s.rw_normalangle = rw_normalangle);
         let mut offsetangle = rw_normalangle.wrapping_sub(rw_angle1);
         if offsetangle > ANG90 {
             offsetangle = ANG90;
@@ -266,15 +268,15 @@ pub fn r_store_wall_range(start: i32, stop: i32) {
         let distangle = ANG90 - offsetangle;
         let hyp = r_point_to_dist((*(*curline).v1).x, (*(*curline).v1).y);
         let sineval = finesine((distangle >> ANGLETOFINESHIFT) as usize);
-        state::RW_DISTANCE = fixed_mul(hyp, sineval);
+        state::with_state_mut(|s| s.rw_distance = fixed_mul(hyp, sineval));
 
         RW_X = start;
         RW_STOPX = stop + 1;
 
-        let viewangle = state::VIEWANGLE;
-        let scale1 = r_scale_from_global_angle(viewangle + state::XTOVIEWANGLE[start as usize]);
+        let viewangle = state::with_state(|s| s.viewangle);
+        let scale1 = r_scale_from_global_angle(viewangle + state::with_state(|s| s.xtoviewangle[start as usize]));
         let scale2 = if stop > start {
-            r_scale_from_global_angle(viewangle + state::XTOVIEWANGLE[stop as usize])
+            r_scale_from_global_angle(viewangle + state::with_state(|s| s.xtoviewangle[stop as usize]))
         } else {
             scale1
         };
@@ -294,8 +296,8 @@ pub fn r_store_wall_range(start: i32, stop: i32) {
         RW_SCALE = scale1;
         RW_SCALESTEP = scalestep;
 
-        let textureheight = state::TEXTUREHEIGHT;
-        let texturetranslation = state::TEXTURETRANSLATION;
+        let textureheight = state::with_state(|s| s.textureheight);
+        let texturetranslation = state::with_state(|s| s.texturetranslation);
         let skyflatnum = r_sky::SKYFLATNUM;
 
         WORLDTOP = (*frontsector).ceilingheight - viewz;
@@ -508,10 +510,10 @@ pub fn r_store_wall_range(start: i32, stop: i32) {
         }
 
         if MARKCEILING {
-            state::CEILINGPLANE = r_check_plane(state::CEILINGPLANE, start, stop);
+            state::with_state_mut(|s| s.ceilingplane = r_check_plane(s.ceilingplane, start, stop));
         }
         if MARKFLOOR {
-            state::FLOORPLANE = r_check_plane(state::FLOORPLANE, start, stop);
+            state::with_state_mut(|s| s.floorplane = r_check_plane(s.floorplane, start, stop));
         }
 
         r_render_seg_loop();
@@ -546,7 +548,7 @@ pub fn r_store_wall_range(start: i32, stop: i32) {
             (*ds_p).bsilheight = i32::MAX;
         }
 
-        state::DS_P = ds_p.add(1);
+        state::with_state_mut(|s| s.ds_p = ds_p.add(1));
     }
 }
 
@@ -561,8 +563,8 @@ pub fn r_render_masked_seg_range(ds: *mut crate::rendering::defs::DrawSeg, x1: i
         }
 
         let curline = (*ds).curline;
-        let frontsector = state::FRONTSECTOR;
-        let backsector = state::BACKSECTOR;
+        let frontsector = state::with_state(|s| s.frontsector);
+        let backsector = state::with_state(|s| s.backsector);
         if curline.is_null() || frontsector.is_null() {
             return;
         }
@@ -573,14 +575,14 @@ pub fn r_render_masked_seg_range(ds: *mut crate::rendering::defs::DrawSeg, x1: i
             return;
         }
 
-        let texnum = if state::TEXTURETRANSLATION.is_null() {
+        let texnum = if state::with_state(|s| s.texturetranslation.is_null()) {
             (*sidedef).midtexture as i32
         } else {
-            *state::TEXTURETRANSLATION.add((*sidedef).midtexture as usize)
+            *state::with_state(|s| s.texturetranslation).add((*sidedef).midtexture as usize)
         };
 
-        let viewz = state::VIEWZ;
-        let textureheight = state::TEXTUREHEIGHT;
+        let viewz = state::with_state(|s| s.viewz);
+        let textureheight = state::with_state(|s| s.textureheight);
         let th = if textureheight.is_null() {
             128 << crate::m_fixed::FRACBITS
         } else {

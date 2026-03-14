@@ -344,12 +344,9 @@ pub fn p_unarchive_players<R: Read>(r: &mut R) -> std::io::Result<()> {
 /// Archive world (sectors, lines, sides). Original: P_ArchiveWorld
 pub fn p_archive_world<W: Write>(w: &mut W) -> std::io::Result<()> {
     use crate::m_fixed::FRACBITS;
-    use crate::rendering::state::{LINES, NUMLINES, NUMSECTORS, SECTORS, SIDES};
-
-    let sectors = unsafe { SECTORS };
-    let numsectors = unsafe { NUMSECTORS } as usize;
-    let lines = unsafe { LINES };
-    let numlines = unsafe { NUMLINES } as usize;
+    let (sectors, numsectors, lines, numlines, sides) = crate::rendering::state::with_state(|s| {
+        (s.sectors, s.numsectors as usize, s.lines, s.numlines as usize, s.sides)
+    });
 
     if sectors.is_null() || lines.is_null() {
         return Ok(());
@@ -366,7 +363,6 @@ pub fn p_archive_world<W: Write>(w: &mut W) -> std::io::Result<()> {
         saveg_write16(w, sec.tag)?;
     }
 
-    let sides = unsafe { SIDES };
     for i in 0..numlines {
         let li = unsafe { &*lines.add(i) };
         saveg_write16(w, li.flags)?;
@@ -390,12 +386,9 @@ pub fn p_archive_world<W: Write>(w: &mut W) -> std::io::Result<()> {
 /// Unarchive world. Original: P_UnArchiveWorld
 pub fn p_unarchive_world<R: Read>(r: &mut R) -> std::io::Result<()> {
     use crate::m_fixed::FRACBITS;
-    use crate::rendering::state::{LINES, NUMLINES, NUMSECTORS, SECTORS, SIDES};
-
-    let sectors = unsafe { SECTORS };
-    let numsectors = unsafe { NUMSECTORS } as usize;
-    let lines = unsafe { LINES };
-    let numlines = unsafe { NUMLINES } as usize;
+    let (sectors, numsectors, lines, numlines, sides) = crate::rendering::state::with_state(|s| {
+        (s.sectors, s.numsectors as usize, s.lines, s.numlines as usize, s.sides)
+    });
 
     if sectors.is_null() || lines.is_null() {
         return Ok(());
@@ -414,7 +407,6 @@ pub fn p_unarchive_world<R: Read>(r: &mut R) -> std::io::Result<()> {
         sec.soundtarget = std::ptr::null_mut::<crate::player::p_mobj::Mobj>();
     }
 
-    let sides = unsafe { SIDES };
     for i in 0..numlines {
         let li = unsafe { &mut *lines.add(i) };
         li.flags = saveg_read16(r)?;
@@ -662,8 +654,7 @@ const TC_GLOW: u8 = 6;
 const TC_ENDSPECIALS: u8 = 7;
 
 fn sector_index(sector: *mut crate::rendering::defs::Sector) -> i32 {
-    let sectors = unsafe { crate::rendering::state::SECTORS };
-    let numsectors = unsafe { crate::rendering::state::NUMSECTORS } as usize;
+    let (sectors, numsectors) = crate::rendering::state::with_state(|s| (s.sectors, s.numsectors as usize));
     if sectors.is_null() || numsectors == 0 {
         return 0;
     }
@@ -678,8 +669,7 @@ fn sector_index(sector: *mut crate::rendering::defs::Sector) -> i32 {
 }
 
 fn sector_from_index(idx: i32) -> *mut crate::rendering::defs::Sector {
-    let sectors = unsafe { crate::rendering::state::SECTORS };
-    let numsectors = unsafe { crate::rendering::state::NUMSECTORS };
+    let (sectors, numsectors) = crate::rendering::state::with_state(|s| (s.sectors, s.numsectors));
     if sectors.is_null() || idx < 0 || idx >= numsectors {
         std::ptr::null_mut()
     } else {

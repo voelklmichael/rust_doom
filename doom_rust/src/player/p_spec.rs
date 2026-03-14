@@ -49,7 +49,7 @@ pub fn p_cross_special_line(line_index: i32, oldside: i32, thing: *mut Mobj) {
     if thing.is_null() {
         return;
     }
-    let lines = unsafe { crate::rendering::state::LINES };
+    let lines = crate::rendering::state::with_state(|s| s.lines);
     if lines.is_null() || line_index < 0 {
         return;
     }

@@ -305,15 +305,9 @@ pub fn p_block_lines_iterator<F>(x: i32, y: i32, mut func: F) -> bool
 where
     F: FnMut(*mut Line) -> bool,
 {
-    let (bmapwidth, bmapheight, blockmap, blockmaplump, lines) = unsafe {
-        (
-            state::BMAPWIDTH,
-            state::BMAPHEIGHT,
-            state::BLOCKMAP,
-            state::BLOCKMAPLUMP,
-            state::LINES,
-        )
-    };
+    let (bmapwidth, bmapheight, blockmap, blockmaplump, lines) = state::with_state(|s| {
+        (s.bmapwidth, s.bmapheight, s.blockmap, s.blockmaplump, s.lines)
+    });
     if x < 0 || y < 0 || x >= bmapwidth || y >= bmapheight {
         return true;
     }
@@ -350,13 +344,9 @@ pub fn p_block_things_iterator<F>(x: i32, y: i32, mut func: F) -> bool
 where
     F: FnMut(*mut Mobj) -> bool,
 {
-    let (bmapwidth, bmapheight, blocklinks) = unsafe {
-        (
-            state::BMAPWIDTH,
-            state::BMAPHEIGHT,
-            state::BLOCKLINKS,
-        )
-    };
+    let (bmapwidth, bmapheight, blocklinks) = state::with_state(|s| {
+        (s.bmapwidth, s.bmapheight, s.blocklinks)
+    });
     if x < 0 || y < 0 || x >= bmapwidth || y >= bmapheight {
         return true;
     }
@@ -408,15 +398,9 @@ pub fn p_unset_thing_position(thing: *mut Mobj) {
         if !bprev.is_null() {
             unsafe { (*bprev).bnext = bnext };
         } else {
-            let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = unsafe {
-                (
-                    state::BMAPORGX,
-                    state::BMAPORGY,
-                    state::BMAPWIDTH,
-                    state::BMAPHEIGHT,
-                    state::BLOCKLINKS,
-                )
-            };
+            let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = state::with_state(|s| {
+                (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight, s.blocklinks)
+            });
             let blockx = (unsafe { (*thing).x } - bmaporgx) >> MAPBLOCKSHIFT;
             let blocky = (unsafe { (*thing).y } - bmaporgy) >> MAPBLOCKSHIFT;
             if blockx >= 0 && blockx < bmapwidth && blocky >= 0 && blocky < bmapheight {
@@ -453,15 +437,9 @@ pub fn p_set_thing_position(thing: *mut Mobj) {
         }
     }
     if flags & super::p_mobj::MF_NOBLOCKMAP == 0 {
-        let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = unsafe {
-            (
-                state::BMAPORGX,
-                state::BMAPORGY,
-                state::BMAPWIDTH,
-                state::BMAPHEIGHT,
-                state::BLOCKLINKS,
-            )
-        };
+        let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = state::with_state(|s| {
+            (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight, s.blocklinks)
+        });
         let blockx = (unsafe { (*thing).x } - bmaporgx) >> MAPBLOCKSHIFT;
         let blocky = (unsafe { (*thing).y } - bmaporgy) >> MAPBLOCKSHIFT;
         if blockx >= 0 && blockx < bmapwidth && blocky >= 0 && blocky < bmapheight {
@@ -646,14 +624,9 @@ where
         INTERCEPT_P = 0;
         EARLYOUT = (flags & PT_EARLYOUT) != 0;
     }
-    let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = unsafe {
-        (
-            state::BMAPORGX,
-            state::BMAPORGY,
-            state::BMAPWIDTH,
-            state::BMAPHEIGHT,
-        )
-    };
+    let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = state::with_state(|s| {
+        (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight)
+    });
     let mut x1 = x1;
     let mut y1 = y1;
     if ((x1 - bmaporgx) & (super::MAPBMASK as i32)) == 0 {

@@ -301,19 +301,21 @@ pub fn r_init_data() {
     r_init_colormaps();
 
     // Sync state to r_state
-    unsafe {
-        state::FIRSTFLAT = firstflat;
-        state::FLATTRANSLATION = flattranslation;
-        state::TEXTURETRANSLATION = TEXTURETRANSLATION;
-        state::TEXTUREHEIGHT = TEXTUREHEIGHT;
-        state::FIRSTSPRITELUMP = FIRSTSPRITELUMP;
-        state::LASTSPRITELUMP = LASTSPRITELUMP;
-        state::NUMSPRITELUMPS = NUMSPRITELUMPS;
-        state::SPRITEWIDTH = SPRITEWIDTH;
-        state::SPRITEOFFSET = SPRITEOFFSET;
-        state::SPRITETOPOFFSET = SPRITETOPOFFSET;
-        state::COLORMAPS = COLORMAPS;
-    }
+    state::with_state_mut(|s| {
+        s.firstflat = firstflat;
+        s.flattranslation = Box::leak(flattranslation.into_boxed_slice()).as_mut_ptr();
+        unsafe {
+            s.texturetranslation = TEXTURETRANSLATION;
+            s.textureheight = TEXTUREHEIGHT;
+            s.firstspritelump = FIRSTSPRITELUMP;
+            s.lastspritelump = LASTSPRITELUMP;
+            s.numspritelumps = NUMSPRITELUMPS;
+            s.spritewidth = SPRITEWIDTH;
+            s.spriteoffset = SPRITEOFFSET;
+            s.spritetopoffset = SPRITETOPOFFSET;
+            s.colormaps = COLORMAPS;
+        }
+    });
     crate::rendering::r_things::r_init_sprites();
 }
 
@@ -327,12 +329,12 @@ pub fn r_precache_level() {
             return;
         }
 
-        let numsectors = state::NUMSECTORS;
-        let sectors = state::SECTORS;
-        let numsides = state::NUMSIDES;
-        let sides = state::SIDES;
-        let numsprites = state::NUMSPRITES;
-        let sprites = state::SPRITES;
+        let numsectors = state::with_state(|s| s.numsectors);
+        let sectors = state::with_state(|s| s.sectors);
+        let numsides = state::with_state(|s| s.numsides);
+        let sides = state::with_state(|s| s.sides);
+        let numsprites = state::with_state(|s| s.numsprites);
+        let sprites = state::with_state(|s| s.sprites);
 
         // Precache flats
         if numsectors > 0 && !sectors.is_null() {

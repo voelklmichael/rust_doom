@@ -214,8 +214,8 @@ pub fn r_point_on_seg_side(x: Fixed, y: Fixed, line: *const Seg) -> i32 {
 
 /// Global angle from cartesian coords (relative to view).
 pub fn r_point_to_angle(x: Fixed, y: Fixed) -> Angle {
-    let viewx = unsafe { state::VIEWX };
-    let viewy = unsafe { state::VIEWY };
+    let viewx = state::with_state(|s| s.viewx);
+    let viewy = state::with_state(|s| s.viewy);
 
     let mut x = x - viewx;
     let mut y = y - viewy;
@@ -261,16 +261,18 @@ pub fn r_point_to_angle(x: Fixed, y: Fixed) -> Angle {
 /// Angle from (x1,y1) to (x2,y2). Temporarily sets viewx/viewy.
 pub fn r_point_to_angle2(x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed) -> Angle {
     unsafe {
-        state::VIEWX = x1;
-        state::VIEWY = y1;
+        state::with_state_mut(|s| {
+            s.viewx = x1;
+            s.viewy = y1;
+        });
     }
     r_point_to_angle(x2, y2)
 }
 
 /// Distance from view to (x,y).
 pub fn r_point_to_dist(x: Fixed, y: Fixed) -> Fixed {
-    let viewx = unsafe { state::VIEWX };
-    let viewy = unsafe { state::VIEWY };
+    let viewx = state::with_state(|s| s.viewx);
+    let viewy = state::with_state(|s| s.viewy);
 
     let mut dx = (x - viewx).abs();
     let mut dy = (y - viewy).abs();
@@ -291,9 +293,9 @@ pub fn r_point_to_dist(x: Fixed, y: Fixed) -> Fixed {
 
 /// Texture mapping scale for current line at given angle. rw_distance must be set.
 pub fn r_scale_from_global_angle(visangle: Angle) -> Fixed {
-    let viewangle = unsafe { state::VIEWANGLE };
-    let rw_distance = unsafe { state::RW_DISTANCE };
-    let rw_normalangle = unsafe { state::RW_NORMALANGLE };
+    let viewangle = state::with_state(|s| s.viewangle);
+    let rw_distance = state::with_state(|s| s.rw_distance);
+    let rw_normalangle = state::with_state(|s| s.rw_normalangle);
     let projection = unsafe { PROJECTION };
     let detailshift = unsafe { DETAILSHIFT };
 
@@ -320,9 +322,9 @@ pub fn r_scale_from_global_angle(visangle: Angle) -> Fixed {
 
 /// Find subsector containing point (x,y).
 pub fn r_point_in_subsector(x: Fixed, y: Fixed) -> *mut Subsector {
-    let numnodes = unsafe { state::NUMNODES };
-    let subsectors = unsafe { state::SUBSECTORS };
-    let nodes = unsafe { state::NODES };
+    let numnodes = state::with_state(|s| s.numnodes);
+    let subsectors = state::with_state(|s| s.subsectors);
+    let nodes = state::with_state(|s| s.nodes);
 
     if numnodes == 0 {
         return subsectors;
@@ -363,7 +365,7 @@ fn r_init_translation_tables() {
 
 /// Initialize lighting LUTs (zlight only; scalelight changes with view size).
 fn r_init_light_tables() {
-    let colormaps = unsafe { state::COLORMAPS };
+    let colormaps = state::with_state(|s| s.colormaps);
     if colormaps.is_null() {
         return;
     }
@@ -392,7 +394,7 @@ fn r_init_light_tables() {
 
 /// Initialize texture mapping (viewangletox, xtoviewangle).
 fn r_init_texture_mapping() {
-    let viewwidth = unsafe { state::VIEWWIDTH };
+    let viewwidth = state::with_state(|s| s.viewwidth);
     let centerxfrac = unsafe { CENTERXFRAC };
     let _centerx = unsafe { CENTERX };
 
@@ -418,33 +420,27 @@ fn r_init_texture_mapping() {
                 t
             }
         };
-        unsafe {
-            state::VIEWANGLETOX[i] = t;
-        }
+        state::with_state_mut(|s| s.viewangletox[i] = t);
     }
 
     for x in 0..=(viewwidth as usize) {
         let mut i = 0;
-        while i < FINEANGLES / 2 && unsafe { state::VIEWANGLETOX[i] } > x as i32 {
+        while i < FINEANGLES / 2 && state::with_state(|s| s.viewangletox[i]) > x as i32 {
             i += 1;
         }
-        unsafe {
-            state::XTOVIEWANGLE[x] = ((i << ANGLETOFINESHIFT) as u32).wrapping_sub(ANG90);
-        }
+        state::with_state_mut(|s| s.xtoviewangle[x] = ((i << ANGLETOFINESHIFT) as u32).wrapping_sub(ANG90));
     }
 
     for i in 0..(FINEANGLES / 2) {
-        let vat = unsafe { state::VIEWANGLETOX[i] };
+        let vat = state::with_state(|s| s.viewangletox[i]);
         if vat == -1 {
-            unsafe { state::VIEWANGLETOX[i] = 0 };
+            state::with_state_mut(|s| s.viewangletox[i] = 0);
         } else if vat == viewwidth + 1 {
-            unsafe { state::VIEWANGLETOX[i] = viewwidth };
+            state::with_state_mut(|s| s.viewangletox[i] = viewwidth);
         }
     }
 
-    unsafe {
-        state::CLIPANGLE = state::XTOVIEWANGLE[0];
-    }
+    state::with_state_mut(|s| s.clipangle = s.xtoviewangle[0]);
 }
 
 /// Execute deferred view size change.
@@ -455,62 +451,64 @@ fn r_execute_set_view_size() {
         let setblocks = SETBLOCKS;
         let setdetail = SETDETAIL;
 
-        if setblocks == 11 {
-            state::SCALEDVIEWWIDTH = SCREENWIDTH;
-            state::VIEWHEIGHT = SCREENHEIGHT;
-        } else {
-            state::SCALEDVIEWWIDTH = setblocks * 32;
-            state::VIEWHEIGHT = (setblocks * 168 / 10) & !7;
-        }
+        state::with_state_mut(|s| {
+            if setblocks == 11 {
+                s.scaledviewwidth = SCREENWIDTH;
+                s.viewheight = SCREENHEIGHT;
+            } else {
+                s.scaledviewwidth = setblocks * 32;
+                s.viewheight = (setblocks * 168 / 10) & !7;
+            }
+            s.viewwidth = s.scaledviewwidth >> setdetail;
+        });
 
-        DETAILSHIFT = setdetail;
-        state::VIEWWIDTH = state::SCALEDVIEWWIDTH >> setdetail;
-
-        CENTERY = state::VIEWHEIGHT / 2;
-        CENTERX = state::VIEWWIDTH / 2;
+        let viewheight = state::with_state(|s| s.viewheight);
+        let viewwidth = state::with_state(|s| s.viewwidth);
+        CENTERY = viewheight / 2;
+        CENTERX = viewwidth / 2;
         CENTERXFRAC = (CENTERX << FRACBITS) as Fixed;
         CENTERYFRAC = (CENTERY << FRACBITS) as Fixed;
         PROJECTION = CENTERXFRAC;
 
         // Thing clipping - screenheightarray (r_clear_planes also sets per-frame)
-        for i in 0..(state::VIEWWIDTH as usize) {
-            r_draw::SCREENHEIGHTARRAY[i] = state::VIEWHEIGHT as i16;
+        for i in 0..(viewwidth as usize) {
+            r_draw::SCREENHEIGHTARRAY[i] = viewheight as i16;
         }
 
         // Plane slopes - yslope (C formula)
-        for i in 0..(state::VIEWHEIGHT as usize) {
-            let dy = ((i as i32 - state::VIEWHEIGHT / 2) << FRACBITS) + FRACUNIT / 2;
+        for i in 0..(viewheight as usize) {
+            let dy = ((i as i32 - viewheight / 2) << FRACBITS) + FRACUNIT / 2;
             let dy = dy.abs().max(1);
             r_draw::YSLOPE[i] = fixed_div(
-                ((state::VIEWWIDTH << setdetail) / 2 * FRACUNIT) as Fixed,
+                ((viewwidth << setdetail) / 2 * FRACUNIT) as Fixed,
                 dy as Fixed,
             );
         }
 
         // distscale (C formula: FRACUNIT/cos)
-        for i in 0..(state::VIEWWIDTH as usize) {
-            let cosadj = finecosine((state::XTOVIEWANGLE[i] >> ANGLETOFINESHIFT) as usize).abs();
+        for i in 0..(viewwidth as usize) {
+            let cosadj = finecosine((state::with_state(|s| s.xtoviewangle[i]) >> ANGLETOFINESHIFT) as usize).abs();
             r_draw::DISTSCALE[i] = fixed_div(FRACUNIT, cosadj.max(1));
         }
 
         // Psprite scales
-        r_draw::PSPRITESCALE = (FRACUNIT * state::VIEWWIDTH / SCREENWIDTH) as Fixed;
-        r_draw::PSPRITEISCALE = if state::VIEWWIDTH != 0 {
-            (FRACUNIT as u64 * SCREENWIDTH as u64 / state::VIEWWIDTH as u64) as u32
+        r_draw::PSPRITESCALE = (FRACUNIT * viewwidth / SCREENWIDTH) as Fixed;
+        r_draw::PSPRITEISCALE = if viewwidth != 0 {
+            (FRACUNIT as u64 * SCREENWIDTH as u64 / viewwidth as u64) as u32
         } else {
             0
         };
 
-        r_draw::r_init_buffer(state::SCALEDVIEWWIDTH, state::VIEWHEIGHT);
+        r_draw::r_init_buffer(state::with_state(|s| s.scaledviewwidth), viewheight);
     }
 
     r_init_texture_mapping();
 
     // Scalelight - depends on colormaps
-    let colormaps = unsafe { state::COLORMAPS };
+    let colormaps = state::with_state(|s| s.colormaps);
     if !colormaps.is_null() {
         const DISTMAP: i32 = 2;
-        let viewwidth = unsafe { state::VIEWWIDTH };
+        let viewwidth = state::with_state(|s| s.viewwidth);
         let detailshift = unsafe { DETAILSHIFT };
 
         for i in 0..LIGHTLEVELS {
@@ -595,20 +593,22 @@ pub struct ViewPlayerStub {
 /// Set up frame for rendering. Called before R_RenderPlayerView.
 pub fn r_setup_frame(player: &ViewPlayerStub) {
     unsafe {
-        state::VIEWX = player.mo_x;
-        state::VIEWY = player.mo_y;
-        state::VIEWANGLE = player.mo_angle.wrapping_add(state::VIEWANGLEOFFSET);
-        state::VIEWZ = player.viewz;
+        state::with_state_mut(|s| {
+            s.viewx = player.mo_x;
+            s.viewy = player.mo_y;
+            s.viewangle = player.mo_angle.wrapping_add(s.viewangleoffset);
+            s.viewz = player.viewz;
+        });
         EXTRALIGHT = player.extralight;
 
-        let viewangle_idx = (state::VIEWANGLE >> ANGLETOFINESHIFT) as usize;
+        let viewangle_idx = (state::with_state(|s| s.viewangle) >> ANGLETOFINESHIFT) as usize;
         VIEWSIN = finesine(viewangle_idx);
         VIEWCOS = finecosine(viewangle_idx);
 
-        state::SSCOUNT = 0;
+        state::with_state_mut(|s| s.sscount = 0);
 
         if player.fixedcolormap != 0 {
-            let colormaps = state::COLORMAPS;
+            let colormaps = state::with_state(|s| s.colormaps);
             if !colormaps.is_null() {
                 FIXEDCOLORMAP = colormaps.add(player.fixedcolormap as usize * 256);
                 for i in 0..MAXLIGHTSCALE {
@@ -641,7 +641,7 @@ pub fn r_render_player_view(player: &ViewPlayerStub) {
     r_plane::r_clear_planes();
     r_things::r_clear_sprites();
 
-    let numnodes = unsafe { state::NUMNODES };
+    let numnodes = state::with_state(|s| s.numnodes);
     if numnodes > 0 {
         r_bsp::r_render_bsp_node((numnodes - 1) as i32);
     }

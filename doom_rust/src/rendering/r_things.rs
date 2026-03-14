@@ -68,13 +68,9 @@ pub fn r_clear_sprites() {
 
 /// Load sprite definitions from WAD. Call from R_InitData after R_InitSpriteLumps.
 pub fn r_init_sprites() {
-    let (first, last, numlumps) = unsafe {
-        (
-            state::FIRSTSPRITELUMP,
-            state::LASTSPRITELUMP,
-            state::NUMSPRITELUMPS,
-        )
-    };
+    let (first, last, numlumps) = state::with_state(|s| {
+        (s.firstspritelump, s.lastspritelump, s.numspritelumps)
+    });
     if numlumps <= 0 || first < 0 {
         return;
     }
@@ -173,9 +169,11 @@ pub fn r_init_sprites() {
         }
     }
 
+    state::with_state_mut(|s| {
+        s.numsprites = numsprites;
+        s.sprites = sprites_ptr;
+    });
     unsafe {
-        state::NUMSPRITES = numsprites;
-        state::SPRITES = sprites_ptr;
         SPRITE_NAMES = Some(sprite_vec.clone());
     }
 }
@@ -208,8 +206,8 @@ pub fn r_add_sprites(sec: *mut crate::rendering::defs::Sector) {
         }
         (*sec).validcount = validcount;
 
-        let sprites = state::SPRITES;
-        let numsprites = state::NUMSPRITES;
+        let sprites = state::with_state(|s| s.sprites);
+        let numsprites = state::with_state(|s| s.numsprites);
         if sprites.is_null() || numsprites <= 0 {
             return;
         }
@@ -243,8 +241,8 @@ pub fn r_draw_masked() {
             }
         }
 
-        let ds_p = state::DS_P;
-        let drawsegs = state::DRAWSEGS.as_mut_ptr();
+        let ds_p = state::with_state(|s| s.ds_p);
+        let drawsegs = state::with_state_mut(|s| s.drawsegs.as_mut_ptr());
         if !ds_p.is_null() && ds_p > drawsegs {
             let mut ds = ds_p.sub(1);
             while ds >= drawsegs {
@@ -277,26 +275,26 @@ fn r_new_vis_sprite() -> *mut Vissprite {
 
 fn r_project_sprite(thing: *mut Mobj, spritelights: *const *mut u8) {
     unsafe {
-        let viewx = state::VIEWX;
-        let viewy = state::VIEWY;
-        let viewz = state::VIEWZ;
+        let viewx = state::with_state(|s| s.viewx);
+        let viewy = state::with_state(|s| s.viewy);
+        let viewz = state::with_state(|s| s.viewz);
         let viewcos = crate::rendering::r_main::VIEWCOS;
         let viewsin = crate::rendering::r_main::VIEWSIN;
-        let viewwidth = state::VIEWWIDTH;
+        let viewwidth = state::with_state(|s| s.viewwidth);
         let centerxfrac = CENTERXFRAC;
-        let colormaps = state::COLORMAPS;
-        let firstspritelump = state::FIRSTSPRITELUMP;
-        let sprites = state::SPRITES;
-        let spritewidth = state::SPRITEWIDTH;
-        let spriteoffset = state::SPRITEOFFSET;
-        let spritetopoffset = state::SPRITETOPOFFSET;
+        let colormaps = state::with_state(|s| s.colormaps);
+        let firstspritelump = state::with_state(|s| s.firstspritelump);
+        let sprites = state::with_state(|s| s.sprites);
+        let spritewidth = state::with_state(|s| s.spritewidth);
+        let spriteoffset = state::with_state(|s| s.spriteoffset);
+        let spritetopoffset = state::with_state(|s| s.spritetopoffset);
 
         if sprites.is_null() || spritewidth.is_null() || spriteoffset.is_null() || spritetopoffset.is_null() {
             return;
         }
 
         let sprite = (*thing).sprite;
-        if sprite < 0 || sprite >= state::NUMSPRITES {
+        if sprite < 0 || sprite >= state::with_state(|s| s.numsprites) {
             return;
         }
 
@@ -475,9 +473,9 @@ fn r_draw_sprite(spr: *mut Vissprite) {
     use crate::rendering::defs::{SIL_BOTTOM, SIL_TOP};
 
     unsafe {
-        let viewheight = state::VIEWHEIGHT;
-        let drawsegs = state::DRAWSEGS.as_mut_ptr();
-        let ds_p = state::DS_P;
+        let viewheight = state::with_state(|s| s.viewheight);
+        let drawsegs = state::with_state_mut(|s| s.drawsegs.as_mut_ptr());
+        let ds_p = state::with_state(|s| s.ds_p);
 
         let mut clipbot: [i16; 320] = [-2; 320];
         let mut cliptop: [i16; 320] = [-2; 320];
@@ -580,7 +578,7 @@ fn r_draw_sprite(spr: *mut Vissprite) {
 
 fn r_draw_vis_sprite(vis: *mut Vissprite, x1: i32, x2: i32) {
     unsafe {
-        let firstspritelump = state::FIRSTSPRITELUMP;
+        let firstspritelump = state::with_state(|s| s.firstspritelump);
         let patch_ptr =
             w_cache_lump_num((*vis).patch + firstspritelump, PU_CACHE).as_ptr() as *const patch_t;
         let centeryfrac = CENTERYFRAC;

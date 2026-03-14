@@ -83,8 +83,7 @@ pub fn ev_start_light_flickering(_line: *const Line) -> bool {
 
 /// Turn on all sectors with given tag. Used when sector is null in EV_LightTurnOn.
 pub fn ev_light_turn_on_by_tag(tag: i32, bright: i32) -> bool {
-    let sectors = unsafe { state::SECTORS };
-    let numsectors = unsafe { state::NUMSECTORS };
+    let (sectors, numsectors) = state::with_state(|s| (s.sectors, s.numsectors));
     if sectors.is_null() || numsectors <= 0 {
         return false;
     }

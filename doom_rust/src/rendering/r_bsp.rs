@@ -143,7 +143,7 @@ pub fn r_clear_clip_segs() {
     unsafe {
         SOLIDSEGS[0].first = -0x7fff_ffff;
         SOLIDSEGS[0].last = -1;
-        SOLIDSEGS[1].first = state::VIEWWIDTH;
+        SOLIDSEGS[1].first = state::with_state(|s| s.viewwidth);
         SOLIDSEGS[1].last = 0x7fff_ffff;
         NEWEND = SOLIDSEGS.as_mut_ptr().add(2);
     }
@@ -155,7 +155,7 @@ pub fn r_clear_clip_segs() {
 
 pub fn r_clear_draw_segs() {
     unsafe {
-        state::DS_P = state::DRAWSEGS.as_mut_ptr();
+        state::with_state_mut(|s| s.ds_p = s.drawsegs.as_mut_ptr());
     }
 }
 
@@ -164,11 +164,11 @@ pub fn r_clear_draw_segs() {
 // =============================================================================
 
 fn r_add_line(line: *mut Seg) {
-    let viewangle = unsafe { state::VIEWANGLE };
-    let clipangle = unsafe { state::CLIPANGLE };
+    let viewangle = state::with_state(|s| s.viewangle);
+    let clipangle = state::with_state(|s| s.clipangle);
 
     unsafe {
-        state::CURLINE = line;
+        state::with_state_mut(|s| s.curline = line);
 
         let angle1 = r_point_to_angle((*(*line).v1).x, (*(*line).v1).y);
         let angle2 = r_point_to_angle((*(*line).v2).x, (*(*line).v2).y);
@@ -178,7 +178,7 @@ fn r_add_line(line: *mut Seg) {
             return;
         }
 
-        state::RW_ANGLE1 = angle1 as i32;
+        state::with_state_mut(|s| s.rw_angle1 = angle1 as i32);
         let mut angle1 = angle1.wrapping_sub(viewangle);
         let mut angle2 = angle2.wrapping_sub(viewangle);
 
@@ -203,22 +203,22 @@ fn r_add_line(line: *mut Seg) {
 
         let angle1_idx = ((angle1 + ANG90) >> ANGLETOFINESHIFT) as usize;
         let angle2_idx = ((angle2 + ANG90) >> ANGLETOFINESHIFT) as usize;
-        let x1 = state::VIEWANGLETOX[angle1_idx.min(FINEANGLES / 2 - 1)];
-        let x2 = state::VIEWANGLETOX[angle2_idx.min(FINEANGLES / 2 - 1)];
+        let x1 = state::with_state(|s| s.viewangletox[angle1_idx.min(FINEANGLES / 2 - 1)]);
+        let x2 = state::with_state(|s| s.viewangletox[angle2_idx.min(FINEANGLES / 2 - 1)]);
 
         if x1 == x2 {
             return;
         }
 
-        state::BACKSECTOR = (*line).backsector;
+        state::with_state_mut(|s| s.backsector = (*line).backsector);
 
-        if state::BACKSECTOR.is_null() {
+        if state::with_state(|s| s.backsector.is_null()) {
             r_clip_solid_wall_segment(x1, x2 - 1);
             return;
         }
 
-        let front = state::FRONTSECTOR;
-        let back = state::BACKSECTOR;
+        let front = state::with_state(|s| s.frontsector);
+        let back = state::with_state(|s| s.backsector);
 
         if (*back).ceilingheight <= (*front).floorheight
             || (*back).floorheight >= (*front).ceilingheight
@@ -267,10 +267,10 @@ const CHECKCOORD: [[i32; 4]; 12] = [
 ];
 
 fn r_check_bbox(bspcoord: &[Fixed; 4]) -> bool {
-    let viewx = unsafe { state::VIEWX };
-    let viewy = unsafe { state::VIEWY };
-    let viewangle = unsafe { state::VIEWANGLE };
-    let clipangle = unsafe { state::CLIPANGLE };
+    let viewx = state::with_state(|s| s.viewx);
+    let viewy = state::with_state(|s| s.viewy);
+    let viewangle = state::with_state(|s| s.viewangle);
+    let clipangle = state::with_state(|s| s.clipangle);
 
     let boxx = if viewx <= bspcoord[BOXLEFT as usize] {
         0
@@ -332,8 +332,8 @@ fn r_check_bbox(bspcoord: &[Fixed; 4]) -> bool {
 
     let angle1_idx = ((angle1 + ANG90) >> ANGLETOFINESHIFT) as usize;
     let angle2_idx = ((angle2 + ANG90) >> ANGLETOFINESHIFT) as usize;
-    let sx1 = unsafe { state::VIEWANGLETOX[angle1_idx.min(FINEANGLES / 2 - 1)] };
-    let mut sx2 = unsafe { state::VIEWANGLETOX[angle2_idx.min(FINEANGLES / 2 - 1)] };
+    let sx1 = state::with_state(|s| s.viewangletox[angle1_idx.min(FINEANGLES / 2 - 1)]);
+    let mut sx2 = state::with_state(|s| s.viewangletox[angle2_idx.min(FINEANGLES / 2 - 1)]);
 
     if sx1 == sx2 {
         return false;
@@ -360,27 +360,27 @@ fn r_check_bbox(bspcoord: &[Fixed; 4]) -> bool {
 
 fn r_subsector(num: usize) {
     unsafe {
-        state::SSCOUNT += 1;
+        state::with_state_mut(|s| s.sscount += 1);
 
-        let numsubsectors = state::NUMSUBSECTORS as usize;
+        let numsubsectors = state::with_state(|s| s.numsubsectors) as usize;
         if num >= numsubsectors {
             return;
         }
 
-        let subsectors = state::SUBSECTORS;
-        let segs = state::SEGS;
+        let subsectors = state::with_state(|s| s.subsectors);
+        let segs = state::with_state(|s| s.segs);
         if subsectors.is_null() || segs.is_null() {
             return;
         }
 
         let sub = &*subsectors.add(num);
-        state::FRONTSECTOR = (*sub).sector;
+        state::with_state_mut(|s| s.frontsector = (*sub).sector);
 
         let count = (*sub).numlines as usize;
         let mut line = segs.add((*sub).firstline as usize);
 
-        let viewz = state::VIEWZ;
-        let frontsector = state::FRONTSECTOR;
+        let viewz = state::with_state(|s| s.viewz);
+        let frontsector = state::with_state(|s| s.frontsector);
         let floorplane = if (*frontsector).floorheight < viewz {
             r_plane::r_find_plane(
                 (*frontsector).floorheight,
@@ -390,7 +390,7 @@ fn r_subsector(num: usize) {
         } else {
             std::ptr::null_mut()
         };
-        state::FLOORPLANE = floorplane;
+        state::with_state_mut(|s| s.floorplane = floorplane);
 
         let skyflatnum = r_sky::SKYFLATNUM;
         let ceilingplane = if (*frontsector).ceilingheight > viewz
@@ -404,7 +404,7 @@ fn r_subsector(num: usize) {
         } else {
             std::ptr::null_mut()
         };
-        state::CEILINGPLANE = ceilingplane;
+        state::with_state_mut(|s| s.ceilingplane = ceilingplane);
 
         r_things::r_add_sprites(frontsector);
 
@@ -420,8 +420,8 @@ fn r_subsector(num: usize) {
 // =============================================================================
 
 pub fn r_render_bsp_node(bspnum: i32) {
-    let numnodes = unsafe { state::NUMNODES };
-    let nodes = unsafe { state::NODES };
+    let numnodes = state::with_state(|s| s.numnodes);
+    let nodes = state::with_state(|s| s.nodes);
 
     if bspnum & (NF_SUBSECTOR as i32) != 0 {
         let num = if bspnum == -1 {
@@ -440,7 +440,7 @@ pub fn r_render_bsp_node(bspnum: i32) {
 
     unsafe {
         let bsp = nodes.add(bspnum);
-        let side = r_point_on_side(state::VIEWX, state::VIEWY, bsp);
+        let side = r_point_on_side(state::with_state(|s| s.viewx), state::with_state(|s| s.viewy), bsp);
 
         r_render_bsp_node((*bsp).children[side as usize] as i32);
 

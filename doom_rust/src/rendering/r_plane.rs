@@ -180,8 +180,8 @@ pub fn r_init_planes() {}
 /// Clear planes at beginning of frame.
 pub fn r_clear_planes() {
     unsafe {
-        let viewwidth = state::VIEWWIDTH as usize;
-        let viewheight = state::VIEWHEIGHT as usize;
+        let viewwidth = state::with_state(|s| s.viewwidth) as usize;
+        let viewheight = state::with_state(|s| s.viewheight) as usize;
 
         for i in 0..viewwidth {
             FLOORCLIP[i] = SCREENHEIGHT as i16;
@@ -201,7 +201,7 @@ pub fn r_clear_planes() {
         LASTVISPLANE = VISPLANES.as_mut_ptr();
         LASTOPENING = OPENINGS.as_mut_ptr();
 
-        let viewangle = state::VIEWANGLE;
+        let viewangle = state::with_state(|s| s.viewangle);
         let angle = (viewangle >> ANGLETOFINESHIFT) as usize;
         let finecos = finecosine(angle);
         let finesin = finesine(angle);
@@ -211,7 +211,7 @@ pub fn r_clear_planes() {
 
         let projection = PROJECTION;
         for x in 0..viewwidth {
-            let x_angle = state::XTOVIEWANGLE[x] as i32;
+            let x_angle = state::with_state(|s| s.xtoviewangle[x]) as i32;
             let xtoview = (x_angle >> ANGLETOFINESHIFT).abs() as usize;
             let dist = finecosine(xtoview % (5 * crate::geometry::FINEANGLES / 4));
             let abs_dist = dist.abs().max(1);
@@ -235,8 +235,8 @@ fn r_map_plane(y: i32, x1: i32, x2: i32) {
     use crate::geometry::finesine;
 
     unsafe {
-        let viewwidth = state::VIEWWIDTH;
-        let viewheight = state::VIEWHEIGHT;
+        let viewwidth = state::with_state(|s| s.viewwidth);
+        let viewheight = state::with_state(|s| s.viewheight);
         if x2 < x1 || x1 < 0 || x2 >= viewwidth || y > viewheight {
             return;
         }
@@ -257,10 +257,10 @@ fn r_map_plane(y: i32, x1: i32, x2: i32) {
 
         let distance = CACHEDDISTANCE[y];
         let length = fixed_mul(distance, DISTSCALE[x1 as usize]);
-        let viewangle = state::VIEWANGLE;
-        let viewx = state::VIEWX;
-        let viewy = state::VIEWY;
-        let angle_idx = ((viewangle.wrapping_add(state::XTOVIEWANGLE[x1 as usize]))
+        let viewangle = state::with_state(|s| s.viewangle);
+        let viewx = state::with_state(|s| s.viewx);
+        let viewy = state::with_state(|s| s.viewy);
+        let angle_idx = ((viewangle.wrapping_add(state::with_state(|s| s.xtoviewangle[x1 as usize])))
             >> ANGLETOFINESHIFT) as usize;
         DS_XFRAC = viewx + fixed_mul(finecosine(angle_idx), length);
         DS_YFRAC = -viewy - fixed_mul(finesine(angle_idx), length);
@@ -319,10 +319,10 @@ fn r_make_spans(x: i32, t1: i32, b1: i32, t2: i32, b2: i32) {
 pub fn r_draw_planes() {
     unsafe {
         let skyflatnum = SKYFLATNUM;
-        let colormaps = state::COLORMAPS;
-        let firstflat = state::FIRSTFLAT;
-        let flattranslation = state::FLATTRANSLATION;
-        let viewz = state::VIEWZ;
+        let colormaps = state::with_state(|s| s.colormaps);
+        let firstflat = state::with_state(|s| s.firstflat);
+        let flattranslation = state::with_state(|s| s.flattranslation);
+        let viewz = state::with_state(|s| s.viewz);
 
         let detailshift = DETAILSHIFT;
         let extralight = EXTRALIGHT;
@@ -355,8 +355,8 @@ pub fn r_draw_planes() {
                     DC_YH = (*pl).bottom[x as usize] as i32;
 
                     if DC_YL <= DC_YH {
-                        let angle = (state::VIEWANGLE
-                            .wrapping_add(state::XTOVIEWANGLE[x as usize]))
+                        let angle = (state::with_state(|s| s.viewangle)
+                            .wrapping_add(state::with_state(|s| s.xtoviewangle[x as usize])))
                             >> ANGLETOSKYSHIFT;
                         DC_X = x;
                         DC_SOURCE = r_get_column(skytexture, angle as i32);

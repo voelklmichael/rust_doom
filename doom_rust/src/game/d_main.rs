@@ -14,7 +14,7 @@ use crate::game::d_mode::{GameMission, GameMode, GameVersion, Skill};
 use crate::input::i_endoom::i_endoom_from_wad;
 use crate::input::i_video::i_finish_update;
 use crate::m_argv;
-use crate::rendering::state::VIEWHEIGHT;
+use crate::rendering::state;
 use crate::rendering::{r_init, v_init, v_restore_buffer};
 use crate::ui_hud::config::{m_load_defaults, m_set_config_dir, m_set_config_filenames};
 use crate::ui_hud::controls::m_bind_base_controls;
@@ -215,7 +215,7 @@ pub fn d_display() {
         let gamestate = crate::doomstat::GAMESTATE;
         match gamestate {
             Gamestate::Level => {
-                let fullscreen = VIEWHEIGHT == SCREENHEIGHT;
+                let fullscreen = state::with_state(|s| s.viewheight) == SCREENHEIGHT;
                 crate::ui_hud::st_drawer(fullscreen, true);
                 if !AUTOMAPACTIVE {
                     let player = crate::rendering::view_player_from_console()

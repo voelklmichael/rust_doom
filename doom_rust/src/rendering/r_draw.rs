@@ -184,7 +184,7 @@ fn fuzzcolfunc_high() {
         if dc_yl == 0 {
             dc_yl = 1;
         }
-        let viewheight = state::VIEWHEIGHT;
+        let viewheight = state::with_state(|s| s.viewheight);
         if dc_yh == viewheight - 1 {
             dc_yh = viewheight - 2;
         }
@@ -195,7 +195,7 @@ fn fuzzcolfunc_high() {
         if DC_SOURCE.is_null() || DC_COLORMAP.is_null() || VIEWIMAGE.is_null() {
             return;
         }
-        let colormaps = state::COLORMAPS;
+        let colormaps = state::with_state(|s| s.colormaps);
         if colormaps.is_null() {
             return;
         }
@@ -236,7 +236,7 @@ fn fuzzcolfunc_low() {
         if dc_yl == 0 {
             dc_yl = 1;
         }
-        let viewheight = state::VIEWHEIGHT;
+        let viewheight = state::with_state(|s| s.viewheight);
         if dc_yh == viewheight - 1 {
             dc_yh = viewheight - 2;
         }
@@ -251,7 +251,7 @@ fn fuzzcolfunc_low() {
         if DC_SOURCE.is_null() || DC_COLORMAP.is_null() || VIEWIMAGE.is_null() {
             return;
         }
-        let colormaps = state::COLORMAPS;
+        let colormaps = state::with_state(|s| s.colormaps);
         if colormaps.is_null() {
             return;
         }

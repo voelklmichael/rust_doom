@@ -16,9 +16,7 @@ use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
 use crate::player::p_mobj::Mobj;
 use crate::player::{MAPBLOCKUNITS, PLAYERRADIUS};
 use crate::rendering::defs::{Line, Sector, Vertex, ML_DONTDRAW, ML_MAPPED, ML_SECRET};
-use crate::rendering::state::{
-    BMAPORGX, BMAPORGY, LINES, NUMLINES, NUMSECTORS, NUMVERTEXES, SECTORS, VERTEXES,
-};
+use crate::rendering::state;
 use crate::rendering::{patch_t, v_draw_patch, v_mark_rect, VIEWIMAGE};
 use crate::ui_hud::cheat::{cht_check_cheat, CheatSeq};
 use crate::ui_hud::controls::{
@@ -393,17 +391,18 @@ fn am_add_mark() {
 }
 
 fn am_find_min_max_boundaries() {
+    let (vertexes, numvertexes) = state::with_state(|s| (s.vertexes, s.numvertexes));
+    if vertexes.is_null() || numvertexes <= 0 {
+        return;
+    }
     unsafe {
-        if VERTEXES.is_null() || NUMVERTEXES <= 0 {
-            return;
-        }
         MIN_X = i32::MAX;
         MIN_Y = i32::MAX;
         MAX_X = i32::MIN;
         MAX_Y = i32::MIN;
 
-        for i in 0..NUMVERTEXES as usize {
-            let v = &*VERTEXES.add(i);
+        for i in 0..numvertexes as usize {
+            let v = &*vertexes.add(i);
             if v.x < MIN_X {
                 MIN_X = v.x;
             }
@@ -974,9 +973,8 @@ fn am_draw_mline(ml: &Mline, color: i32) {
 }
 
 fn am_draw_grid(color: i32) {
+    let (bmaporgx, bmaporgy) = state::with_state(|s| (s.bmaporgx, s.bmaporgy));
     unsafe {
-        let bmaporgx = BMAPORGX;
-        let bmaporgy = BMAPORGY;
         let block_units = (MAPBLOCKUNITS as Fixed) << FRACBITS;
 
         let mut start = M_X;
@@ -1059,17 +1057,18 @@ fn am_draw_line_character(
 fn am_draw_walls() {
     use crate::doomdef::NUMPOWERS;
 
+    let (lines, numlines) = state::with_state(|s| (s.lines, s.numlines));
+    if lines.is_null() || numlines <= 0 {
+        return;
+    }
     unsafe {
-        if LINES.is_null() || NUMLINES <= 0 {
-            return;
-        }
         let plr_idx = plr_index();
         let plr = &*PLAYERS.as_ptr().add(plr_idx);
         let pw_allmap = 4usize; // Powertype::Allmap
         let has_allmap = plr.powers[pw_allmap] > 0;
 
-        for i in 0..NUMLINES as usize {
-            let ld = &*LINES.add(i);
+        for i in 0..numlines as usize {
+            let ld = &*lines.add(i);
             if ld.v1.is_null() || ld.v2.is_null() {
                 continue;
             }
@@ -1187,13 +1186,14 @@ fn am_draw_players() {
 }
 
 fn am_draw_things(colors: i32, _colorrange: i32) {
+    let (sectors, numsectors) = state::with_state(|s| (s.sectors, s.numsectors));
+    if sectors.is_null() || numsectors <= 0 {
+        return;
+    }
     unsafe {
-        if SECTORS.is_null() || NUMSECTORS <= 0 {
-            return;
-        }
         let tri = thintriangle_guy();
-        for i in 0..NUMSECTORS as usize {
-            let sec = &*SECTORS.add(i);
+        for i in 0..numsectors as usize {
+            let sec = &*sectors.add(i);
             let mut t = sec.thinglist as *const Mobj;
             while !t.is_null() {
                 let mobj = &*t;

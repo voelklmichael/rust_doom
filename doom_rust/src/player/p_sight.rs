@@ -29,10 +29,9 @@ pub fn p_check_sight(t1: *const Mobj, t2: *const Mobj) -> bool {
         return true; // no subsector - assume visible (e.g. MF_NOSECTOR)
     }
 
-    let subsectors = unsafe { state::SUBSECTORS };
-    let sectors = unsafe { state::SECTORS };
-    let numsectors = unsafe { state::NUMSECTORS };
-    let rejectmatrix = unsafe { state::REJECTMATRIX };
+    let (subsectors, sectors, numsectors, rejectmatrix) = state::with_state(|s| {
+        (s.subsectors, s.sectors, s.numsectors, s.rejectmatrix)
+    });
 
     if subsectors.is_null() || sectors.is_null() || numsectors <= 0 {
         return true;
@@ -82,7 +81,7 @@ pub fn p_check_sight(t1: *const Mobj, t2: *const Mobj) -> bool {
         VALIDCOUNT += 1;
     }
 
-    let numnodes = unsafe { state::NUMNODES };
+    let numnodes = state::with_state(|s| s.numnodes);
     if numnodes <= 0 {
         return true;
     }
@@ -103,8 +102,7 @@ struct SightTrace {
 /// Returns true if strace crosses the subsector successfully.
 /// Original: P_CrossSubsector
 fn p_cross_subsector(st: &mut SightTrace, num: usize) -> bool {
-    let subsectors = unsafe { state::SUBSECTORS };
-    let segs = unsafe { state::SEGS };
+    let (subsectors, segs) = state::with_state(|s| (s.subsectors, s.segs));
     let validcount = unsafe { VALIDCOUNT };
 
     if subsectors.is_null() || segs.is_null() {
@@ -229,7 +227,7 @@ fn p_cross_subsector(st: &mut SightTrace, num: usize) -> bool {
 /// Returns true if strace crosses the BSP node successfully.
 /// Original: P_CrossBSPNode
 fn p_cross_bsp_node(st: &mut SightTrace, bspnum: i32) -> bool {
-    let nodes = unsafe { state::NODES };
+    let nodes = state::with_state(|s| s.nodes);
 
     if (bspnum as u32 & NF_SUBSECTOR as u32) != 0 {
         let ss_num = if bspnum == -1 {

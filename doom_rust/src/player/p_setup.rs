@@ -446,22 +446,22 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
     }
 
     // Set rendering state
-    unsafe {
-        state::NUMVERTEXES = num_vertexes as i32;
-        state::VERTEXES = vertexes_ptr;
-        state::NUMSEGS = num_segs as i32;
-        state::SEGS = segs_ptr;
-        state::NUMSECTORS = num_sectors as i32;
-        state::SECTORS = sectors_ptr;
-        state::NUMSUBSECTORS = num_ssectors as i32;
-        state::SUBSECTORS = subsectors_ptr;
-        state::NUMNODES = num_nodes as i32;
-        state::NODES = nodes_ptr;
-        state::NUMLINES = num_linedefs as i32;
-        state::LINES = lines_ptr;
-        state::NUMSIDES = num_sidedefs as i32;
-        state::SIDES = sides_ptr;
-    }
+    state::with_state_mut(|s| {
+        s.numvertexes = num_vertexes as i32;
+        s.vertexes = vertexes_ptr;
+        s.numsegs = num_segs as i32;
+        s.segs = segs_ptr;
+        s.numsectors = num_sectors as i32;
+        s.sectors = sectors_ptr;
+        s.numsubsectors = num_ssectors as i32;
+        s.subsectors = subsectors_ptr;
+        s.numnodes = num_nodes as i32;
+        s.nodes = nodes_ptr;
+        s.numlines = num_linedefs as i32;
+        s.lines = lines_ptr;
+        s.numsides = num_sidedefs as i32;
+        s.sides = sides_ptr;
+    });
 
     // Load REJECT (lump 9) - for P_CheckSight
     let reject_lump = (map_lump + 9) as usize;
@@ -529,7 +529,7 @@ fn p_load_reject(lump: usize, num_sectors: usize) {
         if copy_len < minlength {
             ptr::write_bytes(ptr.add(copy_len), 0, minlength - copy_len);
         }
-        state::REJECTMATRIX = ptr;
+        state::with_state_mut(|s| s.rejectmatrix = ptr);
     }
 }
 
@@ -560,15 +560,15 @@ fn p_load_blockmap(lump: usize) {
     unsafe {
         ptr::write_bytes(blocklinks_ptr, 0, blocklinks_count);
     }
-    unsafe {
-        state::BLOCKMAPLUMP = blockmaplump_ptr;
-        state::BLOCKMAP = blockmap_ptr;
-        state::BMAPORGX = bmaporgx;
-        state::BMAPORGY = bmaporgy;
-        state::BMAPWIDTH = bmapwidth;
-        state::BMAPHEIGHT = bmapheight;
-        state::BLOCKLINKS = blocklinks_ptr;
-    }
+    state::with_state_mut(|s| {
+        s.blockmaplump = blockmaplump_ptr;
+        s.blockmap = blockmap_ptr;
+        s.bmaporgx = bmaporgx;
+        s.bmaporgy = bmaporgy;
+        s.bmapwidth = bmapwidth;
+        s.bmapheight = bmapheight;
+        s.blocklinks = blocklinks_ptr;
+    });
 }
 
 /// Build sector line lists and blockboxes. Original: P_GroupLines
@@ -635,14 +635,9 @@ fn p_group_lines(
         }
     }
 
-    let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = unsafe {
-        (
-            state::BMAPORGX,
-            state::BMAPORGY,
-            state::BMAPWIDTH,
-            state::BMAPHEIGHT,
-        )
-    };
+    let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = state::with_state(|s| {
+        (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight)
+    });
 
     for i in 0..num_sectors {
         let sector = unsafe { sectors_ptr.add(i) };

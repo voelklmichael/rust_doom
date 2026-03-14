@@ -3,7 +3,7 @@
 // Copyright(C) 2005-2014 Simon Howard
 //
 // DESCRIPTION:
-//  Refresh/render internal state variables (global).
+//  Refresh/render internal state variables.
 //
 // Original: r_state.h
 
@@ -13,98 +13,177 @@ use crate::rendering::defs::{
     Angle, DrawSeg, LightTable, Line, Node, Seg, Sector, SideDef, Spritedef, Subsector, Vertex,
     Visplane,
 };
+use std::cell::RefCell;
 
 // =============================================================================
-// Public API (from .h) - state variables
+// State struct - thread_local for single-threaded access (avoids Sync requirement)
 // =============================================================================
 
-// Texture pegging
-pub static mut TEXTUREHEIGHT: *mut Fixed = std::ptr::null_mut();
+thread_local! {
+    static RENDER_STATE: RefCell<RenderState> = RefCell::new(RenderState::default());
+}
 
-// Pre-rendering (fracs)
-pub static mut SPRITEWIDTH: *mut Fixed = std::ptr::null_mut();
-pub static mut SPRITEOFFSET: *mut Fixed = std::ptr::null_mut();
-pub static mut SPRITETOPOFFSET: *mut Fixed = std::ptr::null_mut();
+pub struct RenderState {
+    // Texture pegging
+    pub textureheight: *mut Fixed,
+    pub spritewidth: *mut Fixed,
+    pub spriteoffset: *mut Fixed,
+    pub spritetopoffset: *mut Fixed,
+    pub colormaps: *mut LightTable,
 
-pub static mut COLORMAPS: *mut LightTable = std::ptr::null_mut();
+    pub viewwidth: i32,
+    pub scaledviewwidth: i32,
+    pub viewheight: i32,
 
-pub static mut VIEWWIDTH: i32 = 0;
-pub static mut SCALEDVIEWWIDTH: i32 = 0;
-pub static mut VIEWHEIGHT: i32 = 0;
+    pub firstflat: i32,
+    pub flattranslation: *mut i32,
+    pub texturetranslation: *mut i32,
 
-pub static mut FIRSTFLAT: i32 = 0;
+    pub firstspritelump: i32,
+    pub lastspritelump: i32,
+    pub numspritelumps: i32,
 
-pub static mut FLATTRANSLATION: *;
-pub static mut TEXTURETRANSLATION: *mut i32 = std::ptr::null_mut();
+    pub numsprites: i32,
+    pub sprites: *mut Spritedef,
 
-pub static mut FIRSTSPRITELUMP: i32 = 0;
-pub static mut LASTSPRITELUMP: i32 = 0;
-pub static mut NUMSPRITELUMPS: i32 = 0;
+    pub numvertexes: i32,
+    pub vertexes: *mut Vertex,
 
-pub static mut NUMSPRITES: i32 = 0;
-pub static mut SPRITES: *mut Spritedef = std::ptr::null_mut();
+    pub numsegs: i32,
+    pub segs: *mut Seg,
 
-pub static mut NUMVERTEXES: i32 = 0;
-pub static mut VERTEXES: *mut Vertex = std::ptr::null_mut();
+    pub numsectors: i32,
+    pub sectors: *mut Sector,
 
-pub static mut NUMSEGS: i32 = 0;
-pub static mut SEGS: *mut Seg = std::ptr::null_mut();
+    pub numsubsectors: i32,
+    pub subsectors: *mut Subsector,
 
-pub static mut NUMSECTORS: i32 = 0;
-pub static mut SECTORS: *mut Sector = std::ptr::null_mut();
+    pub numnodes: i32,
+    pub nodes: *mut Node,
 
-pub static mut NUMSUBSECTORS: i32 = 0;
-pub static mut SUBSECTORS: *mut Subsector = std::ptr::null_mut();
+    pub numlines: i32,
+    pub lines: *mut Line,
 
-pub static mut NUMNODES: i32 = 0;
-pub static mut NODES: *mut Node = std::ptr::null_mut();
+    pub numsides: i32,
+    pub sides: *mut SideDef,
 
-pub static mut NUMLINES: i32 = 0;
-pub static mut LINES: *mut Line = std::ptr::null_mut();
+    // Blockmap (from p_setup, used by p_maputl)
+    pub bmaporgx: Fixed,
+    pub bmaporgy: Fixed,
+    pub bmapwidth: i32,
+    pub bmapheight: i32,
+    pub blockmap: *mut i16,
+    pub blockmaplump: *mut i16,
+    pub blocklinks: *mut *mut std::ffi::c_void,
+    pub rejectmatrix: *mut u8,
 
-pub static mut NUMSIDES: i32 = 0;
-pub static mut SIDES: *mut SideDef = std::ptr::null_mut();
+    // POV data
+    pub viewx: Fixed,
+    pub viewy: Fixed,
+    pub viewz: Fixed,
+    pub viewangle: Angle,
+    pub viewangleoffset: Angle,
+    pub clipangle: Angle,
 
-// Blockmap (from p_setup, used by p_maputl)
-pub static mut BMAPORGX: Fixed = 0;
-pub static mut BMAPORGY: Fixed = 0;
-pub static mut BMAPWIDTH: i32 = 0;
-pub static mut BMAPHEIGHT: i32 = 0;
-pub static mut BLOCKMAP: *mut i16 = std::ptr::null_mut();
-pub static mut BLOCKMAPLUMP: *mut i16 = std::ptr::null_mut();
-/// Thing chains per block (mobj_t** in C). Cast to *mut *mut Mobj when used.
-pub static mut BLOCKLINKS: *mut *mut std::ffi::c_void = std::ptr::null_mut();
+    pub viewangletox: [i32; FINEANGLES / 2],
+    pub xtoviewangle: [Angle; 321],
 
-/// REJECT matrix - fast sight rejection (sector pairs). From p_setup P_LoadReject.
-pub static mut REJECTMATRIX: *mut u8 = std::ptr::null_mut();
+    pub rw_distance: Fixed,
+    pub rw_normalangle: Angle,
+    pub rw_angle1: i32,
+    pub sscount: i32,
 
-// POV data (viewplayer is from d_player - stub for now)
-pub static mut VIEWX: Fixed = 0;
-pub static mut VIEWY: Fixed = 0;
-pub static mut VIEWZ: Fixed = 0;
-pub static mut VIEWANGLE: Angle = 0;
-/// Offset added to view angle (for demo playback, camera effects). Original: viewangleoffset.
-pub static mut VIEWANGLEOFFSET: Angle = 0;
+    pub floorplane: *mut Visplane,
+    pub ceilingplane: *mut Visplane,
 
-pub static mut CLIPANGLE: Angle = 0;
+    // BSP/seg state
+    pub curline: *mut Seg,
+    pub sidedef: *mut SideDef,
+    pub linedef: *mut Line,
+    pub frontsector: *mut Sector,
+    pub backsector: *mut Sector,
+    pub drawsegs: [DrawSeg; crate::rendering::defs::MAXDRAWSEGS],
+    pub ds_p: *mut DrawSeg,
+}
 
-pub static mut VIEWANGLETOX: [i32; FINEANGLES / 2] = [0; FINEANGLES / 2];
-pub static mut XTOVIEWANGLE: [Angle; 321] = [0; 321]; // SCREENWIDTH+1
+impl Default for RenderState {
+    fn default() -> Self {
+        Self {
+            textureheight: std::ptr::null_mut(),
+            spritewidth: std::ptr::null_mut(),
+            spriteoffset: std::ptr::null_mut(),
+            spritetopoffset: std::ptr::null_mut(),
+            colormaps: std::ptr::null_mut(),
+            viewwidth: 0,
+            scaledviewwidth: 0,
+            viewheight: 0,
+            firstflat: 0,
+            flattranslation: std::ptr::null_mut(),
+            texturetranslation: std::ptr::null_mut(),
+            firstspritelump: 0,
+            lastspritelump: 0,
+            numspritelumps: 0,
+            numsprites: 0,
+            sprites: std::ptr::null_mut(),
+            numvertexes: 0,
+            vertexes: std::ptr::null_mut(),
+            numsegs: 0,
+            segs: std::ptr::null_mut(),
+            numsectors: 0,
+            sectors: std::ptr::null_mut(),
+            numsubsectors: 0,
+            subsectors: std::ptr::null_mut(),
+            numnodes: 0,
+            nodes: std::ptr::null_mut(),
+            numlines: 0,
+            lines: std::ptr::null_mut(),
+            numsides: 0,
+            sides: std::ptr::null_mut(),
+            bmaporgx: 0,
+            bmaporgy: 0,
+            bmapwidth: 0,
+            bmapheight: 0,
+            blockmap: std::ptr::null_mut(),
+            blockmaplump: std::ptr::null_mut(),
+            blocklinks: std::ptr::null_mut(),
+            rejectmatrix: std::ptr::null_mut(),
+            viewx: 0,
+            viewy: 0,
+            viewz: 0,
+            viewangle: 0,
+            viewangleoffset: 0,
+            clipangle: 0,
+            viewangletox: [0; FINEANGLES / 2],
+            xtoviewangle: [0; 321],
+            rw_distance: 0,
+            rw_normalangle: 0,
+            rw_angle1: 0,
+            sscount: 0,
+            floorplane: std::ptr::null_mut(),
+            ceilingplane: std::ptr::null_mut(),
+            curline: std::ptr::null_mut(),
+            sidedef: std::ptr::null_mut(),
+            linedef: std::ptr::null_mut(),
+            frontsector: std::ptr::null_mut(),
+            backsector: std::ptr::null_mut(),
+            drawsegs: unsafe { std::mem::zeroed() },
+            ds_p: std::ptr::null_mut(),
+        }
+    }
+}
 
-pub static mut RW_DISTANCE: Fixed = 0;
-pub static mut RW_NORMALANGLE: Angle = 0;
-pub static mut RW_ANGLE1: i32 = 0;
-pub static mut SSCOUNT: i32 = 0;
+/// Read from render state.
+pub fn with_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&RenderState) -> R,
+{
+    RENDER_STATE.with(|s| f(&s.borrow()))
+}
 
-pub static mut FLOORPLANE: *mut Visplane = std::ptr::null_mut();
-pub static mut CEILINGPLANE: *mut Visplane = std::ptr::null_mut();
-
-// BSP/seg state (set by r_bsp, read/written by r_segs)
-pub static mut CURLINE: *mut Seg = std::ptr::null_mut();
-pub static mut SIDEDEF: *mut SideDef = std::ptr::null_mut();
-pub static mut LINEDEF: *mut Line = std::ptr::null_mut();
-pub static mut FRONTSECTOR: *mut Sector = std::ptr::null_mut();
-pub static mut BACKSECTOR: *mut Sector = std::ptr::null_mut();
-pub static mut DRAWSEGS: [DrawSeg; crate::rendering::defs::MAXDRAWSEGS] =
-    unsafe { std::mem::zeroed() };
-pub static mut DS_P: *mut DrawSeg = std::ptr::null_mut();
+/// Write to render state.
+pub fn with_state_mut<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut RenderState) -> R,
+{
+    RENDER_STATE.with(|s| f(&mut s.borrow_mut()))
+}
