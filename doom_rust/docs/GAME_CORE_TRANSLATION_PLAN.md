@@ -232,3 +232,117 @@ Check existing `doomdef.rs`; add `gameaction_t`, `gamestate_t` if missing.
 **Estimated effort:** Phase 1–2 are manageable (1–2 days each). Phase 3 is small. Phase 4 (g_game) is the largest; stub aggressively and grow incrementally.
 
 See also: `PLAYER_TRANSLATION_PLAN.md`, `C_TO_RUST_OVERVIEW.md`
+
+---
+
+## Conversion Plan: d_main, d_loop, g_game (Full Implementation)
+
+Plan to complete the game core modules: D_DoomMain/D_DoomLoop, TryRunTics/gameaction dispatch, G_InitNew, G_DoLoadLevel, G_DoSaveGame, G_DoLoadGame.
+
+### Phase A: Game Action Dispatch (d_main + d_loop)
+
+**Goal:** Main loop checks `gameaction` and dispatches to G_DoLoadLevel, G_DoNewGame, G_DoLoadGame, G_DoSaveGame.
+
+| Step | C Source | Rust Target | Notes |
+|------|----------|-------------|-------|
+| A.1 | D_DoomLoop gameaction check | d_main.rs | Before TryRunTics, if gameaction != Nothing: match and call g_do_load_level, g_do_new_game, g_do_load_game, g_do_save_game |
+| A.2 | G_DoNewGame | g_game.rs | Resets playeringame[1..3], calls G_InitNew(d_skill, d_episode, d_map) |
+| A.3 | d_skill, d_episode, d_map | g_game.rs | Globals set by menu; G_DeferedInitNew stores to these, G_DoNewGame reads |
+
+**Dependencies:** G_InitNew, G_DoLoadLevel (can stub initially).
+
+---
+
+### Phase B: G_InitNew (g_game)
+
+**Goal:** Start new game – set gameskill, gameepisode, gamemap, reset players, call P_SetupLevel.
+
+| Step | C Source | Rust Target | Notes |
+|------|----------|-------------|-------|
+| B.1 | G_InitNew(skill, episode, map) | g_game.rs | Validate episode/map for gamemode; set gameskill, gameepisode, gamemap |
+| B.2 | Player reset | g_game.rs | For each player: reset health, ammo, weapons, frags, etc. |
+| B.3 | P_SetupLevel call | g_game.rs | p_setup::p_load_level(episode, map, 0, skill) – already exists as p_load_level |
+| B.4 | Sky setup | g_game.rs | R_FlatNumForName(SKYFLATNAME), R_TextureNumForName(SKY1/SKY2/SKY3) for commercial |
+
+**Dependencies:** p_setup::p_load_level, r_data (R_FlatNumForName, R_TextureNumForName), r_sky.
+
+---
+
+### Phase C: G_DoLoadLevel (g_game)
+
+**Goal:** Load a level – set sky, gamestate=Level, reset dead players, call P_SetupLevel.
+
+| Step | C Source | Rust Target | Notes |
+|------|----------|-------------|-------|
+| C.1 | Sky flat/texture | g_game.rs | skyflatnum = R_FlatNumForName(SKYFLATNAME); skytexture for commercial |
+| C.2 | levelstarttic | g_game.rs | levelstarttic = gametic |
+| C.3 | Player state reset | g_game.rs | Dead players → Reborn; clear frags; turbodetected = false |
+| C.4 | P_SetupLevel | g_game.rs | p_load_level(gameepisode, gamemap, 0, gameskill) |
+| C.5 | Input clear | g_game.rs | Clear gamekeydown, mouse, joy; sendpause, sendsave, paused = false |
+
+**Dependencies:** Same as Phase B.
+
+---
+
+### Phase D: Save/Load (g_game + p_saveg)
+
+**Goal:** G_DoSaveGame, G_DoLoadGame using p_saveg archive functions.
+
+| Step | C Source | Rust Target | Notes |
+|------|----------|-------------|-------|
+| D.1 | P_ArchivePlayers, P_UnArchivePlayers | p_saveg.rs | Serialize/deserialize PLAYERS, doomstat globals |
+| D.2 | P_ArchiveWorld, P_UnArchiveWorld | p_saveg.rs | Sectors, lines, sides, etc. |
+| D.3 | P_ArchiveThinkers, P_UnArchiveThinkers | p_saveg.rs | Mobj, ceiling/floor/plat thinkers |
+| D.4 | P_ArchiveSpecials, P_UnArchiveSpecials | p_saveg.rs | Sector specials, line specials |
+| D.5 | P_WriteSaveGameHeader, P_ReadSaveGameHeader | p_saveg.rs | Version, description, episode/map |
+| D.6 | G_DoSaveGame | g_game.rs | Open file, P_WriteSaveGameHeader, P_Archive*, P_WriteSaveGameEOF |
+| D.7 | G_DoLoadGame | g_game.rs | Open file, P_ReadSaveGameHeader, G_InitNew, P_UnArchive* |
+
+**Dependencies:** p_saveg (stub exists), z_zone (for thinker iteration), p_setup, p_floor, p_ceilng, p_doors, p_plats, p_lights, p_switch, p_inter.
+
+---
+
+### Phase E: D_DoomMain (d_main)
+
+**Goal:** Full startup – Z_Init, config, WAD loading, R_Init, etc.
+
+| Step | C Source | Rust Target | Notes |
+|------|----------|-------------|-------|
+| E.1 | Z_Init | d_main | Zone allocator init |
+| E.2 | M_SetConfigDir, M_LoadDefaults | d_main | Config load (m_config) |
+| E.3 | D_FindIWAD, D_AddFile | d_main | Find IWAD, load WAD |
+| E.4 | W_CheckCorrectIWAD, D_IdentifyVersion | d_main | Validate IWAD, set gamemode |
+| E.5 | W_ParseCommandLine | d_main | Load -file PWADs |
+| E.6 | V_Init, R_Init | d_main | Video, rendering init |
+| E.7 | S_Init, M_Init, etc. | d_main | Sound, menu, controls |
+| E.8 | G_DeferedInitNew or D_StartTitle | d_main | Start game or title/demo |
+
+**Dependencies:** z_zone, w_wad, m_config, m_controls, m_menu, v_video, rendering::r_init, s_sound.
+
+---
+
+### Phase F: G_BuildTiccmd (g_game)
+
+**Goal:** Build ticcmd from keyboard/mouse/joystick input.
+
+| Step | C Source | Rust Target | Notes |
+|------|----------|-------------|-------|
+| F.1 | gamekeydown, key_* | g_game.rs or input | Key state array; m_controls key bindings |
+| F.2 | mousex, mousey, mousebuttons | g_game.rs | From i_input (stub → platform) |
+| F.3 | joyxmove, joyymove, joybuttons | g_game.rs | From i_joystick (stub) |
+| F.4 | forwardmove, sidemove, angleturn | g_game.rs | Lookup tables; speed from key_speed |
+| F.5 | Strafe, turn, forward, side | g_game.rs | G_BuildTiccmd logic |
+| F.6 | BT_ATTACK, BT_USE, weapon keys | g_game.rs | Button encoding |
+
+**Dependencies:** i_input (keyboard/mouse), i_joystick, m_controls (key bindings), hu_stuff (HU_dequeueChatChar).
+
+---
+
+### Implementation Order
+
+1. **Phase A** – Game action dispatch ✅ (unblocks menu New Game → level load)
+2. **Phase B** – G_InitNew ✅ (enables new game start)
+3. **Phase C** – G_DoLoadLevel ✅ (enables level transitions, idclev)
+4. **Phase F** – G_BuildTiccmd ✅ (keyboard + mouse movement, attack/use, strafe, speed, sendpause/sendsave)
+5. **Phase D** – Save/load ✅ (file I/O, header, G_DoSaveGame/G_DoLoadGame; P_ArchivePlayers, P_ArchiveWorld, P_ArchiveThinkers; P_ArchiveSpecials writes tc_endspecials only)
+6. **Phase E** – D_DoomMain ✅ (full startup: config, IWAD, WAD, video, rendering, menu, loop)

@@ -19,6 +19,24 @@ use crate::z_zone::{z_malloc, PU_LEVEL};
 use std::ptr;
 
 use super::{MAPBLOCKSHIFT, MAXRADIUS};
+use crate::doomstat::GAMEMODE;
+use crate::game::d_mode::GameMode;
+
+/// Build map lump name from episode/map. Used by G_InitNew, G_DoLoadLevel.
+/// Original: P_SetupLevel lump name logic
+pub fn p_map_name_from_episode_map(episode: i32, map: i32) -> String {
+    unsafe {
+        if GAMEMODE == GameMode::Commercial {
+            if map < 10 {
+                format!("MAP0{}", map)
+            } else {
+                format!("MAP{}", map)
+            }
+        } else {
+            format!("E{}M{}", episode, map)
+        }
+    }
+}
 
 fn read_i16(data: &[u8], offset: usize) -> i16 {
     i_swap::short([data[offset], data[offset + 1]])

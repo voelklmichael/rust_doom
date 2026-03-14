@@ -1,23 +1,14 @@
-use doom_rust::{game::{d_main, statdump}, m_argv, wad, z_zone};
+use doom_rust::{game::d_main, m_argv};
 
 fn main() {
-    // Initialize command line
+    // Initialize command line (required before any other init)
     m_argv::m_argv_init(std::env::args().collect());
 
-    // Initialize zone allocator (required before WAD operations)
-    z_zone::z_init();
+    // Full startup: config, WAD, video, rendering, menu, start game
+    d_main::d_doom_main();
 
-    // Parse command line for -file, -merge, etc.
-    let modified = wad::w_parse_command_line();
-    if modified {
-        println!("WAD files loaded. Lump count: {}", wad::numlumps());
-    } else {
-        println!("Hello, world! (No WAD files specified - use -file <wad> to load)");
+    // Main loop: run one frame per iteration (platform may provide its own loop)
+    loop {
+        d_main::d_doom_tick();
     }
-
-    // Dump statistics if -statdump was used (captured during level completions)
-    statdump::stat_dump();
-
-    // Shutdown: display ENDOOM lump if present (80×25 text screen)
-    d_main::d_shutdown();
 }

@@ -39,7 +39,7 @@ pub enum GameMode {
 }
 
 // What version are we emulating?
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(i32)]
 pub enum GameVersion {
     ExeDoom12,       // Doom 1.2
@@ -59,7 +59,7 @@ pub enum GameVersion {
 }
 
 // Skill level.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(i32)]
 pub enum Skill {
     NoItems = -1,    // the "-skill 0" hack

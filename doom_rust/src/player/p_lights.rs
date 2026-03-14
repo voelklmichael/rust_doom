@@ -7,8 +7,52 @@
 //
 // Original: p_lights.c
 
+use crate::game::d_think::Thinker;
 use crate::rendering::defs::{Line, Sector};
 use crate::rendering::state;
+
+/// Light flash thinker. Original: lightflash_t
+#[repr(C)]
+pub struct LightFlash {
+    pub thinker: Thinker,
+    pub sector: *mut Sector,
+    pub count: i32,
+    pub maxlight: i32,
+    pub minlight: i32,
+    pub maxtime: i32,
+    pub mintime: i32,
+}
+
+/// Strobe thinker. Original: strobe_t
+#[repr(C)]
+pub struct Strobe {
+    pub thinker: Thinker,
+    pub sector: *mut Sector,
+    pub count: i32,
+    pub minlight: i32,
+    pub maxlight: i32,
+    pub darktime: i32,
+    pub brighttime: i32,
+}
+
+/// Glow thinker. Original: glow_t
+#[repr(C)]
+pub struct Glow {
+    pub thinker: Thinker,
+    pub sector: *mut Sector,
+    pub minlight: i32,
+    pub maxlight: i32,
+    pub direction: i32,
+}
+
+/// Light flash thinker. Original: T_LightFlash (stub - no-op for savegame compatibility)
+pub unsafe extern "C" fn t_light_flash(_flash: *mut ()) {}
+
+/// Strobe thinker. Original: T_StrobeFlash (stub - no-op for savegame compatibility)
+pub unsafe extern "C" fn t_strobe_flash(_flash: *mut ()) {}
+
+/// Glow thinker. Original: T_Glow (stub - no-op for savegame compatibility)
+pub unsafe extern "C" fn t_glow(_g: *mut ()) {}
 
 /// Turn on sector lights. Original: EV_LightTurnOn
 /// If sector is null, finds all sectors with tag from line and sets their lightlevel.

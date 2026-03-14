@@ -47,7 +47,7 @@ pub use r_bsp::{r_clear_clip_segs, r_clear_draw_segs, r_render_bsp_node};
 pub use r_segs::{r_render_masked_seg_range, r_store_wall_range};
 pub use r_plane::{r_check_plane, r_clear_planes, r_draw_planes, r_find_plane, r_init_planes};
 pub use r_things::{r_init_sprites, r_sprite_num_for_name};
-pub use r_sky::{r_init_sky_map, ANGLETOSKYSHIFT, SKYFLATNAME, SKYTEXTURE, SKYTEXTUREMID};
+pub use r_sky::{r_init_sky_map, ANGLETOSKYSHIFT, SKYFLATNAME, SKYFLATNUM, SKYTEXTURE, SKYTEXTUREMID};
 pub use r_draw::r_video_erase;
 pub use v_video::{
     v_copy_rect, v_draw_alt_tl_patch, v_draw_block, v_draw_box, v_draw_filled_box,
