@@ -12,7 +12,7 @@ use crate::i_swap;
 use crate::i_system;
 use crate::m_fixed::FRACBITS;
 use crate::rendering::state;
-use crate::rendering::v_patch::{ColumnT, patch_t};
+use crate::rendering::v_patch::{patch_t, ColumnT};
 use crate::wad::{
     w_cache_lump_name, w_cache_lump_num, w_check_num_for_name, w_get_num_for_name, w_lump_length,
     w_lump_name_hash, w_release_lump_name, with_lumpinfo,
@@ -293,8 +293,6 @@ pub fn r_init_data() {
     r_init_textures();
     let InitFlats {
         firstflat,
-        lastflat,
-        numflats,
         flattranslation,
     } = r_init_flats();
     r_init_sprite_lumps();
@@ -671,8 +669,6 @@ fn r_init_textures() {
 
 struct InitFlats {
     firstflat: i32,
-    lastflat: i32,
-    numflats: i32,
     flattranslation: Vec<i32>,
 }
 
@@ -685,8 +681,6 @@ fn r_init_flats() -> InitFlats {
 
     InitFlats {
         firstflat,
-        lastflat,
-        numflats,
         flattranslation,
     }
 }
