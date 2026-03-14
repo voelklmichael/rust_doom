@@ -286,7 +286,7 @@ fn wi_load_anim_patches(epsd: i32) {
                     a.p[i] = (*anims.add(4)).p[i];
                 } else {
                     let lump = format!("WIA{}{:02}{:02}", epsd, j, i);
-                    a.p[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
+                    a.p[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
                 }
             }
         }
@@ -424,35 +424,35 @@ fn wi_load_data(wbs: &crate::doomstat::WbStartStruct) {
         for i in n..8 {
             WI_BACKGROUND_NAME[i] = 0;
         }
-        WI_BACKGROUND = w_cache_lump_name(deh_string(name), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_BACKGROUND = w_cache_lump_name(deh_string(name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
 
         // Load stats patches
         for i in 0..10 {
             let lump = format!("WINUM{}", i);
-            WI_NUM[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
+            WI_NUM[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
         }
-        WI_MINUS = w_cache_lump_name(deh_string("WIMINUS"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_PERCENT = w_cache_lump_name(deh_string("WIPCNT"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_FINISHED = w_cache_lump_name(deh_string("WIF"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_ENTERING = w_cache_lump_name(deh_string("WIENTER"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_KILLS = w_cache_lump_name(deh_string("WIOSTK"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_ITEMS = w_cache_lump_name(deh_string("WIOSTI"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_SP_SECRET = w_cache_lump_name(deh_string("WISCRT2"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_TIMEPATCH = w_cache_lump_name(deh_string("WITIME"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_PAR = w_cache_lump_name(deh_string("WIPAR"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_COLON = w_cache_lump_name(deh_string("WICOLON"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_SUCKS = w_cache_lump_name(deh_string("WISUCKS"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_MINUS = w_cache_lump_name(deh_string("WIMINUS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_PERCENT = w_cache_lump_name(deh_string("WIPCNT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_FINISHED = w_cache_lump_name(deh_string("WIF"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_ENTERING = w_cache_lump_name(deh_string("WIENTER"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_KILLS = w_cache_lump_name(deh_string("WIOSTK"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_ITEMS = w_cache_lump_name(deh_string("WIOSTI"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_SP_SECRET = w_cache_lump_name(deh_string("WISCRT2"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_TIMEPATCH = w_cache_lump_name(deh_string("WITIME"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_PAR = w_cache_lump_name(deh_string("WIPAR"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_COLON = w_cache_lump_name(deh_string("WICOLON"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_SUCKS = w_cache_lump_name(deh_string("WISUCKS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
 
         // Deathmatch/netgame patches
-        WI_KILLERS = w_cache_lump_name(deh_string("WIKILRS"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_VICTIMS = w_cache_lump_name(deh_string("WIVCTMS"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_TOTAL = w_cache_lump_name(deh_string("WIMSTT"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_FRAGS = w_cache_lump_name(deh_string("WIFRGS"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_STAR = w_cache_lump_name(deh_string("STFST01"), PU_STATIC) as *mut crate::rendering::patch_t;
-        WI_BSTAR = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC) as *mut crate::rendering::patch_t;
+        WI_KILLERS = w_cache_lump_name(deh_string("WIKILRS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_VICTIMS = w_cache_lump_name(deh_string("WIVCTMS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_TOTAL = w_cache_lump_name(deh_string("WIMSTT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_FRAGS = w_cache_lump_name(deh_string("WIFRGS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_STAR = w_cache_lump_name(deh_string("STFST01"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        WI_BSTAR = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
         for i in 0..crate::doomdef::MAXPLAYERS {
             let lump = format!("WIP{}", i);
-            WI_P[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
+            WI_P[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
         }
 
         // Level names
@@ -460,13 +460,13 @@ fn wi_load_data(wbs: &crate::doomstat::WbStartStruct) {
             WI_NUM_LNAMES = NUMCMAPS;
             for i in 0..NUMCMAPS {
                 let lump = format!("CWILV{:02}", i);
-                WI_LNAMES[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
+                WI_LNAMES[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
             }
         } else {
             WI_NUM_LNAMES = NUMMAPS;
             for i in 0..NUMMAPS {
                 let lump = format!("WILV{}{}", wbs.epsd, i);
-                WI_LNAMES[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC) as *mut crate::rendering::patch_t;
+                WI_LNAMES[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
             }
         }
         if GAMEMODE != GameMode::Commercial && wbs.epsd < 3 {

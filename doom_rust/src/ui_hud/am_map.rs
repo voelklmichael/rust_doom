@@ -504,7 +504,7 @@ fn am_load_pics() {
     for i in 0..10 {
         let name = format!("AMMNUM{}", i);
         unsafe {
-            MARKNUMS[i] = w_cache_lump_name(deh_string(&name), PU_STATIC) as *const patch_t;
+            MARKNUMS[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr() as *const patch_t;
         }
     }
 }

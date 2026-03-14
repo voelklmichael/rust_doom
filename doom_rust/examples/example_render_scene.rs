@@ -53,7 +53,7 @@ fn main() {
 
     // Convert screen buffer (8-bit palette indices) to RGBA and save
     let palette_data = wad::w_cache_lump_name("PLAYPAL", doom_rust::z_zone::PU_STATIC);
-    let palette = unsafe { std::slice::from_raw_parts(palette_data, 768) }; // First 256 colors
+    let palette = unsafe { std::slice::from_raw_parts(palette_data.as_ptr(), 768) }; // First 256 colors
 
     let mut rgba = Vec::with_capacity((SCREENWIDTH * SCREENHEIGHT * 4) as usize);
     unsafe {

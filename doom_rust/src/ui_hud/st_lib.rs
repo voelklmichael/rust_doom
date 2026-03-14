@@ -73,7 +73,7 @@ pub struct StBinIcon {
 
 pub fn stlib_init() {
     unsafe {
-        STTMINUS = w_cache_lump_name(deh_string("STTMINUS"), PU_STATIC) as *mut patch_t;
+        STTMINUS = w_cache_lump_name(deh_string("STTMINUS"), PU_STATIC).as_ptr_mut() as *mut patch_t;
     }
 }
 

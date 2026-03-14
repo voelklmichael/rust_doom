@@ -51,6 +51,6 @@ pub fn i_endoom_from_wad() {
     }
     let data = w_cache_lump_name(deh_string("ENDOOM"), PU_STATIC);
     if !data.is_null() {
-        i_endoom(data);
+        i_endoom(data.as_ptr());
     }
 }

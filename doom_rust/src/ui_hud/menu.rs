@@ -163,13 +163,13 @@ fn m_draw_save_load_border(x: i32, y: i32) {
             return;
         }
         let mut xx = x - 8;
-        v_draw_patch_direct(xx, y + 7, left as *const _);
+        v_draw_patch_direct(xx, y + 7, left.as_ptr() as *const _);
         xx = x;
         for _ in 0..24 {
-            v_draw_patch_direct(xx, y + 7, mid as *const _);
+            v_draw_patch_direct(xx, y + 7, mid.as_ptr() as *const _);
             xx += 8;
         }
-        v_draw_patch_direct(xx, y + 7, right as *const _);
+        v_draw_patch_direct(xx, y + 7, right.as_ptr() as *const _);
     }
 }
 
@@ -177,7 +177,7 @@ fn m_draw_load_menu() {
     unsafe {
         let title = w_cache_lump_name(deh_string("M_LOADG"), PU_CACHE);
         if !title.is_null() {
-            v_draw_patch_direct(72, 28, title as *const _);
+            v_draw_patch_direct(72, 28, title.as_ptr() as *const _);
         }
         m_read_save_strings();
         for i in 0..LOAD_SLOTS {
@@ -193,7 +193,7 @@ fn m_draw_load_menu() {
             v_draw_patch_direct(
                 LOAD_X + SKULLXOFF,
                 LOAD_Y - 5 + (ITEM_ON as i32) * LINEHEIGHT,
-                skull as *const _,
+                skull.as_ptr() as *const _,
             );
         }
     }
@@ -203,7 +203,7 @@ fn m_draw_save_menu() {
     unsafe {
         let title = w_cache_lump_name(deh_string("M_SAVEG"), PU_CACHE);
         if !title.is_null() {
-            v_draw_patch_direct(72, 28, title as *const _);
+            v_draw_patch_direct(72, 28, title.as_ptr() as *const _);
         }
         m_read_save_strings();
         let editing_slot = hu_save_string_active().then(|| hu_save_string_slot());
@@ -224,7 +224,7 @@ fn m_draw_save_menu() {
             v_draw_patch_direct(
                 LOAD_X + SKULLXOFF,
                 LOAD_Y - 5 + (ITEM_ON as i32) * LINEHEIGHT,
-                skull as *const _,
+                skull.as_ptr() as *const _,
             );
         }
         if hu_save_string_active() {
@@ -650,7 +650,7 @@ fn m_draw_read_this() {
         // Draw HELP1 lump full-screen (Read This / message screen)
         let p = w_cache_lump_name(deh_string("HELP1"), PU_CACHE);
         if !p.is_null() {
-            v_draw_patch_direct(0, 0, p as *const _);
+            v_draw_patch_direct(0, 0, p.as_ptr() as *const _);
         }
     }
 }
@@ -659,7 +659,7 @@ fn m_draw_main_menu() {
     unsafe {
         let p = w_cache_lump_name(deh_string("M_DOOM"), PU_CACHE);
         if !p.is_null() {
-            v_draw_patch_direct(94, 2, p as *const _);
+            v_draw_patch_direct(94, 2, p.as_ptr() as *const _);
         }
     }
 }
@@ -668,7 +668,7 @@ fn m_draw_episode_menu() {
     unsafe {
         let p = w_cache_lump_name(deh_string("M_EPISOD"), PU_CACHE);
         if !p.is_null() {
-            v_draw_patch_direct(54, 38, p as *const _);
+            v_draw_patch_direct(54, 38, p.as_ptr() as *const _);
         }
     }
 }
@@ -678,10 +678,10 @@ fn m_draw_newgame_menu() {
         let p1 = w_cache_lump_name(deh_string("M_NEWG"), PU_CACHE);
         let p2 = w_cache_lump_name(deh_string("M_SKILL"), PU_CACHE);
         if !p1.is_null() {
-            v_draw_patch_direct(96, 14, p1 as *const _);
+            v_draw_patch_direct(96, 14, p1.as_ptr() as *const _);
         }
         if !p2.is_null() {
-            v_draw_patch_direct(54, 38, p2 as *const _);
+            v_draw_patch_direct(54, 38, p2.as_ptr() as *const _);
         }
     }
 }
@@ -696,15 +696,15 @@ fn m_draw_thermo(x: i32, y: i32, therm_width: i32, therm_dot: i32) {
             return;
         }
         let mut xx = x;
-        v_draw_patch_direct(xx, y, left as *const _);
+        v_draw_patch_direct(xx, y, left.as_ptr() as *const _);
         xx += 8;
         for _ in 0..therm_width {
-            v_draw_patch_direct(xx, y, mid as *const _);
+            v_draw_patch_direct(xx, y, mid.as_ptr() as *const _);
             xx += 8;
         }
-        v_draw_patch_direct(xx, y, right as *const _);
+        v_draw_patch_direct(xx, y, right.as_ptr() as *const _);
         let dot_x = (x + 8) + therm_dot * 8;
-        v_draw_patch_direct(dot_x, y, dot as *const _);
+        v_draw_patch_direct(dot_x, y, dot.as_ptr() as *const _);
     }
 }
 
@@ -712,7 +712,7 @@ fn m_draw_options_menu() {
     unsafe {
         let title = w_cache_lump_name(deh_string("M_OPTTTL"), PU_CACHE);
         if !title.is_null() {
-            v_draw_patch_direct(108, 15, title as *const _);
+            v_draw_patch_direct(108, 15, title.as_ptr() as *const _);
         }
         let detail_name = if DETAIL_LEVEL == 0 { "M_GDHIGH" } else { "M_GDLOW" };
         let detail_p = w_cache_lump_name(deh_string(detail_name), PU_CACHE);
@@ -720,7 +720,7 @@ fn m_draw_options_menu() {
             v_draw_patch_direct(
                 OPTIONS_X + 175,
                 OPTIONS_Y + LINEHEIGHT * 2,
-                detail_p as *const _,
+                detail_p.as_ptr() as *const _,
             );
         }
         let msg_name = if SHOW_MESSAGES == 0 { "M_MSGOFF" } else { "M_MSGON" };
@@ -729,7 +729,7 @@ fn m_draw_options_menu() {
             v_draw_patch_direct(
                 OPTIONS_X + 120,
                 OPTIONS_Y + LINEHEIGHT * 1,
-                msg_p as *const _,
+                msg_p.as_ptr() as *const _,
             );
         }
         m_draw_thermo(OPTIONS_X, OPTIONS_Y + LINEHEIGHT * 4, 9, SCREEN_SIZE);
@@ -741,7 +741,7 @@ fn m_draw_sound_menu() {
     unsafe {
         let title = w_cache_lump_name(deh_string("M_SVOL"), PU_CACHE);
         if !title.is_null() {
-            v_draw_patch_direct(60, 38, title as *const _);
+            v_draw_patch_direct(60, 38, title.as_ptr() as *const _);
         }
         m_draw_thermo(SOUND_X, SOUND_Y + LINEHEIGHT * 1, 16, SFX_VOLUME);
         m_draw_thermo(SOUND_X, SOUND_Y + LINEHEIGHT * 3, 16, MUSIC_VOLUME);
@@ -755,7 +755,7 @@ fn m_draw_sound_items() {
             if *status != -1 && !name.is_empty() {
                 let p = w_cache_lump_name(deh_string(name), PU_CACHE);
                 if !p.is_null() {
-                    v_draw_patch_direct(SOUND_X, yy, p as *const _);
+                    v_draw_patch_direct(SOUND_X, yy, p.as_ptr() as *const _);
                 }
             }
             yy += LINEHEIGHT;
@@ -766,7 +766,7 @@ fn m_draw_sound_items() {
             v_draw_patch_direct(
                 SOUND_X + SKULLXOFF,
                 SOUND_Y - 5 + (ITEM_ON as i32) * LINEHEIGHT,
-                skull as *const _,
+                skull.as_ptr() as *const _,
             );
         }
     }
@@ -779,7 +779,7 @@ fn m_draw_options_items() {
             if *status != -1 && !name.is_empty() {
                 let p = w_cache_lump_name(deh_string(name), PU_CACHE);
                 if !p.is_null() {
-                    v_draw_patch_direct(OPTIONS_X, yy, p as *const _);
+                    v_draw_patch_direct(OPTIONS_X, yy, p.as_ptr() as *const _);
                 }
             }
             yy += LINEHEIGHT;
@@ -790,7 +790,7 @@ fn m_draw_options_items() {
             v_draw_patch_direct(
                 OPTIONS_X + SKULLXOFF,
                 OPTIONS_Y - 5 + (ITEM_ON as i32) * LINEHEIGHT,
-                skull as *const _,
+                skull.as_ptr() as *const _,
             );
         }
     }
@@ -803,7 +803,7 @@ fn m_draw_menu_items(menu: MenuKind, x: i32, y: i32, num_items: usize, items: &[
             let name = deh_string(items[i]);
             let p = w_cache_lump_name(name, PU_CACHE);
             if !p.is_null() {
-                v_draw_patch_direct(x, yy, p as *const _);
+                v_draw_patch_direct(x, yy, p.as_ptr() as *const _);
             }
             yy += LINEHEIGHT;
         }
@@ -813,7 +813,7 @@ fn m_draw_menu_items(menu: MenuKind, x: i32, y: i32, num_items: usize, items: &[
             v_draw_patch_direct(
                 x + SKULLXOFF,
                 y - 5 + (ITEM_ON as i32) * LINEHEIGHT,
-                skull as *const _,
+                skull.as_ptr() as *const _,
             );
         }
     }

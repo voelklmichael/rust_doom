@@ -131,6 +131,7 @@ fn f_text_write() {
         if src.is_null() {
             return;
         }
+        let src = src.as_ptr();
         let dest = VIEWIMAGE;
         if dest.is_null() {
             return;
@@ -185,8 +186,8 @@ fn f_text_write() {
 fn f_bunny_scroll() {
     unsafe {
         let finalecount = FINALECOUNT as i32;
-        let p1 = w_cache_lump_name(deh_string("PFUB2"), PU_LEVEL) as *const patch_t;
-        let p2 = w_cache_lump_name(deh_string("PFUB1"), PU_LEVEL) as *const patch_t;
+        let p1 = w_cache_lump_name(deh_string("PFUB2"), PU_LEVEL).as_ptr() as *const patch_t;
+        let p2 = w_cache_lump_name(deh_string("PFUB1"), PU_LEVEL).as_ptr() as *const patch_t;
 
         if p1.is_null() || p2.is_null() || VIEWIMAGE.is_null() {
             return;
@@ -209,7 +210,7 @@ fn f_bunny_scroll() {
             return;
         }
         if finalecount < 1180 {
-            let lump = w_cache_lump_name(deh_string("END0"), PU_CACHE) as *const patch_t;
+            let lump = w_cache_lump_name(deh_string("END0"), PU_CACHE).as_ptr() as *const patch_t;
             if !lump.is_null() {
                 v_draw_patch((SCREENWIDTH - 13 * 8) / 2, (SCREENHEIGHT - 8 * 8) / 2, lump);
             }
@@ -218,7 +219,7 @@ fn f_bunny_scroll() {
 
         let stage = ((finalecount - 1180) / 5).min(6);
         let name = format!("END{}", stage);
-        let lump = w_cache_lump_name(deh_string(&name), PU_CACHE) as *const patch_t;
+        let lump = w_cache_lump_name(deh_string(&name), PU_CACHE).as_ptr() as *const patch_t;
         if !lump.is_null() {
             v_draw_patch((SCREENWIDTH - 13 * 8) / 2, (SCREENHEIGHT - 8 * 8) / 2, lump);
         }
@@ -246,7 +247,7 @@ fn f_art_screen_drawer() {
                 _ => return,
             };
 
-            let lump = w_cache_lump_name(deh_string(lumpname), PU_CACHE) as *const patch_t;
+            let lump = w_cache_lump_name(deh_string(lumpname), PU_CACHE).as_ptr() as *const patch_t;
             if !lump.is_null() {
                 v_draw_patch(0, 0, lump);
             }
@@ -267,7 +268,7 @@ fn f_cast_print(text: &str) {
 
 fn f_cast_drawer() {
     unsafe {
-        let lump = w_cache_lump_name(deh_string("BOSSBACK"), PU_CACHE) as *const patch_t;
+        let lump = w_cache_lump_name(deh_string("BOSSBACK"), PU_CACHE).as_ptr() as *const patch_t;
         if !lump.is_null() {
             v_draw_patch(0, 0, lump);
         }

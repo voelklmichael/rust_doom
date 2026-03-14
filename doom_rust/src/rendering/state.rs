@@ -34,7 +34,7 @@ pub static mut VIEWHEIGHT: i32 = 0;
 
 pub static mut FIRSTFLAT: i32 = 0;
 
-pub static mut FLATTRANSLATION: *mut i32 = std::ptr::null_mut();
+pub static mut FLATTRANSLATION: *;
 pub static mut TEXTURETRANSLATION: *mut i32 = std::ptr::null_mut();
 
 pub static mut FIRSTSPRITELUMP: i32 = 0;

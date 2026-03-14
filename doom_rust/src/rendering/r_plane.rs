@@ -12,7 +12,11 @@ use crate::geometry::{finecosine, finesine, ANGLETOFINESHIFT};
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS};
 use crate::rendering::defs::Visplane;
 use crate::rendering::r_data::r_get_column;
-use crate::rendering::r_draw::{colfunc, spanfunc, DC_COLORMAP, DC_ISCALE, DC_SOURCE, DC_TEXTUREMID, DC_X, DC_YH, DC_YL, DISTSCALE, DS_COLORMAP, DS_SOURCE, DS_X1, DS_X2, DS_XFRAC, DS_XSTEP, DS_Y, DS_YFRAC, DS_YSTEP, PSPRITEISCALE, YSLOPE};
+use crate::rendering::r_draw::{
+    colfunc, spanfunc, DC_COLORMAP, DC_ISCALE, DC_SOURCE, DC_TEXTUREMID, DC_X, DC_YH, DC_YL,
+    DISTSCALE, DS_COLORMAP, DS_SOURCE, DS_X1, DS_X2, DS_XFRAC, DS_XSTEP, DS_Y, DS_YFRAC, DS_YSTEP,
+    PSPRITEISCALE, YSLOPE,
+};
 use crate::rendering::r_main::{
     CENTERXFRAC, CENTERY, DETAILSHIFT, EXTRALIGHT, FIXEDCOLORMAP, LIGHTLEVELS, LIGHTSEGSHIFT,
     LIGHTZSHIFT, MAXLIGHTZ, PROJECTION, ZLIGHT,
@@ -72,7 +76,9 @@ pub fn r_find_plane(height: Fixed, picnum: i32, lightlevel: i32) -> *mut Visplan
         let mut check = VISPLANES.as_mut_ptr();
         let last = LASTVISPLANE;
         while check < last {
-            if (*check).height == height && (*check).picnum == picnum && (*check).lightlevel == lightlevel
+            if (*check).height == height
+                && (*check).picnum == picnum
+                && (*check).lightlevel == lightlevel
             {
                 return check;
             }
@@ -368,7 +374,7 @@ pub fn r_draw_planes() {
             };
 
             let lump = w_cache_lump_num(lumpnum, PU_STATIC);
-            DS_SOURCE = lump;
+            DS_SOURCE = lump.as_ptr();
             PLANEHEIGHT = ((*pl).height - viewz).abs();
 
             let mut light = ((*pl).lightlevel >> LIGHTSEGSHIFT) + extralight;

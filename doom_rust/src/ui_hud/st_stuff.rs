@@ -206,31 +206,31 @@ fn st_load_graphics() {
     unsafe {
         for i in 0..10 {
             let name = format!("STTNUM{}", i);
-            TALLNUM[i] = w_cache_lump_name(deh_string(&name), PU_STATIC) as *mut crate::rendering::patch_t;
+            TALLNUM[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
             let name = format!("STYSNUM{}", i);
-            SHORTNUM[i] = w_cache_lump_name(deh_string(&name), PU_STATIC) as *mut crate::rendering::patch_t;
+            SHORTNUM[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
         }
-        TALLPERCENT = w_cache_lump_name(deh_string("STTPRCNT"), PU_STATIC) as *mut crate::rendering::patch_t;
-        SBAR = w_cache_lump_name(deh_string("STBAR"), PU_STATIC) as *mut crate::rendering::patch_t;
+        TALLPERCENT = w_cache_lump_name(deh_string("STTPRCNT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        SBAR = w_cache_lump_name(deh_string("STBAR"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
 
         // Key card patches
         for i in 0..6 {
             let name = format!("STKEYS{}", i);
-            KEYS[i] = w_cache_lump_name(deh_string(&name), PU_STATIC) as *mut crate::rendering::patch_t;
+            KEYS[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
         }
-        ARMSBG = w_cache_lump_name(deh_string("STARMS"), PU_STATIC) as *mut crate::rendering::patch_t;
+        ARMSBG = w_cache_lump_name(deh_string("STARMS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
 
         // Weapon ownership: gray (STGNUM2..7), yellow = shortnum[2..8]
         for i in 0..6 {
             let name = format!("STGNUM{}", i + 2);
-            ARMS[i][0] = w_cache_lump_name(deh_string(&name), PU_STATIC) as *mut crate::rendering::patch_t;
+            ARMS[i][0] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
             ARMS[i][1] = SHORTNUM[i + 2];
         }
 
         // Face patches: normal, god, dead
-        FACES[0] = w_cache_lump_name(deh_string("STFST00"), PU_STATIC) as *mut crate::rendering::patch_t;
-        FACES[1] = w_cache_lump_name(deh_string("STFGOD0"), PU_STATIC) as *mut crate::rendering::patch_t;
-        FACES[2] = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC) as *mut crate::rendering::patch_t;
+        FACES[0] = w_cache_lump_name(deh_string("STFST00"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        FACES[1] = w_cache_lump_name(deh_string("STFGOD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        FACES[2] = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
     }
 }
 

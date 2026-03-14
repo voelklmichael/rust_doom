@@ -582,7 +582,7 @@ fn r_draw_vis_sprite(vis: *mut Vissprite, x1: i32, x2: i32) {
     unsafe {
         let firstspritelump = state::FIRSTSPRITELUMP;
         let patch_ptr =
-            w_cache_lump_num((*vis).patch + firstspritelump, PU_CACHE) as *const patch_t;
+            w_cache_lump_num((*vis).patch + firstspritelump, PU_CACHE).as_ptr() as *const patch_t;
         let centeryfrac = CENTERYFRAC;
         let detailshift = crate::rendering::r_main::DETAILSHIFT;
 

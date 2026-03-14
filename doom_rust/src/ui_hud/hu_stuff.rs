@@ -218,7 +218,7 @@ pub fn hu_init() {
         let name = format!("STCFN{:03}", j);
         let lump = w_cache_lump_name(deh_string(&name), PU_STATIC);
         unsafe {
-            HU_FONT[i] = lump as *mut crate::rendering::patch_t;
+            HU_FONT[i] = lump.as_ptr_mut() as *mut crate::rendering::patch_t;
         }
         j += 1;
     }
