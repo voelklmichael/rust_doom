@@ -133,13 +133,14 @@ C modules with no Rust equivalent yet.
 | C Module | Purpose |
 |----------|---------|
 | info | Thing/mobjs info tables – minimal done (State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD) |
-| i_timer | Timing |
-| i_video | Video init |
-| i_input | Input handling |
-| i_joystick | Joystick |
-| i_scale | Resolution scaling |
-| i_endoom | ENDOOM screen |
-| i_cdmus | CD music |
+| **input/** | Platform I/O – see `docs/INPUT_TRANSLATION_PLAN.md` |
+| ↳ i_timer | ✅ Done (src/i_timer.rs) |
+| ↳ i_video | Video init, palette, blit (stub) |
+| ↳ i_input | Keyboard/mouse → events (stub) |
+| ↳ i_joystick | Joystick (stub) |
+| ↳ i_scale | Resolution scaling (stub) |
+| ↳ i_endoom | ENDOOM screen ✅ Done |
+| ↳ i_cdmus | CD music (stub) |
 | deh_* | DeHackEd |
 | am_map | Automap (see ui_hud – am_map.rs full) |
 | dummy | Placeholder |
@@ -165,4 +166,4 @@ C modules with no Rust equivalent yet.
 **UI/HUD:** All 9 modules complete (cheat, controls, config, hu_lib, hu_stuff, st_lib, st_stuff, wi_stuff, menu).  
 **Game:** f_finale (end-game screens), f_wipe (ColorXForm + Melt), statdump; g_game wired to F_Ticker/F_Responder when GAMESTATE=Finale. Display loop should call `f_finale::f_drawer()` when in Finale.
 
-See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `NEXT_PHASE_TRANSLATION_PLAN.md`, `UI_HUD_TRANSLATION_PLAN.md`
+See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `NEXT_PHASE_TRANSLATION_PLAN.md`, `UI_HUD_TRANSLATION_PLAN.md`, `INPUT_TRANSLATION_PLAN.md`

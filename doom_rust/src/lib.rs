@@ -14,6 +14,7 @@ pub mod info;
 pub mod i_swap;
 pub mod i_system;
 pub mod i_timer;
+pub mod input;
 pub mod m_fixed;
 pub mod m_argv;
 pub mod m_misc;
