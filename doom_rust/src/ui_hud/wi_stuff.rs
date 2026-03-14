@@ -1091,6 +1091,7 @@ fn wi_update_stats() {
                 s_start_sound(None, SfxEnum::Sgcock as i32, None);
                 if GAMEMODE == GameMode::Commercial {
                     WI_STATE = WiStateEnum::NoState;
+                    WI_CNT = 10;
                 } else {
                     WI_STATE = WiStateEnum::ShowNextLoc;
                     WI_CNT = SHOWNEXTLOCDELAY * TICRATE;
@@ -1150,11 +1151,17 @@ pub fn wi_ticker() {
             }
             WiStateEnum::ShowNextLoc => {
                 WI_CNT -= 1;
-                if WI_CNT <= 0 {
+                if WI_CNT <= 0 || WI_ACCELERATE {
                     WI_STATE = WiStateEnum::NoState;
+                    WI_CNT = 10;
                 }
             }
-            WiStateEnum::NoState => {}
+            WiStateEnum::NoState => {
+                WI_CNT -= 1;
+                if WI_CNT <= 0 {
+                    crate::game::g_game::g_world_done();
+                }
+            }
         }
     }
 }

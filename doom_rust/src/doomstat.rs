@@ -291,6 +291,9 @@ pub static mut TOTALSECRET: i32 = 0;
 pub static mut LEVELSTARTTIC: i32 = 0;
 pub static mut LEVELTIME: i32 = 0;
 
+// Level exit: true if secret exit taken. Set by G_SecretExitLevel.
+pub static mut SECRETEXIT: Boolean = false;
+
 // Demo playback/recording
 pub static mut USERGAME: Boolean = true;
 pub static mut DEMOPLAYBACK: Boolean = false;

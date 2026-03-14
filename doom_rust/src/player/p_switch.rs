@@ -5,19 +5,33 @@
 // DESCRIPTION:
 //  Switch/button logic - usable linedefs.
 //
-// Original: p_switch.c (stub)
+// Original: p_switch.c (partial)
 
 use crate::rendering::defs::Line;
 use super::p_mobj::Mobj;
 
 /// Use (activate) a special line. Original: P_UseSpecialLine
 /// Returns true if line was activated.
-pub fn p_use_special_line(
-    _thing: *mut Mobj,
-    _line: *const Line,
-) -> bool {
-    let _ = (_thing, _line);
-    false
+pub fn p_use_special_line(thing: *mut Mobj, line: *const Line) -> bool {
+    if thing.is_null() || line.is_null() {
+        return false;
+    }
+    let special = unsafe { (*line).special as i32 };
+    match special {
+        11 => {
+            // Exit level
+            p_change_switch_texture(line, false);
+            crate::game::g_game::g_exit_level();
+            true
+        }
+        51 => {
+            // Secret exit
+            p_change_switch_texture(line, false);
+            crate::game::g_game::g_secret_exit_level();
+            true
+        }
+        _ => false,
+    }
 }
 
 /// Change switch texture to "on" state. Original: P_ChangeSwitchTexture

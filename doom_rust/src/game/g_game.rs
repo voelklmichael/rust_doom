@@ -13,16 +13,21 @@ use super::d_loop::GAMETIC;
 use super::d_ticcmd::Ticcmd;
 use super::f_finale;
 use crate::deh::misc::DEH_DEFAULT_INITIAL_HEALTH;
-use crate::doomdef::{Gameaction, Gamestate, MAXPLAYERS};
+use crate::doomdef::{Gameaction, Gamestate, MAXPLAYERS, TICRATE};
 use crate::doomstat::{
-    DISPLAYPLAYER, GAMEEPISODE, GAMEMAP, GAMEMODE, GAMESKILL, GAMESTATE, LEVELSTARTTIC,
-    PLAYERINGAME, PLAYERS, Player, PlayerState, RESPAWNMONSTERS, USERGAME, VIEWACTIVE,
+    CONSOLEPLAYER, DISPLAYPLAYER, GAMEEPISODE, GAMEMAP, GAMEMODE, GAMESKILL, GAMESTATE,
+    LEVELSTARTTIC, LEVELTIME, PLAYERINGAME, PLAYERS, Player, PlayerState, RESPAWNMONSTERS,
+    SECRETEXIT, TOTALITEMS, TOTALKILLS, TOTALSECRET, USERGAME, VIEWACTIVE, WMINFO,
 };
 use crate::game::d_mode::{GameMode, Skill};
 use crate::player::{p_saveg, p_setup, p_tick};
 use crate::rendering::r_data::r_texture_num_for_name;
-use crate::rendering::{SKYFLATNAME, SKYFLATNUM, SKYTEXTURE};
+use crate::rendering::{v_screen_shot, SKYFLATNAME, SKYFLATNUM, SKYTEXTURE};
 use crate::ui_hud::controls;
+use crate::wad::w_check_num_for_name;
+
+/// Gamestate from previous tick. Used to detect Intermission→Level transition for WI_End.
+static mut OLDGAMESTATE: Gamestate = Gamestate::Level;
 
 /// Deferred new-game parameters. Set by G_DeferedInitNew, read by G_DoNewGame.
 /// Original: d_skill, d_episode, d_map in g_game.c
@@ -66,10 +71,17 @@ pub fn g_ticker() {
             Gameaction::NewGame => g_do_new_game(),
             Gameaction::LoadGame => g_do_load_game(),
             Gameaction::SaveGame => g_do_save_game(),
-            Gameaction::PlayDemo | Gameaction::Completed | Gameaction::Victory
-            | Gameaction::WorldDone | Gameaction::Screenshot => {
-                // Stub for now
-                unsafe { GAMEACTION = Gameaction::Nothing };
+            Gameaction::PlayDemo => g_do_play_demo(),
+            Gameaction::Completed => g_do_completed(),
+            Gameaction::Victory => f_finale::f_start_finale(),
+            Gameaction::WorldDone => g_do_world_done(),
+            Gameaction::Screenshot => {
+                v_screen_shot("DOOM%02i.%s");
+                unsafe {
+                    PLAYERS[crate::doomstat::CONSOLEPLAYER as usize].message =
+                        Some(crate::deh::deh_string("screen shot").to_string());
+                    GAMEACTION = Gameaction::Nothing;
+                }
             }
             Gameaction::Nothing => break,
         }
@@ -104,14 +116,23 @@ pub fn g_ticker() {
         }
     }
 
-    if unsafe { GAMESTATE == Gamestate::Finale } {
-        f_finale::f_ticker();
-        return;
+    // Have we just finished displaying an intermission screen?
+    if unsafe { OLDGAMESTATE == Gamestate::Intermission && GAMESTATE != Gamestate::Intermission } {
+        crate::ui_hud::wi_end();
     }
-    p_tick::p_ticker();
-    crate::ui_hud::st_ticker();
-    crate::ui_hud::am_ticker();
-    crate::ui_hud::hu_ticker();
+    unsafe { OLDGAMESTATE = GAMESTATE };
+
+    match unsafe { GAMESTATE } {
+        Gamestate::Level => {
+            p_tick::p_ticker();
+            crate::ui_hud::st_ticker();
+            crate::ui_hud::am_ticker();
+            crate::ui_hud::hu_ticker();
+        }
+        Gamestate::Intermission => crate::ui_hud::wi_ticker(),
+        Gamestate::Finale => f_finale::f_ticker(),
+        Gamestate::DemoScreen => super::d_main::d_page_ticker(),
+    }
 }
 
 /// Respawn a reborn player. Original: G_DoReborn
@@ -466,4 +487,245 @@ pub fn g_defered_load_level() {
     unsafe {
         GAMEACTION = Gameaction::LoadLevel;
     }
+}
+
+/// Exit level (normal exit). Sets gameaction to Completed.
+/// Original: G_ExitLevel
+pub fn g_exit_level() {
+    unsafe {
+        SECRETEXIT = false;
+        GAMEACTION = Gameaction::Completed;
+    }
+}
+
+/// Secret exit level. Sets gameaction to Completed, SECRETEXIT = true if map31 exists.
+/// Original: G_SecretExitLevel
+pub fn g_secret_exit_level() {
+    unsafe {
+        if GAMEMODE == GameMode::Commercial && w_check_num_for_name("map31") < 0 {
+            SECRETEXIT = false;
+        } else {
+            SECRETEXIT = true;
+        }
+        GAMEACTION = Gameaction::Completed;
+    }
+}
+
+/// Initialize player at game start. Original: G_InitPlayer
+pub fn g_init_player(player: usize) {
+    g_player_reborn(player);
+}
+
+/// Called when player completes a level. Clears powers, cards, etc.
+/// Original: G_PlayerFinishLevel
+pub fn g_player_finish_level(player: usize) {
+    if player >= MAXPLAYERS {
+        return;
+    }
+    unsafe {
+        let p = &mut PLAYERS[player];
+        p.powers = [0; crate::doomdef::NUMPOWERS];
+        p.cards = [false; crate::doomdef::NUMCARDS];
+        if !p.mo.is_null() {
+            let mo = p.mo as *mut crate::player::p_mobj::Mobj;
+            (*mo).flags &= !crate::player::p_mobj::MF_SHADOW;
+        }
+        p.extralight = 0;
+        p.fixedcolormap = 0;
+        p.damagecount = 0;
+        p.bonuscount = 0;
+    }
+}
+
+/// Level completed. Fill wminfo, start intermission. Original: G_DoCompleted
+fn g_do_completed() {
+    unsafe {
+        GAMEACTION = Gameaction::Nothing;
+
+        for i in 0..MAXPLAYERS {
+            if PLAYERINGAME[i] {
+                g_player_finish_level(i);
+            }
+        }
+
+        if crate::doomstat::AUTOMAPACTIVE {
+            crate::ui_hud::am_stop();
+        }
+
+        // Chex Quest ends after 5 levels
+        let gameversion = crate::doomstat::GAMEVERSION;
+        if GAMEMODE != GameMode::Commercial {
+            if gameversion == crate::game::d_mode::GameVersion::ExeChex && GAMEMAP == 5 {
+                GAMEACTION = Gameaction::Victory;
+                return;
+            }
+            if GAMEMAP == 8 {
+                GAMEACTION = Gameaction::Victory;
+                return;
+            }
+            if GAMEMAP == 9 {
+                for i in 0..MAXPLAYERS {
+                    PLAYERS[i].didsecret = true;
+                }
+            }
+        }
+
+        let wminfo = &mut WMINFO;
+        wminfo.didsecret = PLAYERS[CONSOLEPLAYER as usize].didsecret;
+        wminfo.epsd = GAMEEPISODE - 1;
+        wminfo.last = GAMEMAP - 1;
+
+        if GAMEMODE == GameMode::Commercial {
+            if SECRETEXIT {
+                wminfo.next = match GAMEMAP {
+                    15 => 30,
+                    31 => 31,
+                    _ => GAMEMAP - 1,
+                };
+            } else {
+                wminfo.next = match GAMEMAP {
+                    31 | 32 => 15,
+                    _ => GAMEMAP - 1,
+                };
+            }
+        } else {
+            if SECRETEXIT {
+                wminfo.next = 8;
+            } else if GAMEMAP == 9 {
+                wminfo.next = match GAMEEPISODE {
+                    1 => 3,
+                    2 => 5,
+                    3 => 6,
+                    4 => 2,
+                    _ => GAMEMAP - 1,
+                };
+            } else {
+                wminfo.next = GAMEMAP - 1;
+            }
+        }
+
+        wminfo.maxkills = TOTALKILLS;
+        wminfo.maxitems = TOTALITEMS;
+        wminfo.maxsecret = TOTALSECRET;
+        wminfo.maxfrags = 0;
+
+        if GAMEMODE == GameMode::Commercial {
+            wminfo.partime = TICRATE * CPARS[(GAMEMAP - 1) as usize];
+        } else if GAMEEPISODE < 4 {
+            wminfo.partime = TICRATE * PARS[GAMEEPISODE as usize][GAMEMAP as usize];
+        } else {
+            wminfo.partime = TICRATE * CPARS[(GAMEMAP - 1) as usize];
+        }
+
+        wminfo.pnum = CONSOLEPLAYER;
+
+        for i in 0..MAXPLAYERS {
+            wminfo.plyr[i].in_game = if PLAYERINGAME[i] { 1 } else { 0 };
+            wminfo.plyr[i].kills = PLAYERS[i].killcount;
+            wminfo.plyr[i].items = PLAYERS[i].itemcount;
+            wminfo.plyr[i].secret = PLAYERS[i].secretcount;
+            wminfo.plyr[i].time = LEVELTIME;
+            wminfo.plyr[i].frags = PLAYERS[i].frags;
+        }
+
+        GAMESTATE = Gamestate::Intermission;
+        VIEWACTIVE = false;
+        crate::doomstat::AUTOMAPACTIVE = false;
+
+        crate::game::statdump::stat_copy(wminfo);
+        crate::ui_hud::wi_start(wminfo);
+    }
+}
+
+/// Par times: DOOM episodes 1-3 (pars[episode][map]), DOOM II (cpars[map])
+const PARS: [[i32; 10]; 4] = [
+    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 30, 75, 120, 90, 165, 180, 180, 30, 165],
+    [0, 90, 90, 90, 120, 90, 360, 240, 30, 170],
+    [0, 90, 45, 90, 150, 90, 90, 165, 30, 135],
+];
+const CPARS: [i32; 32] = [
+    30, 90, 120, 120, 90, 150, 120, 120, 270, 90,
+    210, 150, 150, 150, 210, 150, 420, 150, 210, 150,
+    240, 150, 180, 150, 150, 300, 330, 420, 300, 180,
+    120, 30,
+];
+
+/// Called by WI when intermission ends. Sets gameaction to WorldDone (or Victory for finale maps).
+/// Original: G_WorldDone
+pub fn g_world_done() {
+    unsafe {
+        if SECRETEXIT {
+            PLAYERS[CONSOLEPLAYER as usize].didsecret = true;
+        }
+        if GAMEMODE == GameMode::Commercial {
+            match GAMEMAP {
+                6 | 11 | 20 | 30 => {
+                    f_finale::f_start_finale();
+                    return;
+                }
+                15 | 31 => {
+                    if SECRETEXIT {
+                        f_finale::f_start_finale();
+                        return;
+                    }
+                }
+                _ => {}
+            }
+        }
+        GAMEACTION = Gameaction::WorldDone;
+    }
+}
+
+/// Load next level after intermission. Original: G_DoWorldDone
+fn g_do_world_done() {
+    unsafe {
+        GAMESTATE = Gamestate::Level;
+        GAMEMAP = WMINFO.next + 1;
+        g_do_load_level();
+        GAMEACTION = Gameaction::Nothing;
+        VIEWACTIVE = true;
+    }
+}
+
+/// Demo playback. Stub: clears gameaction. Original: G_DoPlayDemo
+fn g_do_play_demo() {
+    unsafe { GAMEACTION = Gameaction::Nothing };
+}
+
+/// Request screenshot. Menu calls this; next tick G_Ticker processes it.
+/// Original: G_ScreenShot
+pub fn g_screen_shot() {
+    unsafe { GAMEACTION = Gameaction::Screenshot };
+}
+
+/// Defer demo playback. Stub: clears gameaction. Original: G_DeferedPlayDemo
+pub fn g_defered_play_demo(_name: &str) {
+    unsafe { GAMEACTION = Gameaction::Nothing };
+}
+
+/// Vanilla version code for demo compatibility. Original: G_VanillaVersionCode
+pub fn g_vanilla_version_code() -> i32 {
+    use crate::game::d_mode::GameVersion;
+    match unsafe { crate::doomstat::GAMEVERSION } {
+        GameVersion::ExeDoom12 => {
+            crate::i_system::i_error("Doom 1.2 does not have a version code!");
+            0
+        }
+        GameVersion::ExeDoom1666 => 106,
+        GameVersion::ExeDoom17 => 107,
+        GameVersion::ExeDoom18 => 108,
+        _ => 109,
+    }
+}
+
+/// Checksum for network consistency. Original: G_CmdChecksum
+pub fn g_cmd_checksum(cmd: &Ticcmd) -> i32 {
+    let ptr = cmd as *const Ticcmd as *const i32;
+    let len = std::mem::size_of::<Ticcmd>() / 4;
+    let mut sum = 0i32;
+    for i in 0..len.saturating_sub(1) {
+        sum += unsafe { *ptr.add(i) };
+    }
+    sum
 }

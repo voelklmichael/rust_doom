@@ -130,7 +130,7 @@ C modules with no Rust equivalent yet.
 |----------|---------|
 | d_main | D_DoomMain, D_DoomInit, D_DoomLoop, full startup; D_ProcessEvents/D_Display/D_Shutdown done |
 | d_loop | Game action dispatch; TryRunTics, LoopInterface done |
-| g_game | G_InitNew, G_DoLoadLevel, G_DoSaveGame, G_DoLoadGame, G_BuildTiccmd; G_Ticker, G_Responder, G_PlayerReborn done; save/load via p_saveg |
+| g_game | Full: G_InitNew, G_DoLoadLevel, G_DoSaveGame, G_DoLoadGame, G_BuildTiccmd; G_Ticker, G_Responder, G_PlayerReborn; G_ExitLevel, G_SecretExitLevel, G_DoCompleted, G_WorldDone, G_DoWorldDone; G_InitPlayer, G_PlayerFinishLevel; G_ScreenShot, G_VanillaVersionCode, G_CmdChecksum; demo playback/recording stubs |
 
 **Conversion plan:** See `GAME_CORE_TRANSLATION_PLAN.md` § Conversion Plan: d_main, d_loop, g_game.
 

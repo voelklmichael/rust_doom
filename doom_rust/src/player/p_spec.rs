@@ -74,13 +74,12 @@ pub fn p_shoot_special_line(thing: *mut Mobj, line: *const Line) -> bool {
     ev_do_line_special(line, 0, thing)
 }
 
-/// Dispatch line special to appropriate EV_* function. Stub - calls ev_do_* which return false.
+/// Dispatch line special to appropriate EV_* function.
 fn ev_do_line_special(line: *const Line, side: i32, thing: *mut Mobj) -> bool {
     if line.is_null() {
         return false;
     }
     let special = unsafe { (*line).special as i32 };
-    let _ = (side, thing);
     match special {
         1..=23 => ev_do_floor(line, special),
         26..=28 => ev_do_ceiling(line, special),
@@ -89,6 +88,14 @@ fn ev_do_line_special(line: *const Line, side: i32, thing: *mut Mobj) -> bool {
         8 | 9 => ev_start_light_strobing(line),
         10 | 11 => ev_start_light_flickering(line),
         39 | 97 | 125 | 126 => ev_teleport(line, side, thing),
+        52 => {
+            crate::game::g_game::g_exit_level();
+            true
+        }
+        124 => {
+            crate::game::g_game::g_secret_exit_level();
+            true
+        }
         _ => p_switch_use_line(thing, line),
     }
 }
