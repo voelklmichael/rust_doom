@@ -5,10 +5,13 @@
 // DESCRIPTION:
 //  Internally used data structures for virtually everything.
 //
-// Original: doomdef.h (partial - types needed by doomstat, d_items, g_game)
+// Original: doomdef.h
 
 // The maximum number of players, multiplayer/networking.
 pub const MAXPLAYERS: usize = 4;
+
+/// Block size for screen blocks (used in status bar, automap).
+pub const BLOCK_SIZE: i32 = 32;
 
 /// Screen dimensions (from i_video.h).
 pub const SCREENWIDTH: i32 = 320;

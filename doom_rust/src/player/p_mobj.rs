@@ -569,8 +569,8 @@ pub fn p_spawn_map_thing(mthing: &MapThing) {
 
     let info = &MOBJINFO[mobj_type as usize];
 
-    // options & 16 = don't spawn in single player
-    if (mthing.options as i32 & 16) != 0 {
+    // options & MTF_NOTSINGLE = don't spawn in single player
+    if (mthing.options as i32 & crate::doomdata::MTF_NOTSINGLE as i32) != 0 {
         return;
     }
     // Skill: bits 1=easy, 2=normal, 4=hard, 8=nightmare. Spawn if any skill bit set.

@@ -15,8 +15,8 @@ These modules have been ported from C with full or near-full functionality.
 | **m_fixed** | m_fixed.h/c | fixed_t, FRACUNIT, FRACBITS, FixedMul |
 | **m_misc** | m_misc.h/c | M_StringCopy, M_ExtractFileBase, M_FileLength |
 | **doomtype** | doomtype.h | Boolean, Byte, strcasecmp, DIR_SEPARATOR, etc. |
-| **doomdef** | doomdef.h (partial) | MAXPLAYERS, Gamestate |
-| **doomdata** | doomdata.h (partial) | MapThing |
+| **doomdef** | doomdef.h | MAXPLAYERS, Gamestate, Gameaction, Card, Weapontype, Ammotype, Powertype, screen dims, power durations, MTF_* skill flags, BLOCK_SIZE |
+| **doomdata** | doomdata.h | MapThing, MapVertex, MapLineDef, MapSideDef, MapSector, MapSeg, MapSubsector, MapNode, MTF_NOTSINGLE |
 | **doomfeatures** | doomfeatures.h | FEATURE_SOUND, etc. |
 | **d_mode** | d_mode.h | GameMission, GameMode, GameVersion, Skill |
 | **d_ticcmd** | d_ticcmd.h | Ticcmd |
@@ -129,8 +129,7 @@ C modules with no Rust equivalent yet.
 | C Module | Purpose |
 |----------|---------|
 | d_main (partial) | D_ProcessEvents, D_Display, D_Shutdown, gameaction; D_DoomMain not ported |
-| d_loop (partial) | TryRunTics, LoopInterface; netgame not ported |
-| d_net | Networking |
+| d_loop (partial) | TryRunTics, LoopInterface |
 | g_game (partial) | G_Ticker (incl. F_Ticker when Finale), G_Responder (incl. F_Responder when Finale), G_PlayerReborn, G_BuildTiccmd stub; G_InitNew, save/load not ported |
 
 ### Other
@@ -149,11 +148,6 @@ C modules with no Rust equivalent yet.
 | am_map | Automap (see ui_hud – am_map.rs full) |
 | dummy | Placeholder |
 | doomgeneric* | Platform-specific (Linux, Win, etc.) |
-
-### Network (if applicable)
-| C Module | Purpose |
-|----------|---------|
-| net_* | Network protocol, client, server |
 
 ---
 

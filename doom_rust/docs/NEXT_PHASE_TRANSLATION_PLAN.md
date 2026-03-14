@@ -155,7 +155,6 @@ doomkeys ───────────────────────�
 - m_menu, hu_stuff, st_stuff, wi_stuff – UI/HUD (complete: all 9 modules done; see UI_HUD_TRANSLATION_PLAN.md)
 - f_finale, f_wipe – End-game, screen wipe ✅ Done (game/f_finale.rs, game/f_wipe.rs)
 - am_map – Automap (complete: ui_hud/am_map.rs; see UI_HUD_TRANSLATION_PLAN.md)
-- net_* – Networking
 - Full g_game (G_InitNew, G_LoadGame, etc.)
 - deh_* full implementation
 
