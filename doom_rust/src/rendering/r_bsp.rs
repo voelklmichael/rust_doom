@@ -7,16 +7,16 @@
 //
 // Original: r_bsp.h + r_bsp.c
 
-use crate::geometry::{FINEANGLES, ANG90, ANG180, ANGLETOFINESHIFT};
-use crate::rendering::defs::{Line, Seg, Sector, SideDef};
-use crate::rendering::m_bbox::{BOXLEFT, BOXRIGHT, BOXBOTTOM, BOXTOP};
+use crate::geometry::{ANG180, ANG90, ANGLETOFINESHIFT, FINEANGLES};
+use crate::m_fixed::Fixed;
+use crate::rendering::defs::{Line, Sector, Seg, SideDef};
+use crate::rendering::m_bbox::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 use crate::rendering::r_main::{r_point_on_side, r_point_to_angle, NF_SUBSECTOR};
 use crate::rendering::r_plane;
 use crate::rendering::r_segs;
 use crate::rendering::r_sky;
 use crate::rendering::r_things;
 use crate::rendering::state;
-use crate::m_fixed::Fixed;
 use std::ptr;
 
 // =============================================================================
@@ -35,7 +35,6 @@ const MAXSEGS: usize = 32;
 // =============================================================================
 // State (from r_bsp.c)
 // =============================================================================
-
 
 static mut SOLIDSEGS: [ClipRange; MAXSEGS] = [ClipRange { first: 0, last: 0 }; MAXSEGS];
 static mut NEWEND: *mut ClipRange = ptr::null_mut();
@@ -154,9 +153,7 @@ pub fn r_clear_clip_segs() {
 // =============================================================================
 
 pub fn r_clear_draw_segs() {
-    unsafe {
-        state::with_state_mut(|s| s.ds_p = s.drawsegs.as_mut_ptr());
-    }
+    state::with_state_mut(|s| s.ds_p = s.drawsegs.as_mut_ptr());
 }
 
 // =============================================================================
@@ -440,7 +437,11 @@ pub fn r_render_bsp_node(bspnum: i32) {
 
     unsafe {
         let bsp = nodes.add(bspnum);
-        let side = r_point_on_side(state::with_state(|s| s.viewx), state::with_state(|s| s.viewy), bsp);
+        let side = r_point_on_side(
+            state::with_state(|s| s.viewx),
+            state::with_state(|s| s.viewy),
+            bsp,
+        );
 
         r_render_bsp_node((*bsp).children[side as usize] as i32);
 

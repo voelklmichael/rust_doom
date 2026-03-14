@@ -7,8 +7,6 @@
 //
 // Original: i_swap.h
 
-use std::mem;
-
 /// Convert bytes to little-endian i32.
 /// On little-endian systems this is a no-op; on big-endian it swaps.
 #[inline]

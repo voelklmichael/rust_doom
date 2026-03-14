@@ -319,85 +319,85 @@ pub fn r_init_data() {
     crate::rendering::r_things::r_init_sprites();
 }
 
-/// Preloads all relevant graphics for the level.
-pub fn r_precache_level() {
-    use crate::doomstat;
-    use crate::rendering::r_sky;
+// /// Preloads all relevant graphics for the level.
+// pub fn r_precache_level() {
+//     use crate::doomstat;
+//     use crate::rendering::r_sky;
 
-    unsafe {
-        if doomstat::DEMOPLAYBACK {
-            return;
-        }
+//     unsafe {
+//         if doomstat::DEMOPLAYBACK {
+//             return;
+//         }
 
-        let numsectors = state::with_state(|s| s.numsectors);
-        let sectors = state::with_state(|s| s.sectors);
-        let numsides = state::with_state(|s| s.numsides);
-        let sides = state::with_state(|s| s.sides);
-        let numsprites = state::with_state(|s| s.numsprites);
-        let sprites = state::with_state(|s| s.sprites);
+//         let numsectors = state::with_state(|s| s.numsectors);
+//         let sectors = state::with_state(|s| s.sectors);
+//         let numsides = state::with_state(|s| s.numsides);
+//         let sides = state::with_state(|s| s.sides);
+//         let numsprites = state::with_state(|s| s.numsprites);
+//         let sprites = state::with_state(|s| s.sprites);
 
-        // Precache flats
-        if numsectors > 0 && !sectors.is_null() {
-            let mut flatpresent = vec![0u8; NUMFLATS as usize];
-            for i in 0..numsectors {
-                let sec = &*sectors.add(i as usize);
-                flatpresent[(*sec).floorpic as usize] = 1;
-                flatpresent[(*sec).ceilingpic as usize] = 1;
-            }
-            with_lumpinfo(|lumpinfo| {
-                for i in 0..NUMFLATS {
-                    if flatpresent[i as usize] != 0 {
-                        let lump = (FIRSTFLAT + i) as usize;
-                        if lump < lumpinfo.len() {
-                            w_cache_lump_num((FIRSTFLAT + i) as i32, PU_CACHE);
-                        }
-                    }
-                }
-            });
-        }
+//         // Precache flats
+//         if numsectors > 0 && !sectors.is_null() {
+//             let mut flatpresent = vec![0u8; NUMFLATS as usize];
+//             for i in 0..numsectors {
+//                 let sec = &*sectors.add(i as usize);
+//                 flatpresent[(*sec).floorpic as usize] = 1;
+//                 flatpresent[(*sec).ceilingpic as usize] = 1;
+//             }
+//             with_lumpinfo(|lumpinfo| {
+//                 for i in 0..NUMFLATS {
+//                     if flatpresent[i as usize] != 0 {
+//                         let lump = (FIRSTFLAT + i) as usize;
+//                         if lump < lumpinfo.len() {
+//                             w_cache_lump_num((FIRSTFLAT + i) as i32, PU_CACHE);
+//                         }
+//                     }
+//                 }
+//             });
+//         }
 
-        // Precache textures
-        if numsides > 0 && !sides.is_null() {
-            let mut texturepresent = vec![0u8; NUMTEXTURES as usize];
-            for i in 0..numsides {
-                let side = &*sides.add(i as usize);
-                let top = (*side).toptexture as usize;
-                let mid = (*side).midtexture as usize;
-                let bottom = (*side).bottomtexture as usize;
-                if top < texturepresent.len() {
-                    texturepresent[top] = 1;
-                }
-                if mid < texturepresent.len() {
-                    texturepresent[mid] = 1;
-                }
-                if bottom < texturepresent.len() {
-                    texturepresent[bottom] = 1;
-                }
-            }
-            let skytex = r_sky::SKYTEXTURE as usize;
-            if skytex < texturepresent.len() {
-                texturepresent[skytex] = 1;
-            }
-            for i in 0..NUMTEXTURES {
-                if texturepresent[i as usize] == 0 {
-                    continue;
-                }
-                let texture = *TEXTURES.add(i as usize);
-                for j in 0..(*texture).patchcount {
-                    w_cache_lump_num(
-                        (*texture).patches.as_ptr().add(j as usize).read().patch,
-                        PU_CACHE,
-                    );
-                }
-            }
-        }
+//         // Precache textures
+//         if numsides > 0 && !sides.is_null() {
+//             let mut texturepresent = vec![0u8; NUMTEXTURES as usize];
+//             for i in 0..numsides {
+//                 let side = &*sides.add(i as usize);
+//                 let top = (*side).toptexture as usize;
+//                 let mid = (*side).midtexture as usize;
+//                 let bottom = (*side).bottomtexture as usize;
+//                 if top < texturepresent.len() {
+//                     texturepresent[top] = 1;
+//                 }
+//                 if mid < texturepresent.len() {
+//                     texturepresent[mid] = 1;
+//                 }
+//                 if bottom < texturepresent.len() {
+//                     texturepresent[bottom] = 1;
+//                 }
+//             }
+//             let skytex = r_sky::SKYTEXTURE as usize;
+//             if skytex < texturepresent.len() {
+//                 texturepresent[skytex] = 1;
+//             }
+//             for i in 0..NUMTEXTURES {
+//                 if texturepresent[i as usize] == 0 {
+//                     continue;
+//                 }
+//                 let texture = *TEXTURES.add(i as usize);
+//                 for j in 0..(*texture).patchcount {
+//                     w_cache_lump_num(
+//                         (*texture).patches.as_ptr().add(j as usize).read().patch,
+//                         PU_CACHE,
+//                     );
+//                 }
+//             }
+//         }
 
-        // Precache sprites - requires thinker list (p_local), skip for now
-        if numsprites > 0 && !sprites.is_null() {
-            // TODO: iterate thinkercap when p_local is ported
-        }
-    }
-}
+//         // Precache sprites - requires thinker list (p_local), skip for now
+//         if numsprites > 0 && !sprites.is_null() {
+//             // TODO: iterate thinkercap when p_local is ported
+//         }
+//     }
+// }
 
 /// Check whether flat is available. Returns -1 if not found.
 pub fn r_check_flat_num_for_name(name: &str) -> i32 {

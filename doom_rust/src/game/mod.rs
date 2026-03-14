@@ -12,6 +12,6 @@ pub mod d_iwad;
 // pub mod d_main;
 // pub mod statdump;
 pub mod d_mode;
-// pub mod d_think;
-// pub mod d_ticcmd;
+pub mod d_think;
+pub mod d_ticcmd;
 // pub mod g_game;

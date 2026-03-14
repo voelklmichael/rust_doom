@@ -549,31 +549,31 @@ pub fn r_init() {
 // View player from console - for D_Display / R_RenderPlayerView
 // =============================================================================
 
-/// Build ViewPlayerStub from the spawned console player. Returns None if no valid player.
-pub fn view_player_from_console() -> Option<ViewPlayerStub> {
-    use crate::doomstat::{CONSOLEPLAYER, PLAYERS};
+// /// Build ViewPlayerStub from the spawned console player. Returns None if no valid player.
+// pub fn view_player_from_console() -> Option<ViewPlayerStub> {
+//     use crate::doomstat::{CONSOLEPLAYER, PLAYERS};
 
-    unsafe {
-        let idx = CONSOLEPLAYER as usize;
-        if idx >= MAXPLAYERS {
-            return None;
-        }
-        let p = &PLAYERS[idx];
-        let mo = p.mo;
-        if mo.is_null() {
-            return None;
-        }
-        let mo = mo as *const crate::player::p_mobj::Mobj;
-        Some(ViewPlayerStub {
-            mo_x: (*mo).x,
-            mo_y: (*mo).y,
-            mo_angle: (*mo).angle,
-            viewz: p.viewz,
-            extralight: p.extralight,
-            fixedcolormap: p.fixedcolormap,
-        })
-    }
-}
+//     unsafe {
+//         let idx = CONSOLEPLAYER as usize;
+//         if idx >= MAXPLAYERS {
+//             return None;
+//         }
+//         let p = &PLAYERS[idx];
+//         let mo = p.mo;
+//         if mo.is_null() {
+//             return None;
+//         }
+//         let mo = mo as *const crate::player::p_mobj::Mobj;
+//         Some(ViewPlayerStub {
+//             mo_x: (*mo).x,
+//             mo_y: (*mo).y,
+//             mo_angle: (*mo).angle,
+//             viewz: p.viewz,
+//             extralight: p.extralight,
+//             fixedcolormap: p.fixedcolormap,
+//         })
+//     }
+// }
 
 // =============================================================================
 // R_SetupFrame - set up POV for player
