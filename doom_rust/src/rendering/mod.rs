@@ -46,7 +46,7 @@ pub use r_main::{
     r_scale_from_global_angle,
     r_set_view_size,
     r_setup_frame,
-    // view_player_from_console,
+     view_player_from_console,
     ViewPlayerStub,
     LIGHTLEVELS,
     MAXLIGHTSCALE,
@@ -64,7 +64,7 @@ pub use r_sky::{
 };
 pub use r_things::{r_init_sprites, r_sprite_num_for_name};
 pub use state::{with_state, with_state_mut, RenderState};
-pub use v_patch::{column_t, patch_t, post_t};
+pub use v_patch::{patch_t, post_t, ColumnT};
 pub use v_video::{
     v_copy_rect, v_draw_alt_tl_patch, v_draw_block, v_draw_box, v_draw_filled_box,
     v_draw_horiz_line, v_draw_mouse_speed_box, v_draw_patch, v_draw_patch_direct,

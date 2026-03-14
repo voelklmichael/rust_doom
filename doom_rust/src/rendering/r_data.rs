@@ -12,7 +12,7 @@ use crate::i_swap;
 use crate::i_system;
 use crate::m_fixed::FRACBITS;
 use crate::rendering::state;
-use crate::rendering::v_patch::{column_t, patch_t};
+use crate::rendering::v_patch::{ColumnT, patch_t};
 use crate::wad::{
     w_cache_lump_name, w_cache_lump_num, w_check_num_for_name, w_get_num_for_name, w_lump_length,
     w_lump_name_hash, w_release_lump_name, with_lumpinfo,
@@ -111,7 +111,7 @@ fn patch_columnofs(patch_ptr: *const u8, col: usize) -> i32 {
 // R_DrawColumnInCache (private)
 // =============================================================================
 
-fn r_draw_column_in_cache(patch: *const column_t, cache: *mut u8, originy: i32, cacheheight: i32) {
+fn r_draw_column_in_cache(patch: *const ColumnT, cache: *mut u8, originy: i32, cacheheight: i32) {
     let mut patch = patch;
     loop {
         let topdelta = unsafe { (*patch).topdelta };
@@ -135,7 +135,7 @@ fn r_draw_column_in_cache(patch: *const column_t, cache: *mut u8, originy: i32, 
                 ptr::copy_nonoverlapping(source, cache.add(position as usize), count as usize);
             }
         }
-        patch = unsafe { (patch as *const u8).add(length as usize + 4) as *const column_t };
+        patch = unsafe { (patch as *const u8).add(length as usize + 4) as *const ColumnT };
     }
 }
 
@@ -180,7 +180,7 @@ fn r_generate_composite(texnum: i32) {
                 let col_idx = (x - x1) as usize;
                 let patchcol = (realpatch as *const u8)
                     .add(patch_columnofs(realpatch, col_idx) as usize)
-                    as *const column_t;
+                    as *const ColumnT;
                 r_draw_column_in_cache(
                     patchcol,
                     block.add(*colofs.add(x as usize) as usize),

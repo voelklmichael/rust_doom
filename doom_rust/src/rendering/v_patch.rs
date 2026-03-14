@@ -40,4 +40,4 @@ pub struct post_t {
 }
 
 /// Column is a list of 0 or more post_t, (byte)-1 terminated.
-pub type column_t = post_t;
+pub type ColumnT = post_t;

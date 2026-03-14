@@ -9,13 +9,13 @@
 
 use crate::doomdef::{MAXPLAYERS, SCREENHEIGHT, SCREENWIDTH};
 use crate::geometry::{
-    finecosine, finesine, finetangent, slope_div, tantoangle, Angle, ANG90, ANG180, ANG270,
+    finecosine, finesine, finetangent, slope_div, tantoangle, Angle, ANG180, ANG270, ANG90,
     ANGLETOFINESHIFT, DBITS, FINEANGLES,
 };
-use crate::rendering::r_draw;
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
 use crate::rendering::defs::{Node, Seg, Subsector};
 use crate::rendering::m_bbox::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
+use crate::rendering::r_draw;
 use crate::rendering::state;
 use std::ptr;
 
@@ -281,11 +281,7 @@ pub fn r_point_to_dist(x: Fixed, y: Fixed) -> Fixed {
         std::mem::swap(&mut dx, &mut dy);
     }
 
-    let frac = if dx != 0 {
-        fixed_div(dy, dx)
-    } else {
-        0
-    };
+    let frac = if dx != 0 { fixed_div(dy, dx) } else { 0 };
 
     let angle = (tantoangle((frac >> DBITS) as usize) + ANG90) >> ANGLETOFINESHIFT;
     fixed_div(dx, finesine(angle as usize))
@@ -428,7 +424,9 @@ fn r_init_texture_mapping() {
         while i < FINEANGLES / 2 && state::with_state(|s| s.viewangletox[i]) > x as i32 {
             i += 1;
         }
-        state::with_state_mut(|s| s.xtoviewangle[x] = ((i << ANGLETOFINESHIFT) as u32).wrapping_sub(ANG90));
+        state::with_state_mut(|s| {
+            s.xtoviewangle[x] = ((i << ANGLETOFINESHIFT) as u32).wrapping_sub(ANG90)
+        });
     }
 
     for i in 0..(FINEANGLES / 2) {
@@ -487,7 +485,9 @@ fn r_execute_set_view_size() {
 
         // distscale (C formula: FRACUNIT/cos)
         for i in 0..(viewwidth as usize) {
-            let cosadj = finecosine((state::with_state(|s| s.xtoviewangle[i]) >> ANGLETOFINESHIFT) as usize).abs();
+            let cosadj =
+                finecosine((state::with_state(|s| s.xtoviewangle[i]) >> ANGLETOFINESHIFT) as usize)
+                    .abs();
             r_draw::DISTSCALE[i] = fixed_div(FRACUNIT, cosadj.max(1));
         }
 
@@ -512,8 +512,7 @@ fn r_execute_set_view_size() {
         let detailshift = unsafe { DETAILSHIFT };
 
         for i in 0..LIGHTLEVELS {
-            let startmap =
-                ((LIGHTLEVELS - 1 - i) * 2) * (NUMCOLORMAPS as usize) / LIGHTLEVELS;
+            let startmap = ((LIGHTLEVELS - 1 - i) * 2) * (NUMCOLORMAPS as usize) / LIGHTLEVELS;
             for j in 0..MAXLIGHTSCALE {
                 let level = startmap as i32
                     - (j as i32 * SCREENWIDTH / (viewwidth << detailshift)) / DISTMAP;
@@ -549,31 +548,31 @@ pub fn r_init() {
 // View player from console - for D_Display / R_RenderPlayerView
 // =============================================================================
 
-// /// Build ViewPlayerStub from the spawned console player. Returns None if no valid player.
-// pub fn view_player_from_console() -> Option<ViewPlayerStub> {
-//     use crate::doomstat::{CONSOLEPLAYER, PLAYERS};
+/// Build ViewPlayerStub from the spawned console player. Returns None if no valid player.
+pub fn view_player_from_console() -> Option<ViewPlayerStub> {
+    use crate::doomstat::{CONSOLEPLAYER, PLAYERS};
 
-//     unsafe {
-//         let idx = CONSOLEPLAYER as usize;
-//         if idx >= MAXPLAYERS {
-//             return None;
-//         }
-//         let p = &PLAYERS[idx];
-//         let mo = p.mo;
-//         if mo.is_null() {
-//             return None;
-//         }
-//         let mo = mo as *const crate::player::p_mobj::Mobj;
-//         Some(ViewPlayerStub {
-//             mo_x: (*mo).x,
-//             mo_y: (*mo).y,
-//             mo_angle: (*mo).angle,
-//             viewz: p.viewz,
-//             extralight: p.extralight,
-//             fixedcolormap: p.fixedcolormap,
-//         })
-//     }
-// }
+    unsafe {
+        let idx = CONSOLEPLAYER as usize;
+        if idx >= MAXPLAYERS {
+            return None;
+        }
+        let p = &PLAYERS[idx];
+        let mo = p.mo;
+        if mo.is_null() {
+            return None;
+        }
+        let mo = mo as *const crate::player::p_mobj::Mobj;
+        Some(ViewPlayerStub {
+            mo_x: (*mo).x,
+            mo_y: (*mo).y,
+            mo_angle: (*mo).angle,
+            viewz: p.viewz,
+            extralight: p.extralight,
+            fixedcolormap: p.fixedcolormap,
+        })
+    }
+}
 
 // =============================================================================
 // R_SetupFrame - set up POV for player
