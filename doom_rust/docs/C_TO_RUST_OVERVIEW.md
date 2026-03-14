@@ -124,29 +124,64 @@ All 9 UI/HUD modules implemented. See `docs/UI_HUD_TRANSLATION_PLAN.md` for deta
 
 C modules with no Rust equivalent yet.
 
-### Game Core
+### Game Core (partial – missing pieces)
 | C Module | Purpose |
 |----------|---------|
-| d_main (partial) | D_ProcessEvents, D_Display, D_Shutdown, gameaction; D_DoomMain not ported |
-| d_loop (partial) | TryRunTics, LoopInterface |
-| g_game (partial) | G_Ticker (incl. F_Ticker when Finale), G_Responder (incl. F_Responder when Finale), G_PlayerReborn, G_BuildTiccmd stub; G_InitNew, save/load not ported |
+| d_main | D_DoomMain, D_DoomInit, D_DoomLoop, full startup; D_ProcessEvents/D_Display/D_Shutdown done |
+| d_loop | G_InitNew, save/load game; TryRunTics, LoopInterface done |
+| g_game | G_InitNew, G_DoLoadLevel, G_DoSaveGame, G_DoLoadGame; G_Ticker, G_Responder, G_PlayerReborn done |
 
-### Other
+### Info / Data Tables
 | C Module | Purpose |
 |----------|---------|
-| info | Thing/mobjs info tables – minimal done (State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD) |
-| **input/** | Platform I/O – see `docs/INPUT_TRANSLATION_PLAN.md` |
-| ↳ i_timer | ✅ Done (src/i_timer.rs) |
-| ↳ i_video | Video init, palette, blit (stub) |
-| ↳ i_input | Keyboard/mouse → events (stub) |
-| ↳ i_joystick | Joystick (stub) |
-| ↳ i_scale | Resolution scaling (stub) |
-| ↳ i_endoom | ENDOOM screen ✅ Done |
-| ↳ i_cdmus | CD music (stub) |
-| deh_* | DeHackEd |
-| am_map | Automap (see ui_hud – am_map.rs full) |
-| dummy | Placeholder |
-| doomgeneric* | Platform-specific (Linux, Win, etc.) |
+| info | Full thing/mobj info tables – State, Mobjinfo, states(), S_sfx; minimal done (MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD) |
+
+### Platform I/O (see `docs/INPUT_TRANSLATION_PLAN.md`)
+| C Module | Purpose |
+|----------|---------|
+| i_video | Video init, palette, blit – I_InitGraphics, I_SetPalette, I_FinishUpdate (stub) |
+| i_input | Keyboard/mouse → events (stub) |
+| i_joystick | Gamepad → ticcmd (stub) |
+| i_scale | Resolution scaling (stub) |
+| i_cdmus | CD music playback (stub) |
+| i_allegrosound | Allegro sound backend |
+| i_allegromusic | Allegro music backend |
+
+### DeHackEd
+| C Module | Purpose |
+|----------|---------|
+| deh_main | DeHackEd main, BEX parsing |
+| deh_misc | DeHackEd misc (DEH_AddStringReplacement, etc.) |
+| deh_str | DeHackEd string tables |
+
+### Networking (out of scope – local play only)
+| C Module | Purpose |
+|----------|---------|
+| d_net | Netgame init, D_ArbitrateNetStart |
+| net_defs | Net packet types |
+| net_client, net_server | Client/server |
+| net_loop | Loopback |
+| net_io, net_packet | I/O, packet handling |
+| net_query, net_gui, net_dedicated | Query, GUI, dedicated server |
+
+### Platform / Build
+| C Module | Purpose |
+|----------|---------|
+| doomgeneric | Platform abstraction (doomgeneric.c, doomgeneric.h) |
+| doomgeneric_linuxvt | Linux VT backend |
+| doomgeneric_win | Windows backend |
+| doomgeneric_xlib | X11 backend |
+| doomgeneric_emscripten | Emscripten/Web |
+| doomgeneric_allegro | Allegro backend |
+| doomgeneric_soso, doomgeneric_sosox | Soso backends |
+
+### Misc / Optional
+| C Module | Purpose |
+|----------|---------|
+| gusconf | Gravis Ultrasound config |
+| icon | ✅ Done – asserts/icon.png (converted from icon.c RGB data) |
+| dummy | Placeholder / unused |
+| d_textur | Texture format (Heretic/Hexen) |
 
 ---
 
@@ -155,8 +190,8 @@ C modules with no Rust equivalent yet.
 | Category | Count |
 |----------|-------|
 | **Fully rewritten** | ~38 modules (incl. rendering/, f_finale, f_wipe, statdump) |
-| **Started (stub)** | 4 + player/ (20 submodules scaffolded) |
-| **Not started** | ~42 C modules |
+| **Started (stub)** | 2 + player/ (20 submodules scaffolded) |
+| **Not started** | ~33 C modules (game core 3, info 1, platform I/O 7, DeHackEd 3, networking 8, platform 7, misc 4) |
 
 **Foundation:** WAD, zone, sound, geometry, types, rendering (scene rendering works).  
 **Player:** p_setup, p_mobj, p_map, p_sight, p_maputl, p_tick working; P_SpawnPlayer, G_PlayerReborn done. example_render_scene blocked by z_zone corruption.  
