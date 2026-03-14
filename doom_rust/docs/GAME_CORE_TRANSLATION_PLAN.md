@@ -18,6 +18,7 @@ Plan for porting the next set of C modules that unblock the player module and en
 | **Phase 4** | ✅ Done | d_main, d_loop, g_game (stubs + G_PlayerReborn) |
 | **Phase 5** | ✅ Done | dstrings |
 | **Phase 6** | ✅ Done | g_game (G_InitNew, G_DeferedInitNew, G_LoadGame, G_SaveGame stubs; g_defered_load_game, g_defered_save_game) |
+| **Phase 7** | ✅ Done | f_finale (F_StartFinale, F_Responder, F_Ticker, F_Drawer; text scroll, art screen, bunny scroll; cast stub), f_wipe (ColorXForm + Melt) |
 
 ---
 
@@ -173,8 +174,8 @@ Check existing `doomdef.rs`; add `gameaction_t`, `gamestate_t` if missing.
 | Dependencies | doomdef, d_event, d_ticcmd, p_setup, p_tick, doomstat, s_sound, ... | many | Core game logic |
 
 **Key functions:**
-- `G_Ticker` – calls `P_Ticker`, updates level ✅
-- `G_Responder` – handles events (keys, menu) – stub ✅
+- `G_Ticker` – calls `P_Ticker` (or `F_Ticker` when GAMESTATE=Finale), updates level ✅
+- `G_Responder` – handles events (keys, menu); dispatches to `F_Responder` when in Finale ✅
 - `G_BuildTiccmd` – builds ticcmd from input – stub ✅
 - `G_PlayerReborn` – reset player for respawn ✅
 - `G_InitNew` – starts new game, calls `P_SetupLevel`

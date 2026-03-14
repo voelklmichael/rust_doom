@@ -49,7 +49,10 @@ These modules have been ported from C with full or near-full functionality.
 | ↳ d_iwad | d_iwad.h/c | D_TryFindWADByName, D_SuggestGameName |
 | ↳ d_main | d_main.h/c | D_ProcessEvents, GAMEACTION |
 | ↳ d_loop | d_loop.h/c | TryRunTics, LoopInterface |
-| ↳ g_game | g_game.h/c | G_Ticker, G_Responder, G_BuildTiccmd |
+| ↳ g_game | g_game.h/c | G_Ticker, G_Responder, G_BuildTiccmd; F_Ticker/F_Responder when GAMESTATE=Finale |
+| ↳ f_finale | f_finale.h/c | F_StartFinale, F_Responder, F_Ticker, F_Drawer; F_TextWrite, F_ArtScreenDrawer, F_BunnyScroll; F_CastDrawer/CastTicker (stub) |
+| ↳ f_wipe | f_wipe.h/c | wipe_StartScreen, wipe_EndScreen, wipe_ScreenWipe; ColorXForm + Melt |
+| ↳ statdump | statdump.h/c | Statdump capture, mission discovery, output |
 | ↳ dstrings | dstrings.h/c, d_englsh.h | SAVEGAMENAME, quit messages, save/load prompts |
 | **i_timer** | i_timer.h/c | i_get_time, i_sleep, i_init_timer |
 | **rendering/** | | Scene rendering (BSP, visplanes, sprites) |
@@ -124,14 +127,12 @@ C modules with no Rust equivalent yet.
 | d_main (partial) | D_ProcessEvents, gameaction; D_DoomMain not ported |
 | d_loop (partial) | TryRunTics, LoopInterface; netgame not ported |
 | d_net | Networking |
-| g_game (partial) | G_Ticker, G_PlayerReborn, G_BuildTiccmd stub; G_InitNew, save/load not ported |
+| g_game (partial) | G_Ticker (incl. F_Ticker when Finale), G_Responder (incl. F_Responder when Finale), G_PlayerReborn, G_BuildTiccmd stub; G_InitNew, save/load not ported |
 
 ### Other
 | C Module | Purpose |
 |----------|---------|
 | info | Thing/mobjs info tables – minimal done (State, Mobjinfo, states(), MOBJINFO for MT_PLAYER, MT_POSSESSED, MT_TROOP, MT_SERGEANT, MT_HEAD) |
-| f_finale | End-game screens (game/f_finale.rs: F_StartFinale, F_Responder, F_Ticker, F_Drawer stub) |
-| f_wipe | Screen wipe (game/f_wipe.rs: wipe_StartScreen, wipe_EndScreen, wipe_ScreenWipe ColorXForm) |
 | i_timer | Timing |
 | i_video | Video init |
 | i_input | Input handling |
@@ -140,8 +141,7 @@ C modules with no Rust equivalent yet.
 | i_endoom | ENDOOM screen |
 | i_cdmus | CD music |
 | deh_* | DeHackEd |
-| am_map | Automap |
-| statdump | Statistics |
+| am_map | Automap (see ui_hud – am_map.rs full) |
 | dummy | Placeholder |
 | doomgeneric* | Platform-specific (Linux, Win, etc.) |
 
@@ -156,12 +156,13 @@ C modules with no Rust equivalent yet.
 
 | Category | Count |
 |----------|-------|
-| **Fully rewritten** | ~35 modules (incl. rendering/) |
+| **Fully rewritten** | ~38 modules (incl. rendering/, f_finale, f_wipe, statdump) |
 | **Started (stub)** | 4 + player/ (20 submodules scaffolded) |
-| **Not started** | ~45 C modules |
+| **Not started** | ~42 C modules |
 
 **Foundation:** WAD, zone, sound, geometry, types, rendering (scene rendering works).  
 **Player:** p_setup, p_mobj, p_map, p_sight, p_maputl, p_tick working; P_SpawnPlayer, G_PlayerReborn done. example_render_scene blocked by z_zone corruption.  
-**UI/HUD:** All 9 modules complete (cheat, controls, config, hu_lib, hu_stuff, st_lib, st_stuff, wi_stuff, menu).
+**UI/HUD:** All 9 modules complete (cheat, controls, config, hu_lib, hu_stuff, st_lib, st_stuff, wi_stuff, menu).  
+**Game:** f_finale (end-game screens), f_wipe (ColorXForm + Melt), statdump; g_game wired to F_Ticker/F_Responder when GAMESTATE=Finale. Display loop should call `f_finale::f_drawer()` when in Finale.
 
 See also: `PLAYER_TRANSLATION_PLAN.md`, `RENDERING_TRANSLATION_PLAN.md`, `GAME_CORE_TRANSLATION_PLAN.md`, `NEXT_PHASE_TRANSLATION_PLAN.md`, `UI_HUD_TRANSLATION_PLAN.md`
