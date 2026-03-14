@@ -290,13 +290,13 @@ Plan to complete the game core modules: D_DoomMain/D_DoomLoop, TryRunTics/gameac
 
 | Step | C Source | Rust Target | Notes |
 |------|----------|-------------|-------|
-| D.1 | P_ArchivePlayers, P_UnArchivePlayers | p_saveg.rs | Serialize/deserialize PLAYERS, doomstat globals |
-| D.2 | P_ArchiveWorld, P_UnArchiveWorld | p_saveg.rs | Sectors, lines, sides, etc. |
-| D.3 | P_ArchiveThinkers, P_UnArchiveThinkers | p_saveg.rs | Mobj, ceiling/floor/plat thinkers |
-| D.4 | P_ArchiveSpecials, P_UnArchiveSpecials | p_saveg.rs | Sector specials, line specials |
-| D.5 | P_WriteSaveGameHeader, P_ReadSaveGameHeader | p_saveg.rs | Version, description, episode/map |
-| D.6 | G_DoSaveGame | g_game.rs | Open file, P_WriteSaveGameHeader, P_Archive*, P_WriteSaveGameEOF |
-| D.7 | G_DoLoadGame | g_game.rs | Open file, P_ReadSaveGameHeader, G_InitNew, P_UnArchive* |
+| D.1 | P_ArchivePlayers, P_UnArchivePlayers | p_saveg.rs | Serialize/deserialize PLAYERS, doomstat globals ✅ |
+| D.2 | P_ArchiveWorld, P_UnArchiveWorld | p_saveg.rs | Sectors, lines, sides, etc. ✅ |
+| D.3 | P_ArchiveThinkers, P_UnArchiveThinkers | p_saveg.rs | Mobj thinkers ✅ |
+| D.4 | P_ArchiveSpecials, P_UnArchiveSpecials | p_saveg.rs | Ceiling, door, floor, plat, flash, strobe, glow thinkers ✅ |
+| D.5 | P_WriteSaveGameHeader, P_ReadSaveGameHeader | p_saveg.rs | Version, description, episode/map ✅ |
+| D.6 | G_DoSaveGame | g_game.rs | Open file, P_WriteSaveGameHeader, P_Archive*, P_WriteSaveGameEOF ✅ |
+| D.7 | G_DoLoadGame | g_game.rs | Open file, P_ReadSaveGameHeader, G_InitNew, P_UnArchive* ✅ |
 
 **Dependencies:** p_saveg (stub exists), z_zone (for thinker iteration), p_setup, p_floor, p_ceilng, p_doors, p_plats, p_lights, p_switch, p_inter.
 
@@ -344,5 +344,5 @@ Plan to complete the game core modules: D_DoomMain/D_DoomLoop, TryRunTics/gameac
 2. **Phase B** – G_InitNew ✅ (enables new game start)
 3. **Phase C** – G_DoLoadLevel ✅ (enables level transitions, idclev)
 4. **Phase F** – G_BuildTiccmd ✅ (keyboard + mouse movement, attack/use, strafe, speed, sendpause/sendsave)
-5. **Phase D** – Save/load ✅ (file I/O, header, G_DoSaveGame/G_DoLoadGame; P_ArchivePlayers, P_ArchiveWorld, P_ArchiveThinkers; P_ArchiveSpecials writes tc_endspecials only)
+5. **Phase D** – Save/load ✅ (file I/O, header, G_DoSaveGame/G_DoLoadGame; P_ArchivePlayers, P_ArchiveWorld, P_ArchiveThinkers; P_ArchiveSpecials/P_UnArchiveSpecials for ceiling, door, floor, plat, flash, strobe, glow)
 6. **Phase E** – D_DoomMain ✅ (full startup: config, IWAD, WAD, video, rendering, menu, loop)

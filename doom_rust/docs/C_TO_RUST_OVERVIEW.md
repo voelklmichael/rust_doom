@@ -95,11 +95,12 @@ All p_* C modules are scaffolded in `player/`. See `docs/PLAYER_TRANSLATION_PLAN
 | **p_sight** | Working | P_CheckSight (REJECT + BSP traversal) |
 | **p_spec** | Partial | get_next_sector, P_CrossSpecialLine, P_UseSpecialLine, P_ShootSpecialLine; dispatches to EV_* (floor, teleport working) |
 | **p_floor** | Working | EV_DoFloor (types 1,2,4,5,6), T_MoveFloor, find_lowest/highest_floor_surrounding |
-| **p_ceilng, p_doors, p_plats** | Stub | EV_DoCeiling, EV_DoDoor, EV_DoPlat API stubs |
-| **p_lights** | Partial | EV_LightTurnOn; EV_StartLightStrobing/Flickering stubs (need T_* thinkers) |
+| **p_ceilng, p_doors, p_plats** | Stub | EV_DoCeiling, EV_DoDoor, EV_DoPlat API stubs; CeilingMover, Vldoor, Plat structs + save/restore |
+| **p_lights** | Partial | EV_LightTurnOn; LightFlash, Strobe, Glow structs + save/restore; T_* thinkers stubs |
 | **p_telept** | Working | EV_Teleport: find MO_TELEPORTMAN by tag, P_TeleportMove |
 | **p_switch, p_inter** | Stub | P_UseSpecialLine, P_ChangeSwitchTexture; P_TouchSpecialThing, P_DamageMobj, P_Give*Ammo/Weapon/Body/Armor |
-| **p_pspr, p_user, p_saveg** | Stub | P_SetupPsprites, P_MovePsprites, P_DropWeapon; P_PlayerThink, P_Thrust, P_CalcHeight, P_MovePlayer; P_Archive* |
+| **p_pspr, p_user** | Stub | P_SetupPsprites, P_MovePsprites, P_DropWeapon; P_PlayerThink, P_Thrust, P_CalcHeight, P_MovePlayer |
+| **p_saveg** | Working | P_ArchivePlayers/World/Thinkers/Specials, P_UnArchive*; save/load ceiling, door, floor, plat, flash, strobe, glow |
 | **p_enemy** | Partial | P_NoiseAlert (sets sector.soundtarget for adjacent sectors) |
 
 ### ui_hud/ module (src/ui_hud/)
@@ -129,7 +130,7 @@ C modules with no Rust equivalent yet.
 |----------|---------|
 | d_main | D_DoomMain, D_DoomInit, D_DoomLoop, full startup; D_ProcessEvents/D_Display/D_Shutdown done |
 | d_loop | Game action dispatch; TryRunTics, LoopInterface done |
-| g_game | G_InitNew, G_DoLoadLevel, G_DoSaveGame, G_DoLoadGame, G_BuildTiccmd; G_Ticker, G_Responder, G_PlayerReborn done |
+| g_game | G_InitNew, G_DoLoadLevel, G_DoSaveGame, G_DoLoadGame, G_BuildTiccmd; G_Ticker, G_Responder, G_PlayerReborn done; save/load via p_saveg |
 
 **Conversion plan:** See `GAME_CORE_TRANSLATION_PLAN.md` § Conversion Plan: d_main, d_loop, g_game.
 
