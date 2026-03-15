@@ -4,6 +4,7 @@
 use crate::doomdef::*;
 use crate::d_player::*;
 
+/// C typedef: stateenum_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StateenumT {
@@ -12,18 +13,22 @@ pub enum StateenumT {
     ShowNextLoc,
 }
 
+/// C function: WI_Ticker
 pub fn wi_ticker() {
     todo!("original: WI_Ticker")
 }
 
+/// C function: WI_Drawer
 pub fn wi_drawer() {
     todo!("original: WI_Drawer")
 }
 
+/// C function: WI_Start
 pub fn wi_start(wbstartstruct: *mut WbstartstructT) {
     todo!("original: WI_Start")
 }
 
+/// C function: WI_End
 pub fn wi_end() {
     todo!("original: WI_End")
 }

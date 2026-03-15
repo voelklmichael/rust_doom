@@ -6,6 +6,7 @@ use crate::doomtype::*;
 /// C typedef: GameMission_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: game_mission_t
 pub enum GameMissionT {
     Doom,       // Doom 1
     Doom2,      // Doom 2
@@ -22,6 +23,7 @@ pub enum GameMissionT {
 /// C typedef: GameMode_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: game_mode_t
 pub enum GameModeT {
     Shareware,     // Doom/Heretic shareware
     Registered,    // Doom/Heretic registered
@@ -33,6 +35,7 @@ pub enum GameModeT {
 /// C typedef: GameVersion_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: game_version_t
 pub enum GameVersionT {
     ExeDoom12,      // Doom 1.2
     ExeDoom1666,    // Doom 1.666
@@ -53,6 +56,7 @@ pub enum GameVersionT {
 /// C typedef: skill_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: skill_t
 pub enum SkillT {
     NoItems = -1,  // the "-skill 0" hack
     Baby = 0,

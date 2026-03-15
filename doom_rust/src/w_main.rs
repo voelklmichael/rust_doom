@@ -3,6 +3,7 @@
 
 use crate::doomtype::*;
 
+/// C function: W_ParseCommandLine
 pub fn w_parse_command_line() -> boolean {
     todo!("original: W_ParseCommandLine")
 }

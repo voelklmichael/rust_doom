@@ -124,6 +124,7 @@ pub static mut players: [PlayerT; MAXPLAYERS as usize] = [PlayerT {
 }; MAXPLAYERS as usize];
 pub static mut playeringame: [boolean; MAXPLAYERS as usize] = [Boolean::False; MAXPLAYERS as usize];
 
+/// C #define: MAX_DM_STARTS
 pub const MAX_DM_STARTS: usize = 10;
 pub static mut deathmatchstarts: [MapthingT; MAX_DM_STARTS] = [MapthingT {
     x: 0,

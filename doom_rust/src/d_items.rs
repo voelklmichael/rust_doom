@@ -6,6 +6,7 @@ use crate::doomdef::*;
 /// C typedef: weaponinfo_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: weaponinfo_t
 pub struct WeaponinfoT {
     pub ammo: AmmotypeT,
     pub upstate: i32,

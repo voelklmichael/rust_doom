@@ -5,16 +5,23 @@ use crate::d_ticcmd::*;
 use crate::doomtype::*;
 use crate::sha1::*;
 
+/// C #define: MAXNETNODES
 pub const MAXNETNODES: i32 = 16;
+/// C #define: NET_MAXPLAYERS
 pub const NET_MAXPLAYERS: i32 = 8;
+/// C #define: MAXPLAYERNAME
 pub const MAXPLAYERNAME: usize = 30;
+/// C #define: BACKUPTICS
 pub const BACKUPTICS: i32 = 128;
+/// C #define: NET_MAGIC_NUMBER
 pub const NET_MAGIC_NUMBER: u32 = 3436803284;
+/// C #define: NET_RELIABLE_PACKET
 pub const NET_RELIABLE_PACKET: u32 = 1 << 15;
 
 /// C typedef: net_packet_type_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: net_packet_type_t
 pub enum NetPacketTypeT {
     Syn,
     Ack,
@@ -37,6 +44,7 @@ pub enum NetPacketTypeT {
 /// C typedef: net_master_packet_type_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: net_master_packet_type_t
 pub enum NetMasterPacketTypeT {
     Add,
     AddResponse,
@@ -52,6 +60,7 @@ pub enum NetMasterPacketTypeT {
 
 /// C typedef: net_connect_data_t
 #[repr(C)]
+/// C typedef: net_connect_data_t
 pub struct NetConnectDataT {
     pub gamemode: i32,
     pub gamemission: i32,
@@ -66,6 +75,7 @@ pub struct NetConnectDataT {
 
 /// C typedef: net_gamesettings_t
 #[repr(C)]
+/// C typedef: net_gamesettings_t
 pub struct NetGamesettingsT {
     pub ticdup: i32,
     pub extratics: i32,
@@ -87,17 +97,26 @@ pub struct NetGamesettingsT {
     pub player_classes: [i32; NET_MAXPLAYERS as usize],
 }
 
+/// C #define: NET_TICDIFF_FORWARD
 pub const NET_TICDIFF_FORWARD: u32 = 1 << 0;
+/// C #define: NET_TICDIFF_SIDE
 pub const NET_TICDIFF_SIDE: u32 = 1 << 1;
+/// C #define: NET_TICDIFF_TURN
 pub const NET_TICDIFF_TURN: u32 = 1 << 2;
+/// C #define: NET_TICDIFF_BUTTONS
 pub const NET_TICDIFF_BUTTONS: u32 = 1 << 3;
+/// C #define: NET_TICDIFF_CONSISTANCY
 pub const NET_TICDIFF_CONSISTANCY: u32 = 1 << 4;
+/// C #define: NET_TICDIFF_CHATCHAR
 pub const NET_TICDIFF_CHATCHAR: u32 = 1 << 5;
+/// C #define: NET_TICDIFF_RAVEN
 pub const NET_TICDIFF_RAVEN: u32 = 1 << 6;
+/// C #define: NET_TICDIFF_STRIFE
 pub const NET_TICDIFF_STRIFE: u32 = 1 << 7;
 
 /// C typedef: net_ticdiff_t
 #[repr(C)]
+/// C typedef: net_ticdiff_t
 pub struct NetTicdiffT {
     pub diff: u32,
     pub cmd: TiccmdT,
@@ -105,6 +124,7 @@ pub struct NetTicdiffT {
 
 /// C typedef: net_full_ticcmd_t
 #[repr(C)]
+/// C typedef: net_full_ticcmd_t
 pub struct NetFullTiccmdT {
     pub latency: i32,
     pub seq: u32,
@@ -114,6 +134,7 @@ pub struct NetFullTiccmdT {
 
 /// C typedef: net_querydata_t
 #[repr(C)]
+/// C typedef: net_querydata_t
 pub struct NetQuerydataT {
     pub version: *mut i8,
     pub server_state: i32,
@@ -126,6 +147,7 @@ pub struct NetQuerydataT {
 
 /// C typedef: net_waitdata_t
 #[repr(C)]
+/// C typedef: net_waitdata_t
 pub struct NetWaitdataT {
     pub num_players: i32,
     pub num_drones: i32,
@@ -169,6 +191,7 @@ impl NetWaitdataT {
 
 /// C typedef: net_packet_t (struct _net_packet_s)
 #[repr(C)]
+/// C typedef: net_packet_t
 pub struct NetPacketT {
     pub data: *mut byte,
     pub len: usize,
@@ -178,6 +201,7 @@ pub struct NetPacketT {
 
 /// C typedef: net_addr_t (struct _net_addr_s) - opaque handle
 #[repr(C)]
+/// C typedef: net_addr_t
 pub struct NetAddrT {
     pub module: *mut NetModuleT,
     pub handle: *mut core::ffi::c_void,
@@ -185,6 +209,7 @@ pub struct NetAddrT {
 
 /// C typedef: net_module_t (struct _net_module_s)
 #[repr(C)]
+/// C typedef: net_module_t
 pub struct NetModuleT {
     pub init_client: Option<extern "C" fn() -> Boolean>,
     pub init_server: Option<extern "C" fn() -> Boolean>,
@@ -213,6 +238,7 @@ impl NetModuleT {
 
 /// Opaque net_context_t
 #[repr(C)]
+/// C typedef: net_context_t
 pub struct NetContextT {
     _private: [u8; 0],
 }

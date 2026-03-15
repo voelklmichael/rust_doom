@@ -6,6 +6,7 @@ use crate::v_patch::*;
 
 /// st_number_t
 #[repr(C)]
+/// C typedef: st_number_t
 pub struct StNumberT {
     pub x: i32,
     pub y: i32,
@@ -19,6 +20,7 @@ pub struct StNumberT {
 
 /// st_percent_t
 #[repr(C)]
+/// C typedef: st_percent_t
 pub struct StPercentT {
     pub n: StNumberT,
     pub p: *mut PatchT,
@@ -26,6 +28,7 @@ pub struct StPercentT {
 
 /// st_multicon_t
 #[repr(C)]
+/// C typedef: st_multicon_t
 pub struct StMulticonT {
     pub x: i32,
     pub y: i32,
@@ -38,6 +41,7 @@ pub struct StMulticonT {
 
 /// st_binicon_t
 #[repr(C)]
+/// C typedef: st_binicon_t
 pub struct StBiniconT {
     pub x: i32,
     pub y: i32,
@@ -48,10 +52,12 @@ pub struct StBiniconT {
     pub data: i32,
 }
 
+/// C function: STlib_init
 pub fn stlib_init() {
     todo!("original: STlib_init")
 }
 
+/// C function: STlib_initNum
 pub fn stlib_init_num(
     n: *mut StNumberT,
     x: i32,
@@ -64,10 +70,12 @@ pub fn stlib_init_num(
     todo!("original: STlib_initNum")
 }
 
+/// C function: STlib_updateNum
 pub fn stlib_update_num(n: *mut StNumberT, refresh: boolean) {
     todo!("original: STlib_updateNum")
 }
 
+/// C function: STlib_initPercent
 pub fn stlib_init_percent(
     p: *mut StPercentT,
     x: i32,
@@ -80,10 +88,12 @@ pub fn stlib_init_percent(
     todo!("original: STlib_initPercent")
 }
 
+/// C function: STlib_updatePercent
 pub fn stlib_update_percent(per: *mut StPercentT, refresh: i32) {
     todo!("original: STlib_updatePercent")
 }
 
+/// C function: STlib_initMultIcon
 pub fn stlib_init_mult_icon(
     mi: *mut StMulticonT,
     x: i32,
@@ -95,10 +105,12 @@ pub fn stlib_init_mult_icon(
     todo!("original: STlib_initMultIcon")
 }
 
+/// C function: STlib_updateMultIcon
 pub fn stlib_update_mult_icon(mi: *mut StMulticonT, refresh: boolean) {
     todo!("original: STlib_updateMultIcon")
 }
 
+/// C function: STlib_initBinIcon
 pub fn stlib_init_bin_icon(
     b: *mut StBiniconT,
     x: i32,
@@ -110,6 +122,7 @@ pub fn stlib_init_bin_icon(
     todo!("original: STlib_initBinIcon")
 }
 
+/// C function: STlib_updateBinIcon
 pub fn stlib_update_bin_icon(bi: *mut StBiniconT, refresh: boolean) {
     todo!("original: STlib_updateBinIcon")
 }

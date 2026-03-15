@@ -6,6 +6,7 @@ use crate::m_fixed::*;
 /// Bounding box coordinates (C enum)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: bbox_coord_t
 pub enum BboxCoord {
     BoxTop,
     BoxBottom,

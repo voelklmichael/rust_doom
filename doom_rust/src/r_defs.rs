@@ -9,17 +9,24 @@ use crate::v_patch::*;
 use std::ffi::c_void;
 
 // Forward: mobj_t from p_mobj (circular dep - use raw ptr)
+/// C typedef: mobj_ptr
 pub type MobjPtr = *mut c_void;
 
+/// C #define: SIL_NONE
 pub const SIL_NONE: i32 = 0;
+/// C #define: SIL_BOTTOM
 pub const SIL_BOTTOM: i32 = 1;
+/// C #define: SIL_TOP
 pub const SIL_TOP: i32 = 2;
+/// C #define: SIL_BOTH
 pub const SIL_BOTH: i32 = 3;
 
+/// C #define: MAXDRAWSEGS
 pub const MAXDRAWSEGS: usize = 256;
 
 /// vertex_t
 #[repr(C)]
+/// C typedef: vertex_t
 pub struct VertexT {
     pub x: FixedT,
     pub y: FixedT,
@@ -27,6 +34,7 @@ pub struct VertexT {
 
 /// degenmobj_t
 #[repr(C)]
+/// C typedef: degenmobj_t
 pub struct DegenmobjT {
     pub thinker: ThinkerT,
     pub x: FixedT,
@@ -36,6 +44,7 @@ pub struct DegenmobjT {
 
 /// sector_t (defined before LineT - LineT references SectorT)
 #[repr(C)]
+/// C typedef: sector_t
 pub struct SectorT {
     pub floorheight: FixedT,
     pub ceilingheight: FixedT,
@@ -57,6 +66,7 @@ pub struct SectorT {
 
 /// line_t
 #[repr(C)]
+/// C typedef: line_t
 pub struct LineT {
     pub v1: *mut VertexT,
     pub v2: *mut VertexT,
@@ -76,6 +86,7 @@ pub struct LineT {
 
 /// side_t
 #[repr(C)]
+/// C typedef: side_t
 pub struct SideT {
     pub textureoffset: FixedT,
     pub rowoffset: FixedT,
@@ -87,6 +98,7 @@ pub struct SideT {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: slopetype_t
 pub enum SlopetypeT {
     SilHorizontal,
     SilVertical,
@@ -96,6 +108,7 @@ pub enum SlopetypeT {
 
 /// subsector_t
 #[repr(C)]
+/// C typedef: subsector_t
 pub struct SubsectorT {
     pub sector: *mut SectorT,
     pub numlines: i16,
@@ -104,6 +117,7 @@ pub struct SubsectorT {
 
 /// seg_t
 #[repr(C)]
+/// C typedef: seg_t
 pub struct SegT {
     pub v1: *mut VertexT,
     pub v2: *mut VertexT,
@@ -117,6 +131,7 @@ pub struct SegT {
 
 /// node_t
 #[repr(C)]
+/// C typedef: node_t
 pub struct NodeT {
     pub x: FixedT,
     pub y: FixedT,
@@ -126,11 +141,13 @@ pub struct NodeT {
     pub children: [u16; 2],
 }
 
+/// C typedef: lighttable_t
 pub type LighttableT = byte;
 
 /// drawseg_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: drawseg_t
 pub struct DrawsegT {
     pub curline: *mut SegT,
     pub x1: i32,
@@ -174,6 +191,7 @@ impl Default for DrawsegT {
 /// vissprite_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: vissprite_t
 pub struct VisspriteT {
     pub prev: *mut VisspriteT,
     pub next: *mut VisspriteT,
@@ -194,6 +212,7 @@ pub struct VisspriteT {
 
 /// spriteframe_t
 #[repr(C)]
+/// C typedef: spriteframe_t
 pub struct SpriteframeT {
     pub rotate: boolean,
     pub lump: [i16; 8],
@@ -202,6 +221,7 @@ pub struct SpriteframeT {
 
 /// spritedef_t
 #[repr(C)]
+/// C typedef: spritedef_t
 pub struct SpritedefT {
     pub numframes: i32,
     pub spriteframes: *mut SpriteframeT,
@@ -209,6 +229,7 @@ pub struct SpritedefT {
 
 /// visplane_t
 #[repr(C)]
+/// C typedef: visplane_t
 pub struct VisplaneT {
     pub height: FixedT,
     pub picnum: i32,

@@ -15,6 +15,7 @@ pub const MAX_MOUSE_BUTTONS: i32 = 8;
 
 /// C typedef: screen_mode_t
 #[repr(C)]
+/// C typedef: screen_mode_t
 pub struct ScreenModeT {
     pub width: i32,
     pub height: i32,
@@ -128,6 +129,7 @@ pub fn i_end_read() {
 
 /// C struct: color
 #[repr(C)]
+/// C typedef: color_t
 pub struct Color {
     pub b: u32,
     pub g: u32,

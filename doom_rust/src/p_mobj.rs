@@ -11,6 +11,7 @@ use std::ffi::c_void;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: mobjflag_t
 pub enum MobjflagT {
     MfSpecial = 1,
     MfSolid = 2,
@@ -44,6 +45,7 @@ pub enum MobjflagT {
 
 /// mobj_t
 #[repr(C)]
+/// C typedef: mobj_t
 pub struct MobjT {
     pub thinker: ThinkerT,
     pub x: FixedT,

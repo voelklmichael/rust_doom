@@ -5,6 +5,7 @@ use crate::i_video::*;
 use crate::r_defs::*;
 use crate::v_patch::*;
 
+/// C #define: MAXVISSPRITES
 pub const MAXVISSPRITES: usize = 128;
 
 pub static mut vissprites: [VisspriteT; MAXVISSPRITES] = [VisspriteT {
@@ -53,38 +54,47 @@ pub static mut sprtopscreen: crate::m_fixed::FixedT = 0;
 pub static mut pspritescale: crate::m_fixed::FixedT = 0;
 pub static mut pspriteiscale: crate::m_fixed::FixedT = 0;
 
+/// C function: R_DrawMaskedColumn
 pub fn r_draw_masked_column(column: *mut ColumnT) {
     todo!("original: R_DrawMaskedColumn")
 }
 
+/// C function: R_SortVisSprites
 pub fn r_sort_vis_sprites() {
     todo!("original: R_SortVisSprites")
 }
 
+/// C function: R_AddSprites
 pub fn r_add_sprites(sec: *mut SectorT) {
     todo!("original: R_AddSprites")
 }
 
+/// C function: R_AddPSprites
 pub fn r_add_psprites() {
     todo!("original: R_AddPSprites")
 }
 
+/// C function: R_DrawSprites
 pub fn r_draw_sprites() {
     todo!("original: R_DrawSprites")
 }
 
+/// C function: R_InitSprites
 pub fn r_init_sprites(namelist: *mut *mut i8) {
     todo!("original: R_InitSprites")
 }
 
+/// C function: R_ClearSprites
 pub fn r_clear_sprites() {
     todo!("original: R_ClearSprites")
 }
 
+/// C function: R_DrawMasked
 pub fn r_draw_masked() {
     todo!("original: R_DrawMasked")
 }
 
+/// C function: R_ClipVisSprite
 pub fn r_clip_vis_sprite(vis: *mut VisspriteT, xl: i32, xh: i32) {
     todo!("original: R_ClipVisSprite")
 }

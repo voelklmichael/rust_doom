@@ -10,6 +10,7 @@ use crate::p_pspr::*;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: playerstate_t
 pub enum PlayerstateT {
     PstLive,
     PstDead,
@@ -18,6 +19,7 @@ pub enum PlayerstateT {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: cheat_t
 pub enum CheatT {
     CfNoclip = 1,
     CfGodmode = 2,
@@ -27,6 +29,7 @@ pub enum CheatT {
 /// player_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: player_t
 pub struct PlayerT {
     pub mo: *mut MobjT,
     pub playerstate: PlayerstateT,
@@ -68,6 +71,7 @@ pub struct PlayerT {
 /// wbplayerstruct_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: wbplayerstruct_t
 pub struct WbplayerstructT {
     pub in_: boolean,
     pub skills: i32,
@@ -80,6 +84,7 @@ pub struct WbplayerstructT {
 
 /// wbstartstruct_t
 #[repr(C)]
+/// C typedef: wbstartstruct_t
 pub struct WbstartstructT {
     pub epsd: i32,
     pub didsecret: boolean,

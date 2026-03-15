@@ -4,7 +4,9 @@
 use crate::doomtype::*;
 use crate::sha1::*;
 
+/// C #define: DEH_VANILLA_NUMSTATES
 pub const DEH_VANILLA_NUMSTATES: i32 = 966;
+/// C #define: DEH_VANILLA_NUMSFX
 pub const DEH_VANILLA_NUMSFX: i32 = 107;
 
 /// C function: DEH_ParseCommandLine

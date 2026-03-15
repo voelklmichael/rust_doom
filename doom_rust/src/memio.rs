@@ -3,6 +3,7 @@
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: mem_rel_t
 pub enum MemRelT {
     SeekSet,
     SeekCur,

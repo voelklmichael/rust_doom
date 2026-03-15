@@ -3,6 +3,7 @@
 /// C enum: wipe types
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: wipe_type_t
 pub enum WipeType {
     ColorXForm,
     Melt,

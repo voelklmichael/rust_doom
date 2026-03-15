@@ -11,30 +11,37 @@ pub static mut dc_iscale: crate::m_fixed::FixedT = 0;
 pub static mut dc_texturemid: crate::m_fixed::FixedT = 0;
 pub static mut dc_source: *mut byte = std::ptr::null_mut();
 
+/// C function: R_DrawColumn
 pub fn r_draw_column() {
     todo!("original: R_DrawColumn")
 }
 
+/// C function: R_DrawColumnLow
 pub fn r_draw_column_low() {
     todo!("original: R_DrawColumnLow")
 }
 
+/// C function: R_DrawFuzzColumn
 pub fn r_draw_fuzz_column() {
     todo!("original: R_DrawFuzzColumn")
 }
 
+/// C function: R_DrawFuzzColumnLow
 pub fn r_draw_fuzz_column_low() {
     todo!("original: R_DrawFuzzColumnLow")
 }
 
+/// C function: R_DrawTranslatedColumn
 pub fn r_draw_translated_column() {
     todo!("original: R_DrawTranslatedColumn")
 }
 
+/// C function: R_DrawTranslatedColumnLow
 pub fn r_draw_translated_column_low() {
     todo!("original: R_DrawTranslatedColumnLow")
 }
 
+/// C function: R_VideoErase
 pub fn r_video_erase(ofs: u32, count: i32) {
     todo!("original: R_VideoErase")
 }
@@ -52,26 +59,32 @@ pub static mut ds_source: *mut byte = std::ptr::null_mut();
 pub static mut translationtables: *mut byte = std::ptr::null_mut();
 pub static mut dc_translation: *mut byte = std::ptr::null_mut();
 
+/// C function: R_DrawSpan
 pub fn r_draw_span() {
     todo!("original: R_DrawSpan")
 }
 
+/// C function: R_DrawSpanLow
 pub fn r_draw_span_low() {
     todo!("original: R_DrawSpanLow")
 }
 
+/// C function: R_InitBuffer
 pub fn r_init_buffer(width: i32, height: i32) {
     todo!("original: R_InitBuffer")
 }
 
+/// C function: R_InitTranslationTables
 pub fn r_init_translation_tables() {
     todo!("original: R_InitTranslationTables")
 }
 
+/// C function: R_FillBackScreen
 pub fn r_fill_back_screen() {
     todo!("original: R_FillBackScreen")
 }
 
+/// C function: R_DrawViewBorder
 pub fn r_draw_view_border() {
     todo!("original: R_DrawViewBorder")
 }

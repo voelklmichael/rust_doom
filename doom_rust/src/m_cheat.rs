@@ -9,6 +9,7 @@ pub const MAX_CHEAT_PARAMS: usize = 5;
 /// C typedef: cheatseq_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: cheatseq_t
 pub struct CheatseqT {
     pub sequence: [i8; MAX_CHEAT_LEN],
     pub sequence_len: usize,

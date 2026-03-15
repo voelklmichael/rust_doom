@@ -6,6 +6,7 @@ use crate::doomtype::*;
 /// C typedef: ticcmd_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: ticcmd_t
 pub struct TiccmdT {
     pub forwardmove: i8,   // *2048 for move
     pub sidemove: i8,      // *2048 for move
@@ -20,4 +21,5 @@ pub struct TiccmdT {
 }
 
 #[allow(non_camel_case_types)]
+/// C typedef: ticcmd_t
 pub type ticcmd_t = TiccmdT;

@@ -4,6 +4,7 @@
 use crate::d_englsh::*;
 
 pub static SAVEGAMENAME_STR: &str = "doomsav";
+/// C #define: NUM_QUITMESSAGES
 pub const NUM_QUITMESSAGES: i32 = 8;
 
 pub static mut doom1_endmsg: [*mut i8; 8] = [core::ptr::null_mut(); 8];

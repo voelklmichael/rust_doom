@@ -8,6 +8,7 @@ fn _state_action_noop() {}
 /// C typedef: spritenum_t (abbreviated - full enum has 200+ values)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: spritenum_t
 pub enum SpritenumT {
     Troo,
     Play,
@@ -17,6 +18,7 @@ pub enum SpritenumT {
 /// C typedef: statenum_t (abbreviated - full enum has 900+ values)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: statenum_t
 pub enum StatenumT {
     Null,
     Numstates,
@@ -24,6 +26,7 @@ pub enum StatenumT {
 
 /// C typedef: state_t
 #[repr(C)]
+/// C typedef: state_t
 pub struct StateT {
     pub sprite: SpritenumT,
     pub frame: i32,
@@ -51,6 +54,7 @@ pub static mut sprnames: [*mut i8; 1] = [core::ptr::null_mut(); 1];
 /// C typedef: mobjtype_t (abbreviated)
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: mobjtype_t
 pub enum MobjtypeT {
     Player,
     NuMMobjTypes,
@@ -59,6 +63,7 @@ pub enum MobjtypeT {
 /// C typedef: mobjinfo_t
 #[repr(C)]
 #[derive(Clone, Copy)]
+/// C typedef: mobjinfo_t
 pub struct MobjinfoT {
     pub doomednum: i32,
     pub spawnstate: i32,
@@ -85,6 +90,7 @@ pub struct MobjinfoT {
     pub raisestate: i32,
 }
 
+/// C #define: NUMMOBJTYPES
 pub const NUMMOBJTYPES: usize = 2;
 pub static mut mobjinfo: [MobjinfoT; NUMMOBJTYPES] = [MobjinfoT {
     doomednum: 0,

@@ -3,7 +3,7 @@
 
 use crate::doomtype::*;
 
-/// C typedef: wad_file_t (struct _wad_file_s)
+/// C typedef: wad_file_t
 #[repr(C)]
 pub struct WadFileT {
     pub file_class: *mut WadFileClassT,

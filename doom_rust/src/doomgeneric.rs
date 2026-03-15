@@ -1,12 +1,15 @@
 //! Rust translation of doomgeneric/doomgeneric.h
 
 // C #define DOOMGENERIC_RESX
+/// C #define: DOOMGENERIC_RESX
 pub const DOOMGENERIC_RESX: u32 = 640;
 
 // C #define DOOMGENERIC_RESY
+/// C #define: DOOMGENERIC_RESY
 pub const DOOMGENERIC_RESY: u32 = 400;
 
 // C typedef: pixel_t (uint8_t for CMAP256, else uint32_t)
+/// C typedef: pixel_t
 pub type PixelT = u32;
 
 /// C extern: DG_ScreenBuffer

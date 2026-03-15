@@ -1,12 +1,19 @@
 //! Rust translation of doomgeneric/i_cdmus.h
 //! CD music interface.
 
+/// C #define: CDERR_NOTINSTALLED
 pub const CDERR_NOTINSTALLED: i32 = 10;
+/// C #define: CDERR_NOAUDIOSUPPORT
 pub const CDERR_NOAUDIOSUPPORT: i32 = 11;
+/// C #define: CDERR_NOAUDIOTRACKS
 pub const CDERR_NOAUDIOTRACKS: i32 = 12;
+/// C #define: CDERR_BADDRIVE
 pub const CDERR_BADDRIVE: i32 = 20;
+/// C #define: CDERR_BADTRACK
 pub const CDERR_BADTRACK: i32 = 21;
+/// C #define: CDERR_IOCTLBUFFMEM
 pub const CDERR_IOCTLBUFFMEM: i32 = 22;
+/// C #define: CDERR_DEVREQBASE
 pub const CDERR_DEVREQBASE: i32 = 100;
 
 pub static mut cd_error: i32 = 0;

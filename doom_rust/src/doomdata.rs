@@ -7,6 +7,7 @@ use crate::doomtype::*;
 /// C enum: map lump order
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: map_lump_t
 pub enum MapLump {
     Label,
     Things,
@@ -23,6 +24,7 @@ pub enum MapLump {
 
 /// C typedef: mapvertex_t
 #[repr(C, packed)]
+/// C typedef: mapvertex_t
 pub struct MapvertexT {
     pub x: i16,
     pub y: i16,
@@ -30,6 +32,7 @@ pub struct MapvertexT {
 
 /// C typedef: mapsidedef_t
 #[repr(C, packed)]
+/// C typedef: mapsidedef_t
 pub struct MapsidedefT {
     pub textureoffset: i16,
     pub rowoffset: i16,
@@ -41,6 +44,7 @@ pub struct MapsidedefT {
 
 /// C typedef: maplinedef_t
 #[repr(C, packed)]
+/// C typedef: maplinedef_t
 pub struct MaplinedefT {
     pub v1: i16,
     pub v2: i16,
@@ -50,18 +54,28 @@ pub struct MaplinedefT {
     pub sidenum: [i16; 2],
 }
 
+/// C #define: ML_BLOCKING
 pub const ML_BLOCKING: i16 = 1;
+/// C #define: ML_BLOCKMONSTERS
 pub const ML_BLOCKMONSTERS: i16 = 2;
+/// C #define: ML_TWOSIDED
 pub const ML_TWOSIDED: i16 = 4;
+/// C #define: ML_DONTPEGTOP
 pub const ML_DONTPEGTOP: i16 = 8;
+/// C #define: ML_DONTPEGBOTTOM
 pub const ML_DONTPEGBOTTOM: i16 = 16;
+/// C #define: ML_SECRET
 pub const ML_SECRET: i16 = 32;
+/// C #define: ML_SOUNDBLOCK
 pub const ML_SOUNDBLOCK: i16 = 64;
+/// C #define: ML_DONTDRAW
 pub const ML_DONTDRAW: i16 = 128;
+/// C #define: ML_MAPPED
 pub const ML_MAPPED: i16 = 256;
 
 /// C typedef: mapsector_t
 #[repr(C, packed)]
+/// C typedef: mapsector_t
 pub struct MapsectorT {
     pub floorheight: i16,
     pub ceilingheight: i16,
@@ -74,6 +88,7 @@ pub struct MapsectorT {
 
 /// C typedef: mapsubsector_t
 #[repr(C, packed)]
+/// C typedef: mapsubsector_t
 pub struct MapsubsectorT {
     pub numsegs: i16,
     pub firstseg: i16,
@@ -81,6 +96,7 @@ pub struct MapsubsectorT {
 
 /// C typedef: mapseg_t
 #[repr(C, packed)]
+/// C typedef: mapseg_t
 pub struct MapsegT {
     pub v1: i16,
     pub v2: i16,
@@ -90,10 +106,12 @@ pub struct MapsegT {
     pub offset: i16,
 }
 
+/// C #define: NF_SUBSECTOR
 pub const NF_SUBSECTOR: u16 = 0x8000;
 
 /// C typedef: mapnode_t
 #[repr(C, packed)]
+/// C typedef: mapnode_t
 pub struct MapnodeT {
     pub x: i16,
     pub y: i16,
@@ -106,6 +124,7 @@ pub struct MapnodeT {
 /// C typedef: mapthing_t
 #[repr(C, packed)]
 #[derive(Clone, Copy)]
+/// C typedef: mapthing_t
 pub struct MapthingT {
     pub x: i16,
     pub y: i16,

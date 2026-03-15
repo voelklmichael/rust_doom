@@ -10,6 +10,7 @@ pub type NetgameStartupCallbackT = Option<extern "C" fn(i32, i32) -> Boolean>;
 
 /// C typedef: loop_interface_t
 #[repr(C)]
+/// C typedef: loop_interface_t
 pub struct LoopInterfaceT {
     pub process_events: Option<extern "C" fn()>,
     pub build_ticcmd: Option<extern "C" fn(*mut TiccmdT, i32)>,

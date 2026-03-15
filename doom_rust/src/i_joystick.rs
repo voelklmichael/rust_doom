@@ -1,10 +1,15 @@
 //! Rust translation of doomgeneric/i_joystick.h
 //! System-specific joystick interface.
 
+/// C #define: NUM_VIRTUAL_BUTTONS
 pub const NUM_VIRTUAL_BUTTONS: i32 = 10;
+/// C #define: BUTTON_AXIS
 pub const BUTTON_AXIS: i32 = 0x10000;
+/// C #define: HAT_AXIS
 pub const HAT_AXIS: i32 = 0x20000;
+/// C #define: HAT_AXIS_HORIZONTAL
 pub const HAT_AXIS_HORIZONTAL: i32 = 1;
+/// C #define: HAT_AXIS_VERTICAL
 pub const HAT_AXIS_VERTICAL: i32 = 2;
 
 /// C macro: IS_BUTTON_AXIS

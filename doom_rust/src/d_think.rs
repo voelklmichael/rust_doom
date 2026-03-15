@@ -27,6 +27,7 @@ fn _think_noop() {}
 
 /// C typedef: thinker_t - doubly linked list of actors
 #[repr(C)]
+/// C typedef: thinker_t
 pub struct ThinkerT {
     pub prev: *mut ThinkerT,
     pub next: *mut ThinkerT,

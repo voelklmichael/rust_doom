@@ -3,18 +3,23 @@
 
 use crate::d_mode::*;
 
+/// C #define: IWAD_MASK_DOOM
 pub const IWAD_MASK_DOOM: i32 = (1 << GameMissionT::Doom as i32)
     | (1 << GameMissionT::Doom2 as i32)
     | (1 << GameMissionT::PackTnt as i32)
     | (1 << GameMissionT::PackPlut as i32)
     | (1 << GameMissionT::PackChex as i32)
     | (1 << GameMissionT::PackHacx as i32);
+/// C #define: IWAD_MASK_HERETIC
 pub const IWAD_MASK_HERETIC: i32 = 1 << GameMissionT::Heretic as i32;
+/// C #define: IWAD_MASK_HEXEN
 pub const IWAD_MASK_HEXEN: i32 = 1 << GameMissionT::Hexen as i32;
+/// C #define: IWAD_MASK_STRIFE
 pub const IWAD_MASK_STRIFE: i32 = 1 << GameMissionT::Strife as i32;
 
 /// C typedef: iwad_t
 #[repr(C)]
+/// C typedef: iwad_t
 pub struct IwadT {
     pub name: *mut i8,
     pub mission: GameMissionT,

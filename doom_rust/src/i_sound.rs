@@ -5,6 +5,7 @@ use crate::doomtype::*;
 
 /// C typedef: sfxinfo_t
 #[repr(C)]
+/// C typedef: sfxinfo_t
 pub struct SfxinfoT {
     pub tagname: *mut i8,
     pub name: [i8; 9],
@@ -20,6 +21,7 @@ pub struct SfxinfoT {
 
 /// C typedef: musicinfo_t
 #[repr(C)]
+/// C typedef: musicinfo_t
 pub struct MusicinfoT {
     pub name: *mut i8,
     pub lumpnum: i32,
@@ -30,6 +32,7 @@ pub struct MusicinfoT {
 /// C typedef: snddevice_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: snddevice_t
 pub enum SnddeviceT {
     None = 0,
     Pcspeaker = 1,
@@ -46,6 +49,7 @@ pub enum SnddeviceT {
 
 /// C typedef: sound_module_t
 #[repr(C)]
+/// C typedef: sound_module_t
 pub struct SoundModuleT {
     pub sound_devices: *mut SnddeviceT,
     pub num_sound_devices: i32,
@@ -80,6 +84,7 @@ impl SoundModuleT {
 
 /// C typedef: music_module_t
 #[repr(C)]
+/// C typedef: music_module_t
 pub struct MusicModuleT {
     pub sound_devices: *mut SnddeviceT,
     pub num_sound_devices: i32,

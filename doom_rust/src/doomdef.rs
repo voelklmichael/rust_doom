@@ -19,6 +19,7 @@ pub const MAXPLAYERS: i32 = 4;
 /// C typedef: gamestate_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: gamestate_t
 pub enum GamestateT {
     Level,
     Intermission,
@@ -29,6 +30,7 @@ pub enum GamestateT {
 /// C typedef: gameaction_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: gameaction_t
 pub enum GameactionT {
     Nothing,
     Loadlevel,
@@ -54,6 +56,7 @@ pub const MTF_AMBUSH: i32 = 8;
 /// C typedef: card_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: card_t
 pub enum CardT {
     Bluecard,
     Yellowcard,
@@ -67,6 +70,7 @@ pub enum CardT {
 /// C typedef: weapontype_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: weapontype_t
 pub enum WeapontypeT {
     Fist,
     Pistol,
@@ -84,6 +88,7 @@ pub enum WeapontypeT {
 /// C typedef: ammotype_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: ammotype_t
 pub enum AmmotypeT {
     Clip,   // Pistol / chaingun ammo
     Shell,  // Shotgun / double barreled shotgun
@@ -103,6 +108,7 @@ pub const NUMAMMO: usize = 4;
 /// C typedef: powertype_t
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// C typedef: powertype_t
 pub enum PowertypeT {
     Invulnerability,
     Strength,
@@ -116,8 +122,12 @@ pub enum PowertypeT {
 /// C typedef: powerduration_t - constants (C enum allows duplicate values)
 #[allow(non_camel_case_types)]
 pub mod powerduration_t {
+/// C #define: INVULNTICS
     pub const INVULNTICS: i32 = 30 * 35;   // 30*TICRATE
+/// C #define: INVISTICS
     pub const INVISTICS: i32 = 60 * 35;    // 60*TICRATE
+/// C #define: INFRATICS
     pub const INFRATICS: i32 = 120 * 35;   // 120*TICRATE
+/// C #define: IRONTICS
     pub const IRONTICS: i32 = 60 * 35;     // 60*TICRATE
 }
