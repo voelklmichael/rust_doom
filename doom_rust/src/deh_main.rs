@@ -32,9 +32,9 @@ pub fn deh_load_lump_by_name(name: &str, allow_long: Boolean, allow_error: Boole
 /* Function is never used
 /// C function: DEH_ParseAssignment
 pub fn deh_parse_assignment(
-    line: *mut i8,
-    variable_name: *mut *mut i8,
-    value: *mut *mut i8,
+    line: * mut i8,
+    variable_name: * mut * mut i8,
+    value: * mut * mut i8,
 ) -> Boolean {
     todo!("original: DEH_ParseAssignment")
 }
