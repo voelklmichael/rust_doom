@@ -11,11 +11,11 @@ use std::sync::{Arc, Mutex};
 /// C typedef: lumpinfo_t
 pub struct LumpinfoT {
     pub name: [i8; 8],
-    pub wad_file: *mut WadFileT,
+    pub wad_file: Option<Arc<Mutex<WadFileT>>>,
     pub position: i32,
     pub size: i32,
-    pub cache: *mut std::ffi::c_void,
-    pub next: *mut LumpinfoT,
+    pub cache: Option<Arc<Mutex<Vec<u8>>>>,
+    pub next: Option<Arc<Mutex<LumpinfoT>>>,
 }
 
 pub static mut lumpinfo: *mut LumpinfoT = std::ptr::null_mut();

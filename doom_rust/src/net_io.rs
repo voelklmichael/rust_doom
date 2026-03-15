@@ -6,8 +6,8 @@ use crate::net_defs::*;
 use std::sync::{Arc, Mutex};
 
 pub static mut net_broadcast_addr: NetAddrT = NetAddrT {
-    module: core::ptr::null_mut(),
-    handle: core::ptr::null_mut(),
+    module: None,
+    handle: None,
 };
 
 /// C function: NET_NewContext

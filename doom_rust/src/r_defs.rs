@@ -5,12 +5,9 @@ use crate::doomtype::*;
 use crate::d_think::*;
 use crate::i_video::*;
 use crate::m_fixed::*;
+use crate::p_mobj::MobjT;
 use crate::v_patch::*;
-use std::ffi::c_void;
-
-// Forward: mobj_t from p_mobj (circular dep - use raw ptr)
-/// C typedef: mobj_ptr
-pub type MobjPtr = *mut c_void;
+use std::sync::{Arc, Mutex};
 
 /// C #define: SIL_NONE
 pub const SIL_NONE: i32 = 0;
@@ -54,22 +51,22 @@ pub struct SectorT {
     pub special: i16,
     pub tag: i16,
     pub soundtraversed: i32,
-    pub soundtarget: MobjPtr,
+    pub soundtarget: Option<Arc<Mutex<MobjT>>>,
     pub blockbox: [i32; 4],
     pub soundorg: DegenmobjT,
     pub validcount: i32,
-    pub thinglist: MobjPtr,
-    pub specialdata: *mut c_void,
+    pub thinglist: Option<Arc<Mutex<MobjT>>>,
+    pub specialdata: Option<Arc<Mutex<Vec<u8>>>>,
     pub linecount: i32,
-    pub lines: *mut *mut LineT,
+    pub lines: Option<Arc<Mutex<Vec<Arc<Mutex<LineT>>>>>>,
 }
 
 /// line_t
 #[repr(C)]
 /// C typedef: line_t
 pub struct LineT {
-    pub v1: *mut VertexT,
-    pub v2: *mut VertexT,
+    pub v1: Option<Arc<Mutex<VertexT>>>,
+    pub v2: Option<Arc<Mutex<VertexT>>>,
     pub dx: FixedT,
     pub dy: FixedT,
     pub flags: i16,
@@ -78,10 +75,10 @@ pub struct LineT {
     pub sidenum: [i16; 2],
     pub bbox: [FixedT; 4],
     pub slopetype: SlopetypeT,
-    pub frontsector: *mut SectorT,
-    pub backsector: *mut SectorT,
+    pub frontsector: Option<Arc<Mutex<SectorT>>>,
+    pub backsector: Option<Arc<Mutex<SectorT>>>,
     pub validcount: i32,
-    pub specialdata: *mut c_void,
+    pub specialdata: Option<Arc<Mutex<Vec<u8>>>>,
 }
 
 /// side_t
@@ -93,7 +90,7 @@ pub struct SideT {
     pub toptexture: i16,
     pub bottomtexture: i16,
     pub midtexture: i16,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
 }
 
 #[repr(C)]
@@ -110,7 +107,7 @@ pub enum SlopetypeT {
 #[repr(C)]
 /// C typedef: subsector_t
 pub struct SubsectorT {
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub numlines: i16,
     pub firstline: i16,
 }
@@ -119,14 +116,14 @@ pub struct SubsectorT {
 #[repr(C)]
 /// C typedef: seg_t
 pub struct SegT {
-    pub v1: *mut VertexT,
-    pub v2: *mut VertexT,
+    pub v1: Option<Arc<Mutex<VertexT>>>,
+    pub v2: Option<Arc<Mutex<VertexT>>>,
     pub offset: FixedT,
     pub angle: crate::tables::AngleT,
-    pub sidedef: *mut SideT,
-    pub linedef: *mut LineT,
-    pub frontsector: *mut SectorT,
-    pub backsector: *mut SectorT,
+    pub sidedef: Option<Arc<Mutex<SideT>>>,
+    pub linedef: Option<Arc<Mutex<LineT>>>,
+    pub frontsector: Option<Arc<Mutex<SectorT>>>,
+    pub backsector: Option<Arc<Mutex<SectorT>>>,
 }
 
 /// node_t
@@ -146,10 +143,10 @@ pub type LighttableT = byte;
 
 /// drawseg_t
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 /// C typedef: drawseg_t
 pub struct DrawsegT {
-    pub curline: *mut SegT,
+    pub curline: Option<Arc<Mutex<SegT>>>,
     pub x1: i32,
     pub x2: i32,
     pub scale1: FixedT,
@@ -158,15 +155,15 @@ pub struct DrawsegT {
     pub silhouette: i32,
     pub bsilheight: FixedT,
     pub tsilheight: FixedT,
-    pub sprtopclip: *mut i16,
-    pub sprbottomclip: *mut i16,
-    pub maskedtexturecol: *mut i16,
+    pub sprtopclip: Option<Arc<Mutex<Vec<i16>>>>,
+    pub sprbottomclip: Option<Arc<Mutex<Vec<i16>>>>,
+    pub maskedtexturecol: Option<Arc<Mutex<Vec<i16>>>>,
 }
 
 impl DrawsegT {
     pub const fn new() -> Self {
         Self {
-            curline: std::ptr::null_mut(),
+            curline: None,
             x1: 0,
             x2: 0,
             scale1: 0,
@@ -175,9 +172,9 @@ impl DrawsegT {
             silhouette: 0,
             bsilheight: 0,
             tsilheight: 0,
-            sprtopclip: std::ptr::null_mut(),
-            sprbottomclip: std::ptr::null_mut(),
-            maskedtexturecol: std::ptr::null_mut(),
+            sprtopclip: None,
+            sprbottomclip: None,
+            maskedtexturecol: None,
         }
     }
 }
@@ -190,11 +187,11 @@ impl Default for DrawsegT {
 
 /// vissprite_t
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 /// C typedef: vissprite_t
 pub struct VisspriteT {
-    pub prev: *mut VisspriteT,
-    pub next: *mut VisspriteT,
+    pub prev: Option<Arc<Mutex<VisspriteT>>>,
+    pub next: Option<Arc<Mutex<VisspriteT>>>,
     pub x1: i32,
     pub x2: i32,
     pub gx: FixedT,
@@ -206,7 +203,7 @@ pub struct VisspriteT {
     pub xiscale: FixedT,
     pub texturemid: FixedT,
     pub patch: i32,
-    pub colormap: *mut LighttableT,
+    pub colormap: Option<Arc<Mutex<Vec<LighttableT>>>>,
     pub mobjflags: i32,
 }
 
@@ -224,7 +221,7 @@ pub struct SpriteframeT {
 /// C typedef: spritedef_t
 pub struct SpritedefT {
     pub numframes: i32,
-    pub spriteframes: *mut SpriteframeT,
+    pub spriteframes: Option<Arc<Mutex<Vec<Arc<Mutex<SpriteframeT>>>>>>,
 }
 
 /// visplane_t

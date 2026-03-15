@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 /// C typedef: wad_file_t
 #[repr(C)]
 pub struct WadFileT {
-    pub file_class: *mut WadFileClassT,
-    pub mapped: *mut byte,
+    pub file_class: Option<Arc<Mutex<WadFileClassT>>>,
+    pub mapped: Option<Arc<Mutex<Vec<u8>>>>,
     pub length: u32,
 }
 

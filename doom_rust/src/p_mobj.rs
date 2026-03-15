@@ -8,6 +8,7 @@ use crate::m_fixed::*;
 use crate::r_defs::*;
 use crate::tables::*;
 use std::ffi::c_void;
+use std::sync::{Arc, Mutex};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,14 +52,14 @@ pub struct MobjT {
     pub x: FixedT,
     pub y: FixedT,
     pub z: FixedT,
-    pub snext: *mut MobjT,
-    pub sprev: *mut MobjT,
+    pub snext: Option<Arc<Mutex<MobjT>>>,
+    pub sprev: Option<Arc<Mutex<MobjT>>>,
     pub angle: AngleT,
     pub sprite: SpritenumT,
     pub frame: i32,
-    pub bnext: *mut MobjT,
-    pub bprev: *mut MobjT,
-    pub subsector: *mut SubsectorT,
+    pub bnext: Option<Arc<Mutex<MobjT>>>,
+    pub bprev: Option<Arc<Mutex<MobjT>>>,
+    pub subsector: Option<Arc<Mutex<SubsectorT>>>,
     pub floorz: FixedT,
     pub ceilingz: FixedT,
     pub radius: FixedT,
@@ -68,18 +69,18 @@ pub struct MobjT {
     pub momz: FixedT,
     pub validcount: i32,
     pub type_: MobjtypeT,
-    pub info: *mut MobjinfoT,
+    pub info: Option<Arc<Mutex<MobjinfoT>>>,
     pub tics: i32,
-    pub state: *mut StateT,
+    pub state: Option<Arc<Mutex<StateT>>>,
     pub flags: i32,
     pub health: i32,
     pub movedir: i32,
     pub movecount: i32,
-    pub target: *mut MobjT,
+    pub target: Option<Arc<Mutex<MobjT>>>,
     pub reactiontime: i32,
     pub threshold: i32,
-    pub player: *mut c_void, // *mut PlayerT
+    pub player: Option<Arc<Mutex<Vec<u8>>>>, // *mut PlayerT
     pub lastlook: i32,
     pub spawnpoint: MapthingT,
-    pub tracer: *mut MobjT,
+    pub tracer: Option<Arc<Mutex<MobjT>>>,
 }

@@ -4,13 +4,14 @@
 use crate::i_video::*;
 use crate::r_defs::*;
 use crate::v_patch::*;
+use std::sync::Mutex;
 
 /// C #define: MAXVISSPRITES
 pub const MAXVISSPRITES: usize = 128;
 
 pub static mut vissprites: [VisspriteT; MAXVISSPRITES] = [VisspriteT {
-    prev: std::ptr::null_mut(),
-    next: std::ptr::null_mut(),
+    prev: None,
+    next: None,
     x1: 0,
     x2: 0,
     gx: 0,
@@ -22,13 +23,13 @@ pub static mut vissprites: [VisspriteT; MAXVISSPRITES] = [VisspriteT {
     xiscale: 0,
     texturemid: 0,
     patch: 0,
-    colormap: std::ptr::null_mut(),
+    colormap: None,
     mobjflags: 0,
 }; MAXVISSPRITES];
 pub static mut vissprite_p: *mut VisspriteT = std::ptr::null_mut();
 pub static mut vsprsortedhead: VisspriteT = VisspriteT {
-    prev: std::ptr::null_mut(),
-    next: std::ptr::null_mut(),
+    prev: None,
+    next: None,
     x1: 0,
     x2: 0,
     gx: 0,
@@ -40,7 +41,7 @@ pub static mut vsprsortedhead: VisspriteT = VisspriteT {
     xiscale: 0,
     texturemid: 0,
     patch: 0,
-    colormap: std::ptr::null_mut(),
+    colormap: None,
     mobjflags: 0,
 };
 

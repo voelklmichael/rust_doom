@@ -168,8 +168,8 @@ pub struct NetWaitdataT {
 impl NetAddrT {
     pub const fn default() -> Self {
         Self {
-            module: core::ptr::null_mut(),
-            handle: core::ptr::null_mut(),
+            module: None,
+            handle: None,
         }
     }
 }
@@ -196,7 +196,7 @@ impl NetWaitdataT {
 #[repr(C)]
 /// C typedef: net_packet_t
 pub struct NetPacketT {
-    pub data: *mut byte,
+    pub data: Vec<byte>,
     pub len: usize,
     pub alloced: usize,
     pub pos: u32,
@@ -206,8 +206,8 @@ pub struct NetPacketT {
 #[repr(C)]
 /// C typedef: net_addr_t
 pub struct NetAddrT {
-    pub module: *mut NetModuleT,
-    pub handle: *mut core::ffi::c_void,
+    pub module: Option<Arc<Mutex<NetModuleT>>>,
+    pub handle: Option<Arc<Mutex<Vec<u8>>>>,
 }
 
 /// C typedef: net_module_t (struct _net_module_s)

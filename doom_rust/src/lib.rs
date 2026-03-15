@@ -1,6 +1,8 @@
 #![forbid(unsafe_code)]
 #![allow(dead_code)] // Stub phase: many translated items not yet used
 #![allow(non_upper_case_globals)] // C compatibility: extern/static names
+#![allow(unused_variables)]
+#![allow(unused_imports)]
 
 // Module stubs corresponding to doomgeneric/*.h header files
 mod am_map;

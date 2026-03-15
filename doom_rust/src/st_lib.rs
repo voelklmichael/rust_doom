@@ -15,9 +15,9 @@ pub struct StNumberT {
     pub y: i32,
     pub width: i32,
     pub oldnum: i32,
-    pub num: *mut i32,
-    pub on: *mut boolean,
-    pub p: *mut *mut PatchT,
+    pub num: Option<Arc<Mutex<i32>>>,
+    pub on: Option<Arc<Mutex<boolean>>>,
+    pub p: Option<Arc<Mutex<Vec<Arc<Mutex<PatchT>>>>>>,
     pub data: i32,
 }
 
@@ -36,9 +36,9 @@ pub struct StMulticonT {
     pub x: i32,
     pub y: i32,
     pub oldinum: i32,
-    pub inum: *mut i32,
-    pub on: *mut boolean,
-    pub p: *mut *mut PatchT,
+    pub inum: Option<Arc<Mutex<i32>>>,
+    pub on: Option<Arc<Mutex<boolean>>>,
+    pub p: Option<Arc<Mutex<Vec<Arc<Mutex<PatchT>>>>>>,
     pub data: i32,
 }
 
@@ -49,9 +49,9 @@ pub struct StBiniconT {
     pub x: i32,
     pub y: i32,
     pub oldval: boolean,
-    pub val: *mut boolean,
-    pub on: *mut boolean,
-    pub p: *mut PatchT,
+    pub val: Option<Arc<Mutex<boolean>>>,
+    pub on: Option<Arc<Mutex<boolean>>>,
+    pub p: Option<Arc<Mutex<PatchT>>>,
     pub data: i32,
 }
 

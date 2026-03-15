@@ -34,7 +34,7 @@ pub struct HuStextT {
     pub l: [HuTextlineT; HU_MAXLINES],
     pub h: i32,
     pub cl: i32,
-    pub on: *mut boolean,
+    pub on: Arc<Mutex<boolean>>,
     pub laston: boolean,
 }
 
@@ -44,7 +44,7 @@ pub struct HuStextT {
 pub struct HuItextT {
     pub l: HuTextlineT,
     pub lm: i32,
-    pub on: *mut boolean,
+    pub on: Arc<Mutex<boolean>>,
     pub laston: boolean,
 }
 

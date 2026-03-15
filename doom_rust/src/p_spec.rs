@@ -114,7 +114,7 @@ pub fn ev_do_donut(line: &mut LineT) -> i32 {
 /// C typedef: fireflicker_t
 pub struct FireflickerT {
     pub thinker: ThinkerT,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub count: i32,
     pub maxlight: i32,
     pub minlight: i32,
@@ -125,7 +125,7 @@ pub struct FireflickerT {
 /// C typedef: lightflash_t
 pub struct LightflashT {
     pub thinker: ThinkerT,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub count: i32,
     pub maxlight: i32,
     pub minlight: i32,
@@ -138,7 +138,7 @@ pub struct LightflashT {
 /// C typedef: strobe_t
 pub struct StrobeT {
     pub thinker: ThinkerT,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub count: i32,
     pub minlight: i32,
     pub maxlight: i32,
@@ -151,7 +151,7 @@ pub struct StrobeT {
 /// C typedef: glow_t
 pub struct GlowT {
     pub thinker: ThinkerT,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub minlight: i32,
     pub maxlight: i32,
     pub direction: i32,
@@ -234,24 +234,24 @@ pub enum BwhereE {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 /// C typedef: button_t
 pub struct ButtonT {
-    pub line: *mut LineT,
+    pub line: Option<Arc<Mutex<LineT>>>,
     pub where_: BwhereE,
     pub btexture: i32,
     pub btimer: i32,
-    pub soundorg: *mut DegenmobjT,
+    pub soundorg: Option<Arc<Mutex<DegenmobjT>>>,
 }
 
 impl ButtonT {
     pub const fn new() -> Self {
         Self {
-            line: std::ptr::null_mut(),
+            line: None,
             where_: BwhereE::Top,
             btexture: 0,
             btimer: 0,
-            soundorg: std::ptr::null_mut(),
+            soundorg: None,
         }
     }
 }
@@ -306,7 +306,7 @@ pub enum PlattypeE {
 /// C typedef: plat_t
 pub struct PlatT {
     pub thinker: ThinkerT,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub speed: FixedT,
     pub low: FixedT,
     pub high: FixedT,
@@ -377,7 +377,7 @@ pub enum VldoorE {
 pub struct VldoorT {
     pub thinker: ThinkerT,
     pub type_: VldoorE,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub topheight: FixedT,
     pub speed: FixedT,
     pub direction: i32,
@@ -437,7 +437,7 @@ pub enum CeilingE {
 pub struct CeilingT {
     pub thinker: ThinkerT,
     pub type_: CeilingE,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub bottomheight: FixedT,
     pub topheight: FixedT,
     pub speed: FixedT,
@@ -519,7 +519,7 @@ pub struct FloormoveT {
     pub thinker: ThinkerT,
     pub type_: FloorE,
     pub crush: boolean,
-    pub sector: *mut SectorT,
+    pub sector: Option<Arc<Mutex<SectorT>>>,
     pub direction: i32,
     pub newspecial: i32,
     pub texture: i16,

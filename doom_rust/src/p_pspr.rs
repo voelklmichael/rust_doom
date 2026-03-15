@@ -4,6 +4,7 @@
 use crate::info::*;
 use crate::m_fixed::*;
 use crate::tables::*;
+use std::sync::{Arc, Mutex};
 
 /// C #define: FF_FULLBRIGHT
 pub const FF_FULLBRIGHT: i32 = 0x8000;
@@ -24,10 +25,10 @@ pub const NUMPSPRITES: usize = 2;
 
 /// pspdef_t
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 /// C typedef: pspdef_t
 pub struct PspdefT {
-    pub state: *mut StateT,
+    pub state: Option<Arc<Mutex<StateT>>>,
     pub tics: i32,
     pub sx: FixedT,
     pub sy: FixedT,

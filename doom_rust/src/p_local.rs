@@ -1,12 +1,12 @@
 //! Rust translation of doomgeneric/p_local.h
 //! Play functions, animation, global header.
 
-use crate::d_think::*;
 use crate::d_player::*;
-use crate::info::{MobjtypeT, StatenumT};
+use crate::d_think::*;
 use crate::doomdata::*;
 use crate::doomdef::*;
 use crate::doomtype::*;
+use crate::info::{MobjtypeT, StatenumT};
 use crate::m_fixed::*;
 use crate::p_mobj::*;
 use crate::p_spec::*;
@@ -109,20 +109,20 @@ pub struct DivlineT {
 
 /// intercept_t - d is union { thing, line }
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 /// C typedef: intercept_t
 pub struct InterceptT {
     pub frac: FixedT,
     pub isaline: boolean,
-    pub d_thing: *mut MobjT, // use when !isaline
-    pub d_line: *mut LineT,   // use when isaline
+    pub d_thing: Option<Arc<Mutex<MobjT>>>, // use when !isaline
+    pub d_line: Option<Arc<Mutex<LineT>>>,  // use when isaline
 }
 
 pub static mut intercepts: [InterceptT; MAXINTERCEPTS] = [InterceptT {
     frac: 0,
     isaline: Boolean::False,
-    d_thing: std::ptr::null_mut(),
-    d_line: std::ptr::null_mut(),
+    d_thing: None,
+    d_line: None,
 }; MAXINTERCEPTS];
 pub static mut intercept_p: *mut InterceptT = std::ptr::null_mut();
 
@@ -224,7 +224,11 @@ pub fn p_spawn_blood(x: FixedT, y: FixedT, z: FixedT, damage: i32) {
 }
 
 /// C function: P_SpawnMissile
-pub fn p_spawn_missile(source: &mut MobjT, dest: &mut MobjT, type_: MobjtypeT) -> Arc<Mutex<MobjT>> {
+pub fn p_spawn_missile(
+    source: &mut MobjT,
+    dest: &mut MobjT,
+    type_: MobjtypeT,
+) -> Arc<Mutex<MobjT>> {
     todo!("original: P_SpawnMissile")
 }
 
@@ -274,20 +278,12 @@ pub fn p_line_opening(linedef: &mut LineT) {
 }
 
 /// C function: P_BlockLinesIterator
-pub fn p_block_lines_iterator(
-    x: i32,
-    y: i32,
-    func: Option<fn(&mut LineT) -> boolean>,
-) -> boolean {
+pub fn p_block_lines_iterator(x: i32, y: i32, func: Option<fn(&mut LineT) -> boolean>) -> boolean {
     todo!("original: P_BlockLinesIterator")
 }
 
 /// C function: P_BlockThingsIterator
-pub fn p_block_things_iterator(
-    x: i32,
-    y: i32,
-    func: Option<fn(&mut MobjT) -> boolean>,
-) -> boolean {
+pub fn p_block_things_iterator(x: i32, y: i32, func: Option<fn(&mut MobjT) -> boolean>) -> boolean {
     todo!("original: P_BlockThingsIterator")
 }
 

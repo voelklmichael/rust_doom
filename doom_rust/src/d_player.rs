@@ -117,12 +117,20 @@ impl PlayerT {
             extralight: 0,
             fixedcolormap: 0,
             colormap: 0,
-            psprites: [PspdefT {
-                state: std::ptr::null_mut(),
-                tics: 0,
-                sx: 0,
-                sy: 0,
-            }; NUMPSPRITES],
+            psprites: [
+                PspdefT {
+                    state: None,
+                    tics: 0,
+                    sx: 0,
+                    sy: 0,
+                },
+                PspdefT {
+                    state: None,
+                    tics: 0,
+                    sx: 0,
+                    sy: 0,
+                },
+            ],
             didsecret: Boolean::False,
         }
     }

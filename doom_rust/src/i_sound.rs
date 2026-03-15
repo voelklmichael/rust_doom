@@ -11,13 +11,13 @@ pub struct SfxinfoT {
     pub tagname: String,
     pub name: [i8; 9],
     pub priority: i32,
-    pub link: *mut SfxinfoT,
+    pub link: Option<Arc<Mutex<SfxinfoT>>>,
     pub pitch: i32,
     pub volume: i32,
     pub usefulness: i32,
     pub lumpnum: i32,
     pub numchannels: i32,
-    pub driver_data: *mut core::ffi::c_void,
+    pub driver_data: Option<Arc<Mutex<Vec<u8>>>>,
 }
 
 /// C typedef: musicinfo_t
@@ -26,8 +26,8 @@ pub struct SfxinfoT {
 pub struct MusicinfoT {
     pub name: String,
     pub lumpnum: i32,
-    pub data: *mut core::ffi::c_void,
-    pub handle: *mut core::ffi::c_void,
+    pub data: Option<Arc<Mutex<Vec<u8>>>>,
+    pub handle: Option<Arc<Mutex<Vec<u8>>>>,
 }
 
 /// C typedef: snddevice_t
@@ -52,7 +52,7 @@ pub enum SnddeviceT {
 #[repr(C)]
 /// C typedef: sound_module_t
 pub struct SoundModuleT {
-    pub sound_devices: *mut SnddeviceT,
+    pub sound_devices: Option<Arc<Mutex<Vec<SnddeviceT>>>>,
     pub num_sound_devices: i32,
     pub init: Option<extern "C" fn(bool) -> Boolean>,
     pub shutdown: Option<extern "C" fn()>,
@@ -68,7 +68,7 @@ pub struct SoundModuleT {
 impl SoundModuleT {
     pub const fn default() -> Self {
         Self {
-            sound_devices: core::ptr::null_mut(),
+            sound_devices: None,
             num_sound_devices: 0,
             init: None,
             shutdown: None,
@@ -87,7 +87,7 @@ impl SoundModuleT {
 #[repr(C)]
 /// C typedef: music_module_t
 pub struct MusicModuleT {
-    pub sound_devices: *mut SnddeviceT,
+    pub sound_devices: Option<Arc<Mutex<Vec<SnddeviceT>>>>,
     pub num_sound_devices: i32,
     pub init: Option<extern "C" fn() -> Boolean>,
     pub shutdown: Option<extern "C" fn()>,
@@ -106,7 +106,7 @@ pub struct MusicModuleT {
 impl MusicModuleT {
     pub const fn default() -> Self {
         Self {
-            sound_devices: core::ptr::null_mut(),
+            sound_devices: None,
             num_sound_devices: 0,
             init: None,
             shutdown: None,
