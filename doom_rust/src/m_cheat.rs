@@ -23,11 +23,11 @@ pub struct CheatseqT {
 /// C macro: CHEAT(value, parameters) { value, sizeof(value) - 1, parameters, 0, 0, "" }
 
 /// C function: cht_CheckCheat
-pub fn cht_check_cheat(cht: *mut CheatseqT, key: i8) -> i32 {
+pub fn cht_check_cheat(cht: &mut CheatseqT, key: i8) -> i32 {
     todo!("original: cht_CheckCheat")
 }
 
 /// C function: cht_GetParam
-pub fn cht_get_param(cht: *mut CheatseqT, buffer: *mut i8) {
+pub fn cht_get_param(cht: &mut CheatseqT, buffer: &mut [u8]) {
     todo!("original: cht_GetParam")
 }

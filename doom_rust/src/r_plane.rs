@@ -55,6 +55,6 @@ pub fn r_find_plane(
 }
 
 /// C function: R_CheckPlane
-pub fn r_check_plane(pl: *mut VisplaneT, start: i32, stop: i32) -> *mut VisplaneT {
+pub fn r_check_plane(pl: &mut VisplaneT, start: i32, stop: i32) -> *mut VisplaneT {
     todo!("original: R_CheckPlane")
 }

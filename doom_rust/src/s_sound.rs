@@ -21,12 +21,12 @@ pub fn s_start() {
 }
 
 /// C function: S_StartSound
-pub fn s_start_sound(origin: *mut std::ffi::c_void, sound_id: i32) {
+pub fn s_start_sound(origin: &mut [u8], sound_id: i32) {
     todo!("original: S_StartSound")
 }
 
 /// C function: S_StopSound
-pub fn s_stop_sound(origin: *mut MobjT) {
+pub fn s_stop_sound(origin: &mut MobjT) {
     todo!("original: S_StopSound")
 }
 
@@ -61,7 +61,7 @@ pub fn s_resume_sound() {
 }
 
 /// C function: S_UpdateSounds
-pub fn s_update_sounds(listener: *mut MobjT) {
+pub fn s_update_sounds(listener: &mut MobjT) {
     todo!("original: S_UpdateSounds")
 }
 

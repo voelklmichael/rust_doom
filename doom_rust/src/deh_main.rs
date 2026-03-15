@@ -15,7 +15,7 @@ pub fn deh_parse_command_line() {
 }
 
 /// C function: DEH_LoadFile
-pub fn deh_load_file(filename: *mut i8) -> i32 {
+pub fn deh_load_file(filename: &str) -> i32 {
     todo!("original: DEH_LoadFile")
 }
 
@@ -25,7 +25,7 @@ pub fn deh_load_lump(lumpnum: i32, allow_long: Boolean, allow_error: Boolean) ->
 }
 
 /// C function: DEH_LoadLumpByName
-pub fn deh_load_lump_by_name(name: *mut i8, allow_long: Boolean, allow_error: Boolean) -> i32 {
+pub fn deh_load_lump_by_name(name: &str, allow_long: Boolean, allow_error: Boolean) -> i32 {
     todo!("original: DEH_LoadLumpByName")
 }
 
@@ -39,7 +39,7 @@ pub fn deh_parse_assignment(
 }
 
 /// C function: DEH_Checksum
-pub fn deh_checksum(digest: *mut Sha1DigestT) {
+pub fn deh_checksum(digest: &mut Sha1DigestT) {
     todo!("original: DEH_Checksum")
 }
 

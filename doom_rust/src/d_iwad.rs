@@ -28,7 +28,7 @@ pub struct IwadT {
 }
 
 /// C function: D_FindWADByName
-pub fn d_find_wad_by_name(filename: *mut i8) -> *mut i8 {
+pub fn d_find_wad_by_name(filename: &str) -> *mut i8 {
     todo!("original: D_FindWADByName")
 }
 
@@ -38,7 +38,7 @@ pub fn d_try_find_wad_by_name(filename: *mut i8) -> *mut i8 {
 }
 
 /// C function: D_FindIWAD
-pub fn d_find_iwad(mask: i32, mission: *mut GameMissionT) -> *mut i8 {
+pub fn d_find_iwad(mask: i32, mission: &mut GameMissionT) -> *mut i8 {
     todo!("original: D_FindIWAD")
 }
 

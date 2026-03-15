@@ -13,7 +13,7 @@ pub fn i_init() {
 }
 
 /// C function: I_ZoneBase
-pub fn i_zone_base(size: *mut i32) -> *mut byte {
+pub fn i_zone_base(size: &mut i32) -> *mut byte {
     todo!("original: I_ZoneBase")
 }
 
@@ -33,7 +33,7 @@ pub fn i_quit() {
 }
 
 /// C function: I_Error
-pub fn i_error(error: *mut i8) {
+pub fn i_error(error: &str) {
     todo!("original: I_Error")
 }
 
@@ -43,7 +43,7 @@ pub fn i_tactile(on: i32, off: i32, total: i32) {
 }
 
 /// C function: I_GetMemoryValue
-pub fn i_get_memory_value(offset: u32, value: *mut std::ffi::c_void, size: i32) -> boolean {
+pub fn i_get_memory_value(offset: u32, value: &mut [u8], size: i32) -> boolean {
     todo!("original: I_GetMemoryValue")
 }
 
@@ -58,12 +58,12 @@ pub fn i_bind_variables() {
 }
 
 /// C function: I_PrintStartupBanner
-pub fn i_print_startup_banner(gamedescription: *mut i8) {
+pub fn i_print_startup_banner(gamedescription: &str) {
     todo!("original: I_PrintStartupBanner")
 }
 
 /// C function: I_PrintBanner
-pub fn i_print_banner(text: *mut i8) {
+pub fn i_print_banner(text: &str) {
     todo!("original: I_PrintBanner")
 }
 

@@ -22,7 +22,7 @@ pub fn p_read_save_game_header() -> boolean {
 }
 
 /// C function: P_WriteSaveGameHeader
-pub fn p_write_save_game_header(description: *mut i8) {
+pub fn p_write_save_game_header(description: &mut [u8]) {
     todo!("original: P_WriteSaveGameHeader")
 }
 

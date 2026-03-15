@@ -26,12 +26,12 @@ pub fn z_init() {
 }
 
 /// C function: Z_Malloc
-pub fn z_malloc(size: i32, tag: i32, ptr: *mut std::ffi::c_void) -> *mut std::ffi::c_void {
+pub fn z_malloc(size: i32, tag: i32, ptr: Option<&mut [u8]>) -> *mut std::ffi::c_void {
     todo!("original: Z_Malloc")
 }
 
 /// C function: Z_Free
-pub fn z_free(ptr: *mut std::ffi::c_void) {
+pub fn z_free(ptr: &mut [u8]) {
     todo!("original: Z_Free")
 }
 
@@ -56,12 +56,12 @@ pub fn z_check_heap() {
 }
 
 /// C function: Z_ChangeTag2
-pub fn z_change_tag2(ptr: *mut std::ffi::c_void, tag: i32, file: *mut i8, line: i32) {
+pub fn z_change_tag2(ptr: &mut [u8], tag: i32, file: &str, line: i32) {
     todo!("original: Z_ChangeTag2")
 }
 
 /// C function: Z_ChangeUser
-pub fn z_change_user(ptr: *mut std::ffi::c_void, user: *mut *mut std::ffi::c_void) {
+pub fn z_change_user(ptr: &mut [u8], user: &mut *mut std::ffi::c_void) {
     todo!("original: Z_ChangeUser")
 }
 

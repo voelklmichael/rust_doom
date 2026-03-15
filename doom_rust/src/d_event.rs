@@ -29,27 +29,27 @@ pub struct EventT {
 /// C typedef: buttoncode_t - bit flags/constants (C enum allows duplicate values)
 #[allow(non_camel_case_types)]
 pub mod buttoncode_t {
-/// C #define: BT_ATTACK
+    /// C #define: BT_ATTACK
     pub const BT_ATTACK: i32 = 1;
-/// C #define: BT_USE
+    /// C #define: BT_USE
     pub const BT_USE: i32 = 2;
-/// C #define: BT_SPECIAL
+    /// C #define: BT_SPECIAL
     pub const BT_SPECIAL: i32 = 128;
-/// C #define: BT_SPECIALMASK
+    /// C #define: BT_SPECIALMASK
     pub const BT_SPECIALMASK: i32 = 3;
-/// C #define: BT_CHANGE
+    /// C #define: BT_CHANGE
     pub const BT_CHANGE: i32 = 4;
-/// C #define: BT_WEAPONMASK
+    /// C #define: BT_WEAPONMASK
     pub const BT_WEAPONMASK: i32 = 8 + 16 + 32;
-/// C #define: BT_WEAPONSHIFT
+    /// C #define: BT_WEAPONSHIFT
     pub const BT_WEAPONSHIFT: i32 = 3;
-/// C #define: BTS_PAUSE
+    /// C #define: BTS_PAUSE
     pub const BTS_PAUSE: i32 = 1;
-/// C #define: BTS_SAVEGAME
+    /// C #define: BTS_SAVEGAME
     pub const BTS_SAVEGAME: i32 = 2;
-/// C #define: BTS_SAVEMASK
+    /// C #define: BTS_SAVEMASK
     pub const BTS_SAVEMASK: i32 = 4 + 8 + 16;
-/// C #define: BTS_SAVESHIFT
+    /// C #define: BTS_SAVESHIFT
     pub const BTS_SAVESHIFT: i32 = 2;
 }
 
@@ -68,7 +68,7 @@ pub enum Buttoncode2T {
 }
 
 /// C function: D_PostEvent
-pub fn d_post_event(ev: *mut EventT) {
+pub fn d_post_event(ev: &mut EventT) {
     todo!("original: D_PostEvent")
 }
 

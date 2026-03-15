@@ -19,7 +19,7 @@ pub fn net_sv_shutdown() {
 }
 
 /// C function: NET_SV_AddModule
-pub fn net_sv_add_module(module: *mut NetModuleT) {
+pub fn net_sv_add_module(module: &mut NetModuleT) {
     todo!("original: NET_SV_AddModule")
 }
 

@@ -5,7 +5,7 @@ use crate::d_event::*;
 use crate::doomtype::*;
 
 /// C function: M_Responder
-pub fn m_responder(ev: *mut EventT) -> Boolean {
+pub fn m_responder(ev: &mut EventT) -> Boolean {
     todo!("original: M_Responder")
 }
 

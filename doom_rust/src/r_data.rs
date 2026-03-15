@@ -20,16 +20,16 @@ pub fn r_precache_level() {
 }
 
 /// C function: R_FlatNumForName
-pub fn r_flat_num_for_name(name: *mut i8) -> i32 {
+pub fn r_flat_num_for_name(name: &str) -> i32 {
     todo!("original: R_FlatNumForName")
 }
 
 /// C function: R_TextureNumForName
-pub fn r_texture_num_for_name(name: *mut i8) -> i32 {
+pub fn r_texture_num_for_name(name: &str) -> i32 {
     todo!("original: R_TextureNumForName")
 }
 
 /// C function: R_CheckTextureNumForName
-pub fn r_check_texture_num_for_name(name: *mut i8) -> i32 {
+pub fn r_check_texture_num_for_name(name: &str) -> i32 {
     todo!("original: R_CheckTextureNumForName")
 }

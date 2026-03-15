@@ -33,7 +33,7 @@ pub fn hu_start() {
 }
 
 /// C function: HU_Responder
-pub fn hu_responder(ev: *mut EventT) -> crate::doomtype::boolean {
+pub fn hu_responder(ev: &mut EventT) -> crate::doomtype::boolean {
     todo!("original: HU_Responder")
 }
 

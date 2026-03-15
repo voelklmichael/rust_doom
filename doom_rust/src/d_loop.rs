@@ -19,7 +19,7 @@ pub struct LoopInterfaceT {
 }
 
 /// C function: D_RegisterLoopCallbacks
-pub fn d_register_loop_callbacks(i: *mut LoopInterfaceT) {
+pub fn d_register_loop_callbacks(i: &mut LoopInterfaceT) {
     todo!("original: D_RegisterLoopCallbacks")
 }
 
@@ -44,7 +44,7 @@ pub fn d_start_game_loop() {
 }
 
 /// C function: D_InitNetGame
-pub fn d_init_net_game(connect_data: *mut NetConnectDataT) -> Boolean {
+pub fn d_init_net_game(connect_data: &mut NetConnectDataT) -> Boolean {
     todo!("original: D_InitNetGame")
 }
 

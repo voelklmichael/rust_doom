@@ -24,7 +24,7 @@ pub fn wi_drawer() {
 }
 
 /// C function: WI_Start
-pub fn wi_start(wbstartstruct: *mut WbstartstructT) {
+pub fn wi_start(wbstartstruct: &mut WbstartstructT) {
     todo!("original: WI_Start")
 }
 

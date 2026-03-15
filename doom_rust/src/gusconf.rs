@@ -9,6 +9,6 @@ pub static mut gus_patch_path: *mut i8 = std::ptr::null_mut();
 pub static mut gus_ram_kb: u32 = 0;
 
 /// C function: GUS_WriteConfig
-pub fn gus_write_config(path: *mut i8) -> boolean {
+pub fn gus_write_config(path: &str) -> boolean {
     todo!("original: GUS_WriteConfig")
 }

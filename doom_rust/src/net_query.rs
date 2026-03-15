@@ -29,7 +29,7 @@ pub fn net_master_query() {
 }
 
 /// C function: NET_QueryAddress
-pub fn net_query_address(addr: *mut i8) {
+pub fn net_query_address(addr: &str) {
     todo!("original: NET_QueryAddress")
 }
 
@@ -39,26 +39,26 @@ pub fn net_find_lan_server() -> *mut NetAddrT {
 }
 
 /// C function: NET_Query_Poll
-pub fn net_query_poll(callback: NetQueryCallbackT, user_data: *mut core::ffi::c_void) -> i32 {
+pub fn net_query_poll(callback: NetQueryCallbackT, user_data: &mut [u8]) -> i32 {
     todo!("original: NET_Query_Poll")
 }
 
 /// C function: NET_Query_ResolveMaster
-pub fn net_query_resolve_master(context: *mut NetContextT) -> *mut NetAddrT {
+pub fn net_query_resolve_master(context: &mut NetContextT) -> *mut NetAddrT {
     todo!("original: NET_Query_ResolveMaster")
 }
 
 /// C function: NET_Query_AddToMaster
-pub fn net_query_add_to_master(master_addr: *mut NetAddrT) {
+pub fn net_query_add_to_master(master_addr: &mut NetAddrT) {
     todo!("original: NET_Query_AddToMaster")
 }
 
 /// C function: NET_Query_CheckAddedToMaster
-pub fn net_query_check_added_to_master(result: *mut Boolean) -> Boolean {
+pub fn net_query_check_added_to_master(result: &mut Boolean) -> Boolean {
     todo!("original: NET_Query_CheckAddedToMaster")
 }
 
 /// C function: NET_Query_MasterResponse
-pub fn net_query_master_response(packet: *mut NetPacketT) {
+pub fn net_query_master_response(packet: &mut NetPacketT) {
     todo!("original: NET_Query_MasterResponse")
 }

@@ -22,20 +22,20 @@ pub struct WadFileClassT {
 }
 
 /// C function: W_OpenFile
-pub fn w_open_file(path: *mut i8) -> *mut WadFileT {
+pub fn w_open_file(path: &str) -> *mut WadFileT {
     todo!("original: W_OpenFile")
 }
 
 /// C function: W_CloseFile
-pub fn w_close_file(wad: *mut WadFileT) {
+pub fn w_close_file(wad: &mut WadFileT) {
     todo!("original: W_CloseFile")
 }
 
 /// C function: W_Read
 pub fn w_read(
-    wad: *mut WadFileT,
+    wad: &mut WadFileT,
     offset: u32,
-    buffer: *mut core::ffi::c_void,
+    buffer: &mut [u8],
     buffer_len: usize,
 ) -> usize {
     todo!("original: W_Read")

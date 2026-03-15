@@ -11,7 +11,7 @@ pub const AM_MSGENTERED: i32 = AM_MSGHEADER | (b'e' as i32) << 8;
 pub const AM_MSGEXITED: i32 = AM_MSGHEADER | (b'x' as i32) << 8;
 
 /// C function: AM_Responder
-pub fn am_responder(ev: *mut EventT) -> crate::doomtype::boolean {
+pub fn am_responder(ev: &mut EventT) -> crate::doomtype::boolean {
     todo!("original: AM_Responder")
 }
 

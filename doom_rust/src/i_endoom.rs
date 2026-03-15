@@ -4,6 +4,6 @@
 use crate::doomtype::*;
 
 /// C function: I_Endoom
-pub fn i_endoom(data: *mut byte) {
+pub fn i_endoom(data: &mut [byte]) {
     todo!("original: I_Endoom")
 }

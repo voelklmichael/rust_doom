@@ -21,17 +21,17 @@ pub static mut lumpinfo: *mut LumpinfoT = std::ptr::null_mut();
 pub static mut numlumps: u32 = 0;
 
 /// C function: W_AddFile
-pub fn w_add_file(filename: *mut i8) -> *mut WadFileT {
+pub fn w_add_file(filename: &str) -> *mut WadFileT {
     todo!("original: W_AddFile")
 }
 
 /// C function: W_CheckNumForName
-pub fn w_check_num_for_name(name: *mut i8) -> i32 {
+pub fn w_check_num_for_name(name: &str) -> i32 {
     todo!("original: W_CheckNumForName")
 }
 
 /// C function: W_GetNumForName
-pub fn w_get_num_for_name(name: *mut i8) -> i32 {
+pub fn w_get_num_for_name(name: &str) -> i32 {
     todo!("original: W_GetNumForName")
 }
 
@@ -41,7 +41,7 @@ pub fn w_lump_length(lump: u32) -> i32 {
 }
 
 /// C function: W_ReadLump
-pub fn w_read_lump(lump: u32, dest: *mut std::ffi::c_void) {
+pub fn w_read_lump(lump: u32, dest: &mut [u8]) {
     todo!("original: W_ReadLump")
 }
 
@@ -51,7 +51,7 @@ pub fn w_cache_lump_num(lump: i32, tag: i32) -> *mut std::ffi::c_void {
 }
 
 /// C function: W_CacheLumpName
-pub fn w_cache_lump_name(name: *mut i8, tag: i32) -> *mut std::ffi::c_void {
+pub fn w_cache_lump_name(name: &str, tag: i32) -> *mut std::ffi::c_void {
     todo!("original: W_CacheLumpName")
 }
 
@@ -71,7 +71,7 @@ pub fn w_release_lump_num(lump: i32) {
 }
 
 /// C function: W_ReleaseLumpName
-pub fn w_release_lump_name(name: *mut i8) {
+pub fn w_release_lump_name(name: &str) {
     todo!("original: W_ReleaseLumpName")
 }
 

@@ -16,7 +16,7 @@ pub type PixelT = u32;
 pub static mut DG_SCREEN_BUFFER: *mut PixelT = std::ptr::null_mut();
 
 /// C function: doomgeneric_Create
-pub fn doomgeneric_create(argc: i32, argv: *mut *mut i8) {
+pub fn doomgeneric_create(argc: i32, argv: &mut [&str]) {
     todo!("original: doomgeneric_Create")
 }
 
@@ -46,7 +46,7 @@ pub fn dg_get_ticks_ms() -> u32 {
 }
 
 /// C function: DG_GetKey
-pub fn dg_get_key(pressed: *mut i32, key: *mut u8) -> i32 {
+pub fn dg_get_key(pressed: &mut i32, key: &mut u8) -> i32 {
     todo!("original: DG_GetKey")
 }
 

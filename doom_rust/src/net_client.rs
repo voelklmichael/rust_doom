@@ -6,7 +6,7 @@ use crate::doomtype::*;
 use crate::net_defs::*;
 
 /// C function: NET_CL_Connect
-pub fn net_cl_connect(addr: *mut NetAddrT, data: *mut NetConnectDataT) -> Boolean {
+pub fn net_cl_connect(addr: &mut NetAddrT, data: &mut NetConnectDataT) -> Boolean {
     todo!("original: NET_CL_Connect")
 }
 
@@ -31,17 +31,17 @@ pub fn net_cl_launch_game() {
 }
 
 /// C function: NET_CL_StartGame
-pub fn net_cl_start_game(settings: *mut NetGamesettingsT) {
+pub fn net_cl_start_game(settings: &mut NetGamesettingsT) {
     todo!("original: NET_CL_StartGame")
 }
 
 /// C function: NET_CL_SendTiccmd
-pub fn net_cl_send_ticcmd(ticcmd: *mut TiccmdT, maketic: i32) {
+pub fn net_cl_send_ticcmd(ticcmd: &mut TiccmdT, maketic: i32) {
     todo!("original: NET_CL_SendTiccmd")
 }
 
 /// C function: NET_CL_GetSettings
-pub fn net_cl_get_settings(settings: *mut NetGamesettingsT) -> Boolean {
+pub fn net_cl_get_settings(settings: &mut NetGamesettingsT) -> Boolean {
     todo!("original: NET_CL_GetSettings")
 }
 

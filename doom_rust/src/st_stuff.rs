@@ -13,7 +13,7 @@ pub const ST_WIDTH: i32 = SCREENWIDTH;
 pub const ST_Y: i32 = SCREENHEIGHT - ST_HEIGHT;
 
 /// C function: ST_Responder
-pub fn st_responder(ev: *mut EventT) -> boolean {
+pub fn st_responder(ev: &mut EventT) -> boolean {
     todo!("original: ST_Responder")
 }
 

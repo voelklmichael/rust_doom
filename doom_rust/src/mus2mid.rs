@@ -5,6 +5,6 @@ use crate::doomtype::*;
 use crate::memio::*;
 
 /// C function: mus2mid
-pub fn mus2mid(musinput: *mut Memfile, midioutput: *mut Memfile) -> Boolean {
+pub fn mus2mid(musinput: &mut Memfile, midioutput: &mut Memfile) -> Boolean {
     todo!("original: mus2mid")
 }

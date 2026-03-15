@@ -55,12 +55,12 @@ pub static mut fuzzcolfunc: Option<fn()> = None;
 pub static mut spanfunc: Option<fn()> = None;
 
 /// C function: R_PointOnSide
-pub fn r_point_on_side(x: FixedT, y: FixedT, node: *mut NodeT) -> i32 {
+pub fn r_point_on_side(x: FixedT, y: FixedT, node: &mut NodeT) -> i32 {
     todo!("original: R_PointOnSide")
 }
 
 /// C function: R_PointOnSegSide
-pub fn r_point_on_seg_side(x: FixedT, y: FixedT, line: *mut SegT) -> i32 {
+pub fn r_point_on_seg_side(x: FixedT, y: FixedT, line: &mut SegT) -> i32 {
     todo!("original: R_PointOnSegSide")
 }
 
@@ -90,12 +90,12 @@ pub fn r_point_in_subsector(x: FixedT, y: FixedT) -> *mut SubsectorT {
 }
 
 /// C function: R_AddPointToBox
-pub fn r_add_point_to_box(x: i32, y: i32, box_: *mut FixedT) {
+pub fn r_add_point_to_box(x: i32, y: i32, box_: &mut [FixedT]) {
     todo!("original: R_AddPointToBox")
 }
 
 /// C function: R_RenderPlayerView
-pub fn r_render_player_view(player: *mut PlayerT) {
+pub fn r_render_player_view(player: &mut PlayerT) {
     todo!("original: R_RenderPlayerView")
 }
 

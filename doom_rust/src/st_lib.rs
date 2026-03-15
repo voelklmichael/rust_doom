@@ -59,70 +59,70 @@ pub fn stlib_init() {
 
 /// C function: STlib_initNum
 pub fn stlib_init_num(
-    n: *mut StNumberT,
+    n: &mut StNumberT,
     x: i32,
     y: i32,
-    pl: *mut *mut PatchT,
-    num: *mut i32,
-    on: *mut boolean,
+    pl: &mut [*mut PatchT],
+    num: &mut i32,
+    on: &mut boolean,
     width: i32,
 ) {
     todo!("original: STlib_initNum")
 }
 
 /// C function: STlib_updateNum
-pub fn stlib_update_num(n: *mut StNumberT, refresh: boolean) {
+pub fn stlib_update_num(n: &mut StNumberT, refresh: boolean) {
     todo!("original: STlib_updateNum")
 }
 
 /// C function: STlib_initPercent
 pub fn stlib_init_percent(
-    p: *mut StPercentT,
+    p: &mut StPercentT,
     x: i32,
     y: i32,
-    pl: *mut *mut PatchT,
-    num: *mut i32,
-    on: *mut boolean,
-    percent: *mut PatchT,
+    pl: &mut [*mut PatchT],
+    num: &mut i32,
+    on: &mut boolean,
+    percent: &mut PatchT,
 ) {
     todo!("original: STlib_initPercent")
 }
 
 /// C function: STlib_updatePercent
-pub fn stlib_update_percent(per: *mut StPercentT, refresh: i32) {
+pub fn stlib_update_percent(per: &mut StPercentT, refresh: i32) {
     todo!("original: STlib_updatePercent")
 }
 
 /// C function: STlib_initMultIcon
 pub fn stlib_init_mult_icon(
-    mi: *mut StMulticonT,
+    mi: &mut StMulticonT,
     x: i32,
     y: i32,
-    il: *mut *mut PatchT,
-    inum: *mut i32,
-    on: *mut boolean,
+    il: &mut [*mut PatchT],
+    inum: &mut i32,
+    on: &mut boolean,
 ) {
     todo!("original: STlib_initMultIcon")
 }
 
 /// C function: STlib_updateMultIcon
-pub fn stlib_update_mult_icon(mi: *mut StMulticonT, refresh: boolean) {
+pub fn stlib_update_mult_icon(mi: &mut StMulticonT, refresh: boolean) {
     todo!("original: STlib_updateMultIcon")
 }
 
 /// C function: STlib_initBinIcon
 pub fn stlib_init_bin_icon(
-    b: *mut StBiniconT,
+    b: &mut StBiniconT,
     x: i32,
     y: i32,
-    i: *mut PatchT,
-    val: *mut boolean,
-    on: *mut boolean,
+    i: &mut PatchT,
+    val: &mut boolean,
+    on: &mut boolean,
 ) {
     todo!("original: STlib_initBinIcon")
 }
 
 /// C function: STlib_updateBinIcon
-pub fn stlib_update_bin_icon(bi: *mut StBiniconT, refresh: boolean) {
+pub fn stlib_update_bin_icon(bi: &mut StBiniconT, refresh: boolean) {
     todo!("original: STlib_updateBinIcon")
 }

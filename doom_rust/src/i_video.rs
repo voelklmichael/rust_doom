@@ -43,7 +43,7 @@ pub fn i_shutdown_graphics() {
 }
 
 /// C function: I_SetPalette
-pub fn i_set_palette(palette: *mut byte) {
+pub fn i_set_palette(palette: &mut [byte]) {
     todo!("original: I_SetPalette")
 }
 
@@ -63,7 +63,7 @@ pub fn i_finish_update() {
 }
 
 /// C function: I_ReadScreen
-pub fn i_read_screen(scr: *mut byte) {
+pub fn i_read_screen(scr: &mut [byte]) {
     todo!("original: I_ReadScreen")
 }
 
@@ -73,7 +73,7 @@ pub fn i_begin_read() {
 }
 
 /// C function: I_SetWindowTitle
-pub fn i_set_window_title(title: *mut i8) {
+pub fn i_set_window_title(title: &str) {
     todo!("original: I_SetWindowTitle")
 }
 

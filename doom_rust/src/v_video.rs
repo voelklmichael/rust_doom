@@ -30,7 +30,7 @@ pub fn v_init() {
 pub fn v_copy_rect(
     srcx: i32,
     srcy: i32,
-    source: *mut byte,
+    source: &mut [byte],
     width: i32,
     height: i32,
     destx: i32,
@@ -40,42 +40,42 @@ pub fn v_copy_rect(
 }
 
 /// C function: V_DrawPatch
-pub fn v_draw_patch(x: i32, y: i32, patch: *mut PatchT) {
+pub fn v_draw_patch(x: i32, y: i32, patch: &mut PatchT) {
     todo!("original: V_DrawPatch")
 }
 
 /// C function: V_DrawPatchFlipped
-pub fn v_draw_patch_flipped(x: i32, y: i32, patch: *mut PatchT) {
+pub fn v_draw_patch_flipped(x: i32, y: i32, patch: &mut PatchT) {
     todo!("original: V_DrawPatchFlipped")
 }
 
 /// C function: V_DrawTLPatch
-pub fn v_draw_tl_patch(x: i32, y: i32, patch: *mut PatchT) {
+pub fn v_draw_tl_patch(x: i32, y: i32, patch: &mut PatchT) {
     todo!("original: V_DrawTLPatch")
 }
 
 /// C function: V_DrawAltTLPatch
-pub fn v_draw_alt_tl_patch(x: i32, y: i32, patch: *mut PatchT) {
+pub fn v_draw_alt_tl_patch(x: i32, y: i32, patch: &mut PatchT) {
     todo!("original: V_DrawAltTLPatch")
 }
 
 /// C function: V_DrawShadowedPatch
-pub fn v_draw_shadowed_patch(x: i32, y: i32, patch: *mut PatchT) {
+pub fn v_draw_shadowed_patch(x: i32, y: i32, patch: &mut PatchT) {
     todo!("original: V_DrawShadowedPatch")
 }
 
 /// C function: V_DrawXlaPatch
-pub fn v_draw_xla_patch(x: i32, y: i32, patch: *mut PatchT) {
+pub fn v_draw_xla_patch(x: i32, y: i32, patch: &mut PatchT) {
     todo!("original: V_DrawXlaPatch")
 }
 
 /// C function: V_DrawPatchDirect
-pub fn v_draw_patch_direct(x: i32, y: i32, patch: *mut PatchT) {
+pub fn v_draw_patch_direct(x: i32, y: i32, patch: &mut PatchT) {
     todo!("original: V_DrawPatchDirect")
 }
 
 /// C function: V_DrawBlock
-pub fn v_draw_block(x: i32, y: i32, width: i32, height: i32, src: *mut byte) {
+pub fn v_draw_block(x: i32, y: i32, width: i32, height: i32, src: &mut [byte]) {
     todo!("original: V_DrawBlock")
 }
 
@@ -105,12 +105,12 @@ pub fn v_draw_box(x: i32, y: i32, w: i32, h: i32, c: i32) {
 }
 
 /// C function: V_DrawRawScreen
-pub fn v_draw_raw_screen(raw: *mut byte) {
+pub fn v_draw_raw_screen(raw: &mut [byte]) {
     todo!("original: V_DrawRawScreen")
 }
 
 /// C function: V_UseBuffer
-pub fn v_use_buffer(buffer: *mut byte) {
+pub fn v_use_buffer(buffer: &mut [byte]) {
     todo!("original: V_UseBuffer")
 }
 
@@ -120,7 +120,7 @@ pub fn v_restore_buffer() {
 }
 
 /// C function: V_ScreenShot
-pub fn v_screen_shot(format: *mut i8) {
+pub fn v_screen_shot(format: &str) {
     todo!("original: V_ScreenShot")
 }
 

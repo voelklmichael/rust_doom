@@ -51,17 +51,17 @@ pub fn hu_lib_init() {
 }
 
 /// C function: HUlib_clearTextLine
-pub fn hu_lib_clear_text_line(t: *mut HuTextlineT) {
+pub fn hu_lib_clear_text_line(t: &mut HuTextlineT) {
     todo!("original: HUlib_clearTextLine")
 }
 
 /// C function: HUlib_initTextLine
-pub fn hu_lib_init_text_line(t: *mut HuTextlineT, x: i32, y: i32, f: *mut *mut PatchT, sc: i32) {
+pub fn hu_lib_init_text_line(t: &mut HuTextlineT, x: i32, y: i32, f: &mut [*mut PatchT], sc: i32) {
     todo!("original: HUlib_initTextLine")
 }
 
 /// C function: HUlib_addCharToTextLine
-pub fn hu_lib_add_char_to_text_line(t: *mut HuTextlineT, ch: i8) -> boolean {
+pub fn hu_lib_add_char_to_text_line(t: &mut HuTextlineT, ch: i8) -> boolean {
     todo!("original: HUlib_addCharToTextLine")
 }
 
@@ -71,12 +71,12 @@ pub fn hu_lib_del_char_from_text_line(t: *mut HuTextlineT) -> boolean {
 }
 
 /// C function: HUlib_drawTextLine
-pub fn hu_lib_draw_text_line(l: *mut HuTextlineT, drawcursor: boolean) {
+pub fn hu_lib_draw_text_line(l: &mut HuTextlineT, drawcursor: boolean) {
     todo!("original: HUlib_drawTextLine")
 }
 
 /// C function: HUlib_eraseTextLine
-pub fn hu_lib_erase_text_line(l: *mut HuTextlineT) {
+pub fn hu_lib_erase_text_line(l: &mut HuTextlineT) {
     todo!("original: HUlib_eraseTextLine")
 }
 
@@ -94,7 +94,7 @@ pub fn hu_lib_init_stext(
 }
 
 /// C function: HUlib_addLineToSText
-pub fn hu_lib_add_line_to_stext(s: *mut HuStextT) {
+pub fn hu_lib_add_line_to_stext(s: &mut HuStextT) {
     todo!("original: HUlib_addLineToSText")
 }
 
@@ -104,7 +104,7 @@ pub fn hu_lib_add_message_to_stext(s: *mut HuStextT, prefix: *mut i8, msg: *mut 
 }
 
 /// C function: HUlib_drawSText
-pub fn hu_lib_draw_stext(s: *mut HuStextT) {
+pub fn hu_lib_draw_stext(s: &mut HuStextT) {
     todo!("original: HUlib_drawSText")
 }
 
@@ -126,36 +126,36 @@ pub fn hu_lib_init_itext(
 }
 
 /// C function: HUlib_delCharFromIText
-pub fn hu_lib_del_char_from_itext(it: *mut HuItextT) {
+pub fn hu_lib_del_char_from_itext(it: &mut HuItextT) {
     todo!("original: HUlib_delCharFromIText")
 }
 
 /// C function: HUlib_eraseLineFromIText
-pub fn hu_lib_erase_line_from_itext(it: *mut HuItextT) {
+pub fn hu_lib_erase_line_from_itext(it: &mut HuItextT) {
     todo!("original: HUlib_eraseLineFromIText")
 }
 
 /// C function: HUlib_resetIText
-pub fn hu_lib_reset_itext(it: *mut HuItextT) {
+pub fn hu_lib_reset_itext(it: &mut HuItextT) {
     todo!("original: HUlib_resetIText")
 }
 
 /// C function: HUlib_addPrefixToIText
-pub fn hu_lib_add_prefix_to_itext(it: *mut HuItextT, str: *mut i8) {
+pub fn hu_lib_add_prefix_to_itext(it: &mut HuItextT, str: &str) {
     todo!("original: HUlib_addPrefixToIText")
 }
 
 /// C function: HUlib_keyInIText
-pub fn hu_lib_key_in_itext(it: *mut HuItextT, ch: u8) -> boolean {
+pub fn hu_lib_key_in_itext(it: &mut HuItextT, ch: u8) -> boolean {
     todo!("original: HUlib_keyInIText")
 }
 
 /// C function: HUlib_drawIText
-pub fn hu_lib_draw_itext(it: *mut HuItextT) {
+pub fn hu_lib_draw_itext(it: &mut HuItextT) {
     todo!("original: HUlib_drawIText")
 }
 
 /// C function: HUlib_eraseIText
-pub fn hu_lib_erase_itext(it: *mut HuItextT) {
+pub fn hu_lib_erase_itext(it: &mut HuItextT) {
     todo!("original: HUlib_eraseIText")
 }

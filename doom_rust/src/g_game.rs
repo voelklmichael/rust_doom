@@ -22,12 +22,12 @@ pub fn g_defered_init_new(skill: SkillT, episode: i32, map: i32) {
 }
 
 /// C function: G_DeferedPlayDemo
-pub fn g_defered_play_demo(demo: *mut i8) {
+pub fn g_defered_play_demo(demo: &str) {
     todo!("original: G_DeferedPlayDemo")
 }
 
 /// C function: G_LoadGame
-pub fn g_load_game(name: *mut i8) {
+pub fn g_load_game(name: &str) {
     todo!("original: G_LoadGame")
 }
 
@@ -42,7 +42,7 @@ pub fn g_save_game(slot: i32, description: *mut i8) {
 }
 
 /// C function: G_RecordDemo
-pub fn g_record_demo(name: *mut i8) {
+pub fn g_record_demo(name: &str) {
     todo!("original: G_RecordDemo")
 }
 
@@ -57,7 +57,7 @@ pub fn g_play_demo(name: *mut i8) {
 }
 
 /// C function: G_TimeDemo
-pub fn g_time_demo(name: *mut i8) {
+pub fn g_time_demo(name: &str) {
     todo!("original: G_TimeDemo")
 }
 
@@ -92,7 +92,7 @@ pub fn g_ticker() {
 }
 
 /// C function: G_Responder
-pub fn g_responder(ev: *mut EventT) -> boolean {
+pub fn g_responder(ev: &mut EventT) -> boolean {
     todo!("original: G_Responder")
 }
 

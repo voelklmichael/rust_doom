@@ -132,7 +132,7 @@ pub fn i_shutdown_sound() {
 }
 
 /// C function: I_GetSfxLumpNum
-pub fn i_get_sfx_lump_num(sfxinfo: *mut SfxinfoT) -> i32 {
+pub fn i_get_sfx_lump_num(sfxinfo: &mut SfxinfoT) -> i32 {
     todo!("original: I_GetSfxLumpNum")
 }
 
@@ -147,7 +147,7 @@ pub fn i_update_sound_params(channel: i32, vol: i32, sep: i32) {
 }
 
 /// C function: I_StartSound
-pub fn i_start_sound(sfxinfo: *mut SfxinfoT, channel: i32, vol: i32, sep: i32) -> i32 {
+pub fn i_start_sound(sfxinfo: &mut SfxinfoT, channel: i32, vol: i32, sep: i32) -> i32 {
     todo!("original: I_StartSound")
 }
 
@@ -162,7 +162,7 @@ pub fn i_sound_is_playing(channel: i32) -> Boolean {
 }
 
 /// C function: I_PrecacheSounds
-pub fn i_precache_sounds(sounds: *mut SfxinfoT, num_sounds: i32) {
+pub fn i_precache_sounds(sounds: &mut [SfxinfoT], num_sounds: i32) {
     todo!("original: I_PrecacheSounds")
 }
 

@@ -15,11 +15,11 @@ pub enum BboxCoord {
 }
 
 /// C function: M_ClearBox
-pub fn m_clear_box(box_: *mut FixedT) {
+pub fn m_clear_box(box_: &mut [FixedT]) {
     todo!("original: M_ClearBox")
 }
 
 /// C function: M_AddToBox
-pub fn m_add_to_box(box_: *mut FixedT, x: FixedT, y: FixedT) {
+pub fn m_add_to_box(box_: &mut [FixedT], x: FixedT, y: FixedT) {
     todo!("original: M_AddToBox")
 }

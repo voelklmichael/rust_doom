@@ -55,7 +55,7 @@ pub static mut pspritescale: crate::m_fixed::FixedT = 0;
 pub static mut pspriteiscale: crate::m_fixed::FixedT = 0;
 
 /// C function: R_DrawMaskedColumn
-pub fn r_draw_masked_column(column: *mut ColumnT) {
+pub fn r_draw_masked_column(column: &mut ColumnT) {
     todo!("original: R_DrawMaskedColumn")
 }
 
@@ -65,7 +65,7 @@ pub fn r_sort_vis_sprites() {
 }
 
 /// C function: R_AddSprites
-pub fn r_add_sprites(sec: *mut SectorT) {
+pub fn r_add_sprites(sec: &mut SectorT) {
     todo!("original: R_AddSprites")
 }
 
@@ -80,7 +80,7 @@ pub fn r_draw_sprites() {
 }
 
 /// C function: R_InitSprites
-pub fn r_init_sprites(namelist: *mut *mut i8) {
+pub fn r_init_sprites(namelist: &[&str]) {
     todo!("original: R_InitSprites")
 }
 
@@ -95,6 +95,6 @@ pub fn r_draw_masked() {
 }
 
 /// C function: R_ClipVisSprite
-pub fn r_clip_vis_sprite(vis: *mut VisspriteT, xl: i32, xh: i32) {
+pub fn r_clip_vis_sprite(vis: &mut VisspriteT, xl: i32, xh: i32) {
     todo!("original: R_ClipVisSprite")
 }

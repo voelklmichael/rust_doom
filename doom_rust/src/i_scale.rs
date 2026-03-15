@@ -13,7 +13,7 @@ pub fn i_init_scale(
 }
 
 /// C function: I_ResetScaleTables
-pub fn i_reset_scale_tables(palette: *mut byte) {
+pub fn i_reset_scale_tables(palette: &mut [byte]) {
     todo!("original: I_ResetScaleTables")
 }
 
