@@ -1,0 +1,42 @@
+//! Rust translation of doomgeneric/w_file.h
+//! WAD I/O functions.
+
+use crate::doomtype::*;
+
+/// C typedef: wad_file_t (struct _wad_file_s)
+#[repr(C)]
+pub struct WadFileT {
+    pub file_class: *mut WadFileClassT,
+    pub mapped: *mut byte,
+    pub length: u32,
+}
+
+/// C typedef: wad_file_class_t
+#[repr(C)]
+pub struct WadFileClassT {
+    pub open_file: Option<extern "C" fn(*mut i8) -> *mut WadFileT>,
+    pub close_file: Option<extern "C" fn(*mut WadFileT)>,
+    pub read: Option<
+        extern "C" fn(*mut WadFileT, u32, *mut core::ffi::c_void, usize) -> usize,
+    >,
+}
+
+/// C function: W_OpenFile
+pub fn w_open_file(path: *mut i8) -> *mut WadFileT {
+    todo!("original: W_OpenFile")
+}
+
+/// C function: W_CloseFile
+pub fn w_close_file(wad: *mut WadFileT) {
+    todo!("original: W_CloseFile")
+}
+
+/// C function: W_Read
+pub fn w_read(
+    wad: *mut WadFileT,
+    offset: u32,
+    buffer: *mut core::ffi::c_void,
+    buffer_len: usize,
+) -> usize {
+    todo!("original: W_Read")
+}
