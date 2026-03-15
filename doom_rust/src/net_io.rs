@@ -33,8 +33,8 @@ pub fn net_send_broadcast(context: &mut NetContextT, packet: &mut NetPacketT) {
 /// C function: NET_RecvPacket
 pub fn net_recv_packet(
     context: &mut NetContextT,
-    addr: &mut *mut NetAddrT,
-    packet: &mut *mut NetPacketT,
+    addr: &mut Vec<NetAddrT>,
+    packet: &mut Vec<NetPacketT>,
 ) -> Boolean {
     todo!("original: NET_RecvPacket")
 }

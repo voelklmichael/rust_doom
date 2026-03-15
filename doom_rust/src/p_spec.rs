@@ -55,7 +55,7 @@ pub fn two_sided(sector: i32, line: i32) -> i32 {
 }
 
 /// C function: getSector
-pub fn get_sector(current_sector: i32, line: i32, side: i32) -> *mut SectorT {
+pub fn get_sector(current_sector: i32, line: i32, side: i32) -> Arc<Mutex<SectorT>> {
     todo!("original: getSector")
 }
 
@@ -454,8 +454,7 @@ pub const CEILWAIT: i32 = 150;
 /// C #define: MAXCEILINGS
 pub const MAXCEILINGS: usize = 30;
 
-pub static mut activeceilings: [*mut CeilingT; MAXCEILINGS] =
-    [std::ptr::null_mut(); MAXCEILINGS];
+pub static mut activeceilings: [*mut CeilingT; MAXCEILINGS] = [std::ptr::null_mut(); MAXCEILINGS];
 
 /// C function: EV_DoCeiling
 pub fn ev_do_ceiling(line: &mut LineT, type_: CeilingE) -> i32 {

@@ -4,11 +4,7 @@ use crate::doomtype::*;
 use crate::i_video::ScreenModeT;
 
 /// C function: I_InitScale
-pub fn i_init_scale(
-    _src_buffer: *mut byte,
-    _dest_buffer: *mut byte,
-    _dest_pitch: i32,
-) {
+pub fn i_init_scale(_src_buffer: &mut [byte], _dest_buffer: &mut [byte], _dest_pitch: i32) {
     todo!("original: I_InitScale")
 }
 

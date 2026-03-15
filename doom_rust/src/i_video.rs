@@ -19,7 +19,7 @@ pub const MAX_MOUSE_BUTTONS: i32 = 8;
 pub struct ScreenModeT {
     pub width: i32,
     pub height: i32,
-    pub init_mode: Option<extern "C" fn(*mut byte)>,
+    pub init_mode: Option<extern "C" fn(&mut byte)>,
     pub draw_screen: Option<extern "C" fn(i32, i32, i32, i32) -> boolean>,
     pub poor_quality: boolean,
 }

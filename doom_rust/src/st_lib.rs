@@ -1,6 +1,9 @@
 //! Rust translation of doomgeneric/st_lib.h
 //! The status bar widget code.
 
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use crate::doomtype::*;
 use crate::v_patch::*;
 
@@ -62,7 +65,7 @@ pub fn stlib_init_num(
     n: &mut StNumberT,
     x: i32,
     y: i32,
-    pl: &mut [*mut PatchT],
+    pl: &mut [Arc<Mutex<PatchT>>],
     num: &mut i32,
     on: &mut boolean,
     width: i32,
@@ -80,7 +83,7 @@ pub fn stlib_init_percent(
     p: &mut StPercentT,
     x: i32,
     y: i32,
-    pl: &mut [*mut PatchT],
+    pl: &mut [Arc<Mutex<PatchT>>],
     num: &mut i32,
     on: &mut boolean,
     percent: &mut PatchT,
@@ -98,7 +101,7 @@ pub fn stlib_init_mult_icon(
     mi: &mut StMulticonT,
     x: i32,
     y: i32,
-    il: &mut [*mut PatchT],
+    il: &mut [Arc<Mutex<PatchT>>],
     inum: &mut i32,
     on: &mut boolean,
 ) {

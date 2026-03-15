@@ -14,7 +14,7 @@ pub static mut dirtybox: [i32; 4] = [0; 4];
 pub static mut tinttable: *mut byte = std::ptr::null_mut();
 
 /// C typedef: vpatchclipfunc_t
-pub type VpatchclipfuncT = extern "C" fn(*mut PatchT, i32, i32) -> boolean;
+pub type VpatchclipfuncT = extern "C" fn(&mut PatchT, i32, i32) -> boolean;
 
 /// C function: V_SetPatchClipCallback
 pub fn v_set_patch_clip_callback(func: VpatchclipfuncT) {

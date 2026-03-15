@@ -30,7 +30,7 @@ pub fn m_file_exists(file: &str) -> Boolean {
 }
 
 /// C function: M_FileLength
-pub fn m_file_length(handle: *mut core::ffi::c_void) -> i64 {
+pub fn m_file_length(handle: &mut core::ffi::c_void) -> i64 {
     todo!("original: M_FileLength")
 }
 
@@ -50,7 +50,7 @@ pub fn m_force_uppercase(text: &mut [u8]) {
 }
 
 /// C function: M_StrCaseStr
-pub fn m_str_case_str(haystack: &str, needle: &str) -> *mut i8 {
+pub fn m_str_case_str(haystack: &str, needle: &str) -> String {
     todo!("original: M_StrCaseStr")
 }
 

@@ -48,7 +48,7 @@ pub fn z_dump_heap(lowtag: i32, hightag: i32) {
 }
 
 /// C function: Z_FileDumpHeap
-pub fn z_file_dump_heap(f: *mut std::ffi::c_void) {
+pub fn z_file_dump_heap(f: &mut std::ffi::c_void) {
     todo!("original: Z_FileDumpHeap")
 }
 
@@ -63,7 +63,7 @@ pub fn z_change_tag2(ptr: &mut [u8], tag: i32, file: &str, line: i32) {
 }
 
 /// C function: Z_ChangeUser
-pub fn z_change_user(ptr: &mut [u8], user: &mut *mut std::ffi::c_void) {
+pub fn z_change_user(ptr: &mut [u8], user: &mut Arc<Mutex<Vec<u8>>>) {
     todo!("original: Z_ChangeUser")
 }
 

@@ -1,6 +1,9 @@
 //! Rust translation of doomgeneric/net_defs.h
 //! Definitions for use in networking code.
 
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use crate::d_ticcmd::*;
 use crate::doomtype::*;
 use crate::sha1::*;
@@ -213,11 +216,12 @@ pub struct NetAddrT {
 pub struct NetModuleT {
     pub init_client: Option<extern "C" fn() -> Boolean>,
     pub init_server: Option<extern "C" fn() -> Boolean>,
-    pub send_packet: Option<extern "C" fn(*mut NetAddrT, *mut NetPacketT)>,
-    pub recv_packet: Option<extern "C" fn(*mut *mut NetAddrT, *mut *mut NetPacketT) -> Boolean>,
-    pub addr_to_string: Option<extern "C" fn(*mut NetAddrT, &mut String, i32)>,
-    pub free_address: Option<extern "C" fn(*mut NetAddrT)>,
-    pub resolve_address: Option<extern "C" fn(*mut i8) -> *mut NetAddrT>,
+    pub send_packet: Option<extern "C" fn(&mut NetAddrT, &mut NetPacketT)>,
+    pub recv_packet:
+        Option<extern "C" fn(&mut Vec<NetAddrT>, &mut Vec<Vec<NetPacketT>>) -> Boolean>,
+    pub addr_to_string: Option<extern "C" fn(&mut NetAddrT, &str, i32)>,
+    pub free_address: Option<extern "C" fn(&mut NetAddrT)>,
+    pub resolve_address: Option<extern "C" fn(&str) -> Arc<Mutex<NetAddrT>>>,
 }
 
 impl NetModuleT {

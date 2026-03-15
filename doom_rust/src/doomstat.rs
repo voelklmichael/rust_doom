@@ -1,6 +1,9 @@
 //! Rust translation of doomgeneric/doomstat.h
 //! All the global variables that store the internal state.
 
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use crate::d_items::NUMWEAPONS;
 use crate::d_mode::*;
 use crate::d_player::*;
@@ -9,7 +12,7 @@ use crate::doomdata::*;
 use crate::doomdef::*;
 use crate::doomtype::*;
 use crate::net_defs::*;
-use crate::p_pspr::{PspdefT, NUMPSPRITES};
+use crate::p_pspr::{NUMPSPRITES, PspdefT};
 
 pub static mut nomonsters: boolean = Boolean::False;
 pub static mut respawnparm: boolean = Boolean::False;
@@ -118,7 +121,7 @@ pub static mut wminfo: WbstartstructT = WbstartstructT {
     }; MAXPLAYERS as usize],
 };
 
-pub static mut savegamedir: *mut i8 = std::ptr::null_mut();
+pub static mut savegamedir: &str = "";
 pub static mut basedefault: [i8; 1024] = [0; 1024];
 pub static mut precache: boolean = Boolean::False;
 pub static mut wipegamestate: GamestateT = GamestateT::Level;
@@ -126,4 +129,4 @@ pub static mut mouse_sensitivity: i32 = 0;
 pub static mut bodyqueslot: i32 = 0;
 pub static mut skyflatnum: i32 = 0;
 pub static mut rndindex: i32 = 0;
-pub static mut netcmds: *mut TiccmdT = std::ptr::null_mut();
+pub static mut netcmds: Option<Arc<Mutex<TiccmdT>>> = None;

@@ -22,7 +22,7 @@ pub static mut lumpinfo: *mut LumpinfoT = std::ptr::null_mut();
 pub static mut numlumps: u32 = 0;
 
 /// C function: W_AddFile
-pub fn w_add_file(filename: &str) -> *mut WadFileT {
+pub fn w_add_file(filename: &str) -> Arc<Mutex<WadFileT>> {
     todo!("original: W_AddFile")
 }
 

@@ -15,11 +15,9 @@ pub struct WadFileT {
 /// C typedef: wad_file_class_t
 #[repr(C)]
 pub struct WadFileClassT {
-    pub open_file: Option<extern "C" fn(*mut i8) -> *mut WadFileT>,
-    pub close_file: Option<extern "C" fn(*mut WadFileT)>,
-    pub read: Option<
-        extern "C" fn(*mut WadFileT, u32, *mut core::ffi::c_void, usize) -> usize,
-    >,
+    pub open_file: Option<extern "C" fn(&str) -> Arc<Mutex<WadFileT>>>,
+    pub close_file: Option<extern "C" fn(&mut WadFileT)>,
+    pub read: Option<extern "C" fn(&mut WadFileT, u32, &mut core::ffi::c_void, usize) -> usize>,
 }
 
 /// C function: W_OpenFile
@@ -33,11 +31,6 @@ pub fn w_close_file(wad: &mut WadFileT) {
 }
 
 /// C function: W_Read
-pub fn w_read(
-    wad: &mut WadFileT,
-    offset: u32,
-    buffer: &mut [u8],
-    buffer_len: usize,
-) -> usize {
+pub fn w_read(wad: &mut WadFileT, offset: u32, buffer: &mut [u8], buffer_len: usize) -> usize {
     todo!("original: W_Read")
 }

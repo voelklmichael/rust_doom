@@ -58,4 +58,4 @@ pub fn hu_erase() {
 }
 
 /// C extern: chat_macros
-pub static mut chat_macros: [*mut i8; 10] = [std::ptr::null_mut(); 10];
+pub static mut chat_macros: [&str; 10] = [""; 10];

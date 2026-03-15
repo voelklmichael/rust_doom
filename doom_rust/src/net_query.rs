@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex};
 
 /// C typedef: net_query_callback_t
 pub type NetQueryCallbackT =
-    Option<extern "C" fn(*mut NetAddrT, *mut NetQuerydataT, u32, *mut core::ffi::c_void)>;
+    Option<extern "C" fn(&mut NetAddrT, &mut NetQuerydataT, u32, &mut core::ffi::c_void)>;
 
 /// C function: NET_StartLANQuery
 pub fn net_start_lan_query() -> i32 {
@@ -35,7 +35,7 @@ pub fn net_query_address(addr: &str) {
 }
 
 /// C function: NET_FindLANServer
-pub fn net_find_lan_server() -> *mut NetAddrT {
+pub fn net_find_lan_server() -> Arc<Mutex<NetAddrT>> {
     todo!("original: NET_FindLANServer")
 }
 

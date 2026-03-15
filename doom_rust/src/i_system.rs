@@ -14,7 +14,7 @@ pub fn i_init() {
 }
 
 /// C function: I_ZoneBase
-pub fn i_zone_base(size: &mut i32) -> *mut byte {
+pub fn i_zone_base(size: &mut i32) -> Option<Arc<Mutex<Vec<u8>>>> {
     todo!("original: I_ZoneBase")
 }
 

@@ -37,7 +37,7 @@ pub fn mem_fwrite(ptr: &str, size: usize, nmemb: usize, stream: &mut Memfile) ->
 }
 
 /// C function: mem_get_buf
-pub fn mem_get_buf(stream: &mut Memfile, buf: &mut *mut u8, buflen: &mut usize) {
+pub fn mem_get_buf(stream: &mut Memfile, buf: &mut Vec<Vec<u8>>, buflen: &mut usize) {
     todo!("original: mem_get_buf")
 }
 

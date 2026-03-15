@@ -56,13 +56,13 @@ pub struct SoundModuleT {
     pub num_sound_devices: i32,
     pub init: Option<extern "C" fn(bool) -> Boolean>,
     pub shutdown: Option<extern "C" fn()>,
-    pub get_sfx_lump_num: Option<extern "C" fn(*mut SfxinfoT) -> i32>,
+    pub get_sfx_lump_num: Option<extern "C" fn(&mut SfxinfoT) -> i32>,
     pub update: Option<extern "C" fn()>,
     pub update_sound_params: Option<extern "C" fn(i32, i32, i32)>,
-    pub start_sound: Option<extern "C" fn(*mut SfxinfoT, i32, i32, i32) -> i32>,
+    pub start_sound: Option<extern "C" fn(&mut SfxinfoT, i32, i32, i32) -> i32>,
     pub stop_sound: Option<extern "C" fn(i32)>,
     pub sound_is_playing: Option<extern "C" fn(i32) -> Boolean>,
-    pub cache_sounds: Option<extern "C" fn(*mut SfxinfoT, i32)>,
+    pub cache_sounds: Option<extern "C" fn(&mut SfxinfoT, i32)>,
 }
 
 impl SoundModuleT {
@@ -94,9 +94,10 @@ pub struct MusicModuleT {
     pub set_music_volume: Option<extern "C" fn(i32)>,
     pub pause_music: Option<extern "C" fn()>,
     pub resume_music: Option<extern "C" fn()>,
-    pub register_song: Option<extern "C" fn(*mut core::ffi::c_void, i32) -> *mut core::ffi::c_void>,
+    pub register_song:
+        Option<extern "C" fn(*mut core::ffi::c_void, i32) -> Option<Arc<Mutex<core::ffi::c_void>>>>,
     pub un_register_song: Option<extern "C" fn(*mut core::ffi::c_void)>,
-    pub play_song: Option<extern "C" fn(*mut core::ffi::c_void, Boolean)>,
+    pub play_song: Option<extern "C" fn(&mut core::ffi::c_void, Boolean)>,
     pub stop_song: Option<extern "C" fn()>,
     pub music_is_playing: Option<extern "C" fn() -> Boolean>,
     pub poll: Option<extern "C" fn()>,
@@ -193,7 +194,10 @@ pub fn i_resume_song() {
 }
 
 /// C function: I_RegisterSong
-pub fn i_register_song(data: *mut core::ffi::c_void, len: i32) -> *mut core::ffi::c_void {
+pub fn i_register_song(
+    data: &mut core::ffi::c_void,
+    len: i32,
+) -> Option<Arc<Mutex<core::ffi::c_void>>> {
     todo!("original: I_RegisterSong")
 }
 

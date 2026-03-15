@@ -1,5 +1,8 @@
 //! Rust translation of doomgeneric/d_player.h
 
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use crate::d_items::*;
 use crate::d_ticcmd::*;
 use crate::doomdef::*;
@@ -31,7 +34,7 @@ pub enum CheatT {
 #[derive(Clone)]
 /// C typedef: player_t
 pub struct PlayerT {
-    pub mo: *mut MobjT,
+    pub mo: Option<Arc<Mutex<MobjT>>>,
     pub playerstate: PlayerstateT,
     pub cmd: TiccmdT,
     pub viewz: FixedT,
@@ -60,7 +63,7 @@ pub struct PlayerT {
     pub message: String,
     pub damagecount: i32,
     pub bonuscount: i32,
-    pub attacker: *mut MobjT,
+    pub attacker: Option<Arc<Mutex<MobjT>>>,
     pub extralight: i32,
     pub fixedcolormap: i32,
     pub colormap: i32,
@@ -70,7 +73,7 @@ pub struct PlayerT {
 impl PlayerT {
     pub(crate) const fn new() -> Self {
         Self {
-            mo: std::ptr::null_mut(),
+            mo: None,
             playerstate: PlayerstateT::PstLive,
             cmd: TiccmdT {
                 forwardmove: 0,
@@ -110,7 +113,7 @@ impl PlayerT {
             message: String::new(),
             damagecount: 0,
             bonuscount: 0,
-            attacker: std::ptr::null_mut(),
+            attacker: None,
             extralight: 0,
             fixedcolormap: 0,
             colormap: 0,

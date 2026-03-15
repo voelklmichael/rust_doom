@@ -49,7 +49,7 @@ pub static mut states: [StateT; 1] = [StateT {
     misc2: 0,
 }; 1];
 
-pub static mut sprnames: [*mut i8; 1] = [core::ptr::null_mut(); 1];
+pub static mut sprnames: [&str; 1] = [""; 1];
 
 /// C typedef: mobjtype_t (abbreviated)
 #[repr(C)]

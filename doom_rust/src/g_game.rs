@@ -1,9 +1,9 @@
 //! Rust translation of doomgeneric/g_game.h
 
-use crate::doomdef::*;
 use crate::d_event::*;
 use crate::d_mode::*;
 use crate::d_ticcmd::*;
+use crate::doomdef::*;
 use crate::doomtype::*;
 
 /// C function: G_DeathMatchSpawnPlayer
@@ -37,7 +37,7 @@ pub fn g_do_load_game() {
 }
 
 /// C function: G_SaveGame
-pub fn g_save_game(slot: i32, description: *mut i8) {
+pub fn g_save_game(slot: i32, description: &str) {
     todo!("original: G_SaveGame")
 }
 
@@ -52,7 +52,7 @@ pub fn g_begin_recording() {
 }
 
 /// C function: G_PlayDemo
-pub fn g_play_demo(name: *mut i8) {
+pub fn g_play_demo(name: &str) {
     todo!("original: G_PlayDemo")
 }
 
@@ -82,7 +82,7 @@ pub fn g_world_done() {
 }
 
 /// C function: G_BuildTiccmd
-pub fn g_build_ticcmd(cmd: *mut TiccmdT, maketic: i32) {
+pub fn g_build_ticcmd(cmd: &mut TiccmdT, maketic: i32) {
     todo!("original: G_BuildTiccmd")
 }
 

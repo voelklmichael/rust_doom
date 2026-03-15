@@ -1,6 +1,9 @@
 //! Rust translation of doomgeneric/hu_lib.h
 //! Heads-up widget library.
 
+use std::sync::Arc;
+use std::sync::Mutex;
+
 use crate::doomtype::*;
 use crate::v_patch::*;
 
@@ -17,7 +20,7 @@ pub const HU_MAXLINELENGTH: usize = 80;
 pub struct HuTextlineT {
     pub x: i32,
     pub y: i32,
-    pub f: *mut *mut PatchT,
+    pub f: Option<Vec<Arc<Mutex<PatchT>>>>,
     pub sc: i32,
     pub l: [i8; HU_MAXLINELENGTH + 1],
     pub len: i32,
@@ -56,7 +59,13 @@ pub fn hu_lib_clear_text_line(t: &mut HuTextlineT) {
 }
 
 /// C function: HUlib_initTextLine
-pub fn hu_lib_init_text_line(t: &mut HuTextlineT, x: i32, y: i32, f: &mut [*mut PatchT], sc: i32) {
+pub fn hu_lib_init_text_line(
+    t: &mut HuTextlineT,
+    x: i32,
+    y: i32,
+    f: &mut Vec<Arc<Mutex<PatchT>>>,
+    sc: i32,
+) {
     todo!("original: HUlib_initTextLine")
 }
 
@@ -66,7 +75,7 @@ pub fn hu_lib_add_char_to_text_line(t: &mut HuTextlineT, ch: i8) -> boolean {
 }
 
 /// C function: HUlib_delCharFromTextLine
-pub fn hu_lib_del_char_from_text_line(t: *mut HuTextlineT) -> boolean {
+pub fn hu_lib_del_char_from_text_line(t: &mut HuTextlineT) -> boolean {
     todo!("original: HUlib_delCharFromTextLine")
 }
 
@@ -82,13 +91,13 @@ pub fn hu_lib_erase_text_line(l: &mut HuTextlineT) {
 
 /// C function: HUlib_initSText
 pub fn hu_lib_init_stext(
-    s: *mut HuStextT,
+    s: &mut HuStextT,
     x: i32,
     y: i32,
     h: i32,
-    font: *mut *mut PatchT,
+    font: &mut Vec<Arc<Mutex<PatchT>>>,
     startchar: i32,
-    on: *mut boolean,
+    on: &mut boolean,
 ) {
     todo!("original: HUlib_initSText")
 }
@@ -99,7 +108,7 @@ pub fn hu_lib_add_line_to_stext(s: &mut HuStextT) {
 }
 
 /// C function: HUlib_addMessageToSText
-pub fn hu_lib_add_message_to_stext(s: *mut HuStextT, prefix: String, msg: *mut i8) {
+pub fn hu_lib_add_message_to_stext(s: &mut HuStextT, prefix: &str, msg: &str) {
     todo!("original: HUlib_addMessageToSText")
 }
 
@@ -109,18 +118,18 @@ pub fn hu_lib_draw_stext(s: &mut HuStextT) {
 }
 
 /// C function: HUlib_eraseSText
-pub fn hu_lib_erase_stext(s: *mut HuStextT) {
+pub fn hu_lib_erase_stext(s: &mut HuStextT) {
     todo!("original: HUlib_eraseSText")
 }
 
 /// C function: HUlib_initIText
 pub fn hu_lib_init_itext(
-    it: *mut HuItextT,
+    it: &mut HuItextT,
     x: i32,
     y: i32,
-    font: *mut *mut PatchT,
+    font: &mut Vec<Arc<Mutex<PatchT>>>,
     startchar: i32,
-    on: *mut boolean,
+    on: &mut boolean,
 ) {
     todo!("original: HUlib_initIText")
 }
