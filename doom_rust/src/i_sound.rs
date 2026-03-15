@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 #[repr(C)]
 /// C typedef: sfxinfo_t
 pub struct SfxinfoT {
-    pub tagname: *mut i8,
+    pub tagname: String,
     pub name: [i8; 9],
     pub priority: i32,
     pub link: *mut SfxinfoT,
@@ -24,7 +24,7 @@ pub struct SfxinfoT {
 #[repr(C)]
 /// C typedef: musicinfo_t
 pub struct MusicinfoT {
-    pub name: *mut i8,
+    pub name: String,
     pub lumpnum: i32,
     pub data: *mut core::ffi::c_void,
     pub handle: *mut core::ffi::c_void,

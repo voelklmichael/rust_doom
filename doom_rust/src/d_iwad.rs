@@ -22,10 +22,10 @@ pub const IWAD_MASK_STRIFE: i32 = 1 << GameMissionT::Strife as i32;
 #[repr(C)]
 /// C typedef: iwad_t
 pub struct IwadT {
-    pub name: *mut i8,
+    pub name: String,
     pub mission: GameMissionT,
     pub mode: GameModeT,
-    pub description: *mut i8,
+    pub description: String,
 }
 
 /// C function: D_FindWADByName

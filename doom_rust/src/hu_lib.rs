@@ -99,7 +99,7 @@ pub fn hu_lib_add_line_to_stext(s: &mut HuStextT) {
 }
 
 /// C function: HUlib_addMessageToSText
-pub fn hu_lib_add_message_to_stext(s: *mut HuStextT, prefix: *mut i8, msg: *mut i8) {
+pub fn hu_lib_add_message_to_stext(s: *mut HuStextT, prefix: String, msg: *mut i8) {
     todo!("original: HUlib_addMessageToSText")
 }
 

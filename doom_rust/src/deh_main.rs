@@ -29,6 +29,7 @@ pub fn deh_load_lump_by_name(name: &str, allow_long: Boolean, allow_error: Boole
     todo!("original: DEH_LoadLumpByName")
 }
 
+/* Function is never used
 /// C function: DEH_ParseAssignment
 pub fn deh_parse_assignment(
     line: *mut i8,
@@ -37,6 +38,7 @@ pub fn deh_parse_assignment(
 ) -> Boolean {
     todo!("original: DEH_ParseAssignment")
 }
+*/
 
 /// C function: DEH_Checksum
 pub fn deh_checksum(digest: &mut Sha1DigestT) {

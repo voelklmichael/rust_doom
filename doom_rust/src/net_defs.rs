@@ -136,13 +136,13 @@ pub struct NetFullTiccmdT {
 #[repr(C)]
 /// C typedef: net_querydata_t
 pub struct NetQuerydataT {
-    pub version: *mut i8,
+    pub version: String,
     pub server_state: i32,
     pub num_players: i32,
     pub max_players: i32,
     pub gamemode: i32,
     pub gamemission: i32,
-    pub description: *mut i8,
+    pub description: String,
 }
 
 /// C typedef: net_waitdata_t
@@ -214,10 +214,8 @@ pub struct NetModuleT {
     pub init_client: Option<extern "C" fn() -> Boolean>,
     pub init_server: Option<extern "C" fn() -> Boolean>,
     pub send_packet: Option<extern "C" fn(*mut NetAddrT, *mut NetPacketT)>,
-    pub recv_packet: Option<
-        extern "C" fn(*mut *mut NetAddrT, *mut *mut NetPacketT) -> Boolean,
-    >,
-    pub addr_to_string: Option<extern "C" fn(*mut NetAddrT, *mut i8, i32)>,
+    pub recv_packet: Option<extern "C" fn(*mut *mut NetAddrT, *mut *mut NetPacketT) -> Boolean>,
+    pub addr_to_string: Option<extern "C" fn(*mut NetAddrT, &mut String, i32)>,
     pub free_address: Option<extern "C" fn(*mut NetAddrT)>,
     pub resolve_address: Option<extern "C" fn(*mut i8) -> *mut NetAddrT>,
 }

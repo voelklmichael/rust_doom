@@ -5,11 +5,11 @@ use crate::d_items::NUMWEAPONS;
 use crate::d_mode::*;
 use crate::d_player::*;
 use crate::d_ticcmd::*;
-use crate::p_pspr::{NUMPSPRITES, PspdefT};
 use crate::doomdata::*;
 use crate::doomdef::*;
 use crate::doomtype::*;
 use crate::net_defs::*;
+use crate::p_pspr::{PspdefT, NUMPSPRITES};
 
 pub static mut nomonsters: boolean = Boolean::False;
 pub static mut respawnparm: boolean = Boolean::False;
@@ -69,59 +69,13 @@ pub static mut singledemo: boolean = Boolean::False;
 
 pub static mut gamestate: GamestateT = GamestateT::Level;
 
-pub static mut players: [PlayerT; MAXPLAYERS as usize] = [PlayerT {
-    mo: std::ptr::null_mut(),
-    playerstate: PlayerstateT::PstLive,
-    cmd: TiccmdT {
-        forwardmove: 0,
-        sidemove: 0,
-        angleturn: 0,
-        chatchar: 0,
-        buttons: 0,
-        consistancy: 0,
-        buttons2: 0,
-        inventory: 0,
-        lookfly: 0,
-        arti: 0,
-    },
-    viewz: 0,
-    viewheight: 0,
-    deltaviewheight: 0,
-    bob: 0,
-    health: 0,
-    armorpoints: 0,
-    armortype: 0,
-    powers: [0; NUMPOWERS],
-    cards: [Boolean::False; NUMCARDS],
-    backpack: Boolean::False,
-    frags: [0; MAXPLAYERS as usize],
-    readyweapon: WeapontypeT::Fist,
-    pendingweapon: WeapontypeT::Nochange,
-    weaponowned: [Boolean::False; NUMWEAPONS],
-    ammo: [0; NUMAMMO],
-    maxammo: [0; NUMAMMO],
-    attackdown: 0,
-    usedown: 0,
-    cheats: 0,
-    refire: 0,
-    killcount: 0,
-    itemcount: 0,
-    secretcount: 0,
-    message: std::ptr::null_mut(),
-    damagecount: 0,
-    bonuscount: 0,
-    attacker: std::ptr::null_mut(),
-    extralight: 0,
-    fixedcolormap: 0,
-    colormap: 0,
-    psprites: [PspdefT {
-        state: std::ptr::null_mut(),
-        tics: 0,
-        sx: 0,
-        sy: 0,
-    }; NUMPSPRITES],
-    didsecret: Boolean::False,
-}; MAXPLAYERS as usize];
+pub static mut players: [PlayerT; MAXPLAYERS as usize] = [
+    PlayerT::new(),
+    PlayerT::new(),
+    PlayerT::new(),
+    PlayerT::new(),
+];
+
 pub static mut playeringame: [boolean; MAXPLAYERS as usize] = [Boolean::False; MAXPLAYERS as usize];
 
 /// C #define: MAX_DM_STARTS

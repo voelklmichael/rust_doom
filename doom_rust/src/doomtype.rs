@@ -20,7 +20,7 @@ pub enum Boolean {
     #[default]
     False = 0,
     True = 1,
-    Undef = 0xFFFFFFFF,
+    Undef = 0xFFFF,
 }
 
 /// C typedef: byte = uint8_t

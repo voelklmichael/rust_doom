@@ -75,7 +75,7 @@ pub fn m_string_replace(haystack: &str, needle: &str, replacement: &str) -> Stri
 }
 
 /// C function: M_StringJoin (variadic - varargs omitted in stub)
-pub fn m_string_join(&[&str]) -> String {
+pub fn m_string_join(strings: &[&str]) -> String {
     todo!("original: M_StringJoin")
 }
 
