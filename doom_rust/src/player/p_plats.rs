@@ -9,7 +9,7 @@
 
 use crate::game::d_think::Thinker;
 use crate::m_fixed::Fixed;
-use crate::rendering::defs::{Line, Sector};
+use crate::rendering::defs::Sector;
 use std::sync::{Mutex, OnceLock};
 
 pub const MAXPLATS: usize = 30;
@@ -81,11 +81,7 @@ pub unsafe extern "C" fn t_plat_raise(plat: *mut ()) {
 
 /// Execute platform special. Original: EV_DoPlat
 /// Returns true if a platform mover was started.
-pub fn ev_do_plat(
-    _line: *const Line,
-    _plattype: i32,
-    _amount: i32,
-) -> bool {
-    let _ = (_line, _plattype, _amount);
+pub fn ev_do_plat(_line_idx: usize, _plattype: i32, _amount: i32) -> bool {
+    let _ = (_line_idx, _plattype, _amount);
     false
 }

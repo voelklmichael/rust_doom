@@ -9,7 +9,7 @@
 
 use crate::game::d_think::Thinker;
 use crate::m_fixed::Fixed;
-use crate::rendering::defs::{Line, Sector};
+use crate::rendering::defs::Sector;
 use std::sync::{Mutex, OnceLock};
 
 pub const MAXCEILINGS: usize = 30;
@@ -79,10 +79,7 @@ pub fn p_add_active_ceiling(c: *mut CeilingMover) {
 
 /// Execute ceiling special. Original: EV_DoCeiling
 /// Returns true if a ceiling mover was started.
-pub fn ev_do_ceiling(
-    _line: *const Line,
-    _ceilingtype: i32,
-) -> bool {
-    let _ = (_line, _ceilingtype);
+pub fn ev_do_ceiling(_line_idx: usize, _ceilingtype: i32) -> bool {
+    let _ = (_line_idx, _ceilingtype);
     false
 }

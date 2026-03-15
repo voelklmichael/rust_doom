@@ -13,6 +13,7 @@ use crate::m_fixed::{Fixed, FRACBITS, FRACUNIT};
 // pub mod p_lights;
 // pub mod p_map;
 // pub mod p_maputl;
+pub mod mobjs;
 pub mod p_mobj;
 // pub mod p_plats;
 // pub mod p_pspr;
@@ -97,7 +98,7 @@ pub struct Divline {
 pub struct Intercept {
     pub frac: Fixed,
     pub isaline: bool,
-    pub line: *mut crate::rendering::defs::Line,
+    pub line_idx: Option<usize>,
     pub thing: *mut crate::player::p_mobj::Mobj,
 }
 

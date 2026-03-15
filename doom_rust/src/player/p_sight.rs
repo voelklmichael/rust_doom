@@ -8,9 +8,9 @@
 // Original: p_sight.c
 
 use crate::m_fixed::{fixed_div, Fixed};
-use crate::rendering::defs::{ML_TWOSIDED, Subsector};
+use crate::rendering::defs::ML_TWOSIDED;
 use crate::rendering::state;
-use crate::rendering::{r_main, NF_SUBSECTOR};
+use crate::rendering::{with_r_main_state, with_r_main_state_mut, NF_SUBSECTOR};
 
 use super::p_maputl::{p_divline_side, p_intercept_vector};
 use super::p_mobj::Mobj;
@@ -23,49 +23,40 @@ pub fn p_check_sight(t1: *const Mobj, t2: *const Mobj) -> bool {
         return false;
     }
 
-    let s1_sector = unsafe { (*t1).subsector };
-    let s2_sector = unsafe { (*t2).subsector };
-    if s1_sector.is_null() || s2_sector.is_null() {
-        return true; // no subsector - assume visible (e.g. MF_NOSECTOR)
-    }
+    let sub1_idx = unsafe { (*t1).subsector as usize };
+    let sub2_idx = unsafe { (*t2).subsector as usize };
 
-    let (subsectors, sectors, numsectors, rejectmatrix) = state::with_state(|s| {
-        (s.subsectors, s.sectors, s.numsectors, s.rejectmatrix)
+    let reject_ok = state::with_state(|s| {
+        let sub1 = s.subsectors.get(sub1_idx);
+        let sub2 = s.subsectors.get(sub2_idx);
+        match (sub1, sub2) {
+            (Some(ss1), Some(ss2)) => {
+                let sec1_idx = ss1.sector_idx;
+                let sec2_idx = ss2.sector_idx;
+                let numsectors = s.sectors.len();
+                if sec1_idx < numsectors && sec2_idx < numsectors {
+                    let pnum = sec1_idx * numsectors + sec2_idx;
+                    let bytenum = pnum >> 3;
+                    let bitnum = 1 << (pnum & 7);
+                    !s.rejectmatrix.get(bytenum).map_or(false, |&b| b & bitnum != 0)
+                } else {
+                    true
+                }
+            }
+            _ => true,
+        }
     });
 
-    if subsectors.is_null() || sectors.is_null() || numsectors <= 0 {
-        return true;
-    }
-
-    // REJECT lookup: sector indices from subsector
-    let ss1 = unsafe { &*s1_sector.cast::<Subsector>() };
-    let ss2 = unsafe { &*s2_sector.cast::<Subsector>() };
-    let sec1 = ss1.sector;
-    let sec2 = ss2.sector;
-    if sec1.is_null() || sec2.is_null() {
-        return true;
-    }
-
-    let s1 = unsafe { sec1.offset_from(sectors) } as i32;
-    let s2 = unsafe { sec2.offset_from(sectors) } as i32;
-    if s1 < 0 || s2 < 0 || s1 >= numsectors || s2 >= numsectors {
-        return true;
-    }
-
-    // Check REJECT table - bit set means cannot see
-    if !rejectmatrix.is_null() {
-        let pnum = (s1 as usize) * (numsectors as usize) + (s2 as usize);
-        let bytenum = pnum >> 3;
-        let bitnum = 1 << (pnum & 7);
-        if unsafe { *rejectmatrix.add(bytenum) } & bitnum != 0 {
-            return false;
-        }
+    if !reject_ok {
+        return false;
     }
 
     // BSP traversal
     let mut st = SightTrace {
         sightzstart: unsafe { (*t1).z + (*t1).height - ((*t1).height >> 2) },
-        topslope: unsafe { ((*t2).z + (*t2).height) - ((*t1).z + (*t1).height - ((*t1).height >> 2)) },
+        topslope: unsafe {
+            ((*t2).z + (*t2).height) - ((*t1).z + (*t1).height - ((*t1).height >> 2))
+        },
         bottomslope: unsafe { (*t2).z - ((*t1).z + (*t1).height - ((*t1).height >> 2)) },
         strace: Divline {
             x: unsafe { (*t1).x },
@@ -77,9 +68,7 @@ pub fn p_check_sight(t1: *const Mobj, t2: *const Mobj) -> bool {
         t2y: unsafe { (*t2).y },
     };
 
-    unsafe {
-        r_main::with_r_main_state_mut(|rm| rm.validcount += 1);
-    }
+    with_r_main_state_mut(|rm| rm.validcount += 1);
 
     let numnodes = state::with_state(|s| s.numnodes);
     if numnodes <= 0 {
@@ -102,133 +91,119 @@ struct SightTrace {
 /// Returns true if strace crosses the subsector successfully.
 /// Original: P_CrossSubsector
 fn p_cross_subsector(st: &mut SightTrace, num: usize) -> bool {
-    let (subsectors, segs) = state::with_state(|s| (s.subsectors, s.segs));
-    let validcount = r_main::with_r_main_state(|rm| rm.validcount);
+    let validcount = with_r_main_state(|rm| rm.validcount);
 
-    if subsectors.is_null() || segs.is_null() {
-        return true;
-    }
-
-    let sub = unsafe { &*subsectors.add(num) };
-    let count = sub.numlines as usize;
-    let firstline = sub.firstline as usize;
-    let mut seg = unsafe { segs.add(firstline) };
-
-    for _ in 0..count {
-        let line = unsafe { (*seg).linedef };
-        if line.is_null() {
-            seg = unsafe { seg.add(1) };
-            continue;
-        }
-
-        let ld = unsafe { &*line };
-        if ld.validcount == validcount {
-            seg = unsafe { seg.add(1) };
-            continue;
-        }
-        unsafe {
-            (*line).validcount = validcount;
-        }
-
-        let v1 = ld.v1;
-        let v2 = ld.v2;
-        if v1.is_null() || v2.is_null() {
-            seg = unsafe { seg.add(1) };
-            continue;
-        }
-
-        let v1x = unsafe { (*v1).x };
-        let v1y = unsafe { (*v1).y };
-        let v2x = unsafe { (*v2).x };
-        let v2y = unsafe { (*v2).y };
-
-        let s1 = p_divline_side(v1x, v1y, &st.strace);
-        let s2 = p_divline_side(v2x, v2y, &st.strace);
-        if s1 == s2 {
-            seg = unsafe { seg.add(1) };
-            continue;
-        }
-
-        let divl = Divline {
-            x: v1x,
-            y: v1y,
-            dx: v2x - v1x,
-            dy: v2y - v1y,
+    state::with_state_mut(|s| {
+        let sub = match s.subsectors.get(num) {
+            Some(sub) => sub,
+            None => return true,
         };
-        let s1 = p_divline_side(st.strace.x, st.strace.y, &divl);
-        let s2 = p_divline_side(st.t2x, st.t2y, &divl);
-        if s1 == s2 {
-            seg = unsafe { seg.add(1) };
-            continue;
-        }
+        let count = sub.numlines as usize;
+        let firstline = sub.firstline as usize;
 
-        if ld.backsector.is_null() {
-            return false;
-        }
-        if (ld.flags & ML_TWOSIDED) == 0 {
-            return false;
-        }
-
-        let seg_ref = unsafe { &*seg };
-        let front = seg_ref.frontsector;
-        let back = seg_ref.backsector;
-        if front.is_null() || back.is_null() {
-            seg = unsafe { seg.add(1) };
-            continue;
-        }
-        let front = unsafe { &*front };
-        let back = unsafe { &*back };
-
-        if front.floorheight == back.floorheight && front.ceilingheight == back.ceilingheight {
-            seg = unsafe { seg.add(1) };
-            continue;
-        }
-
-        let opentop = if front.ceilingheight < back.ceilingheight {
-            front.ceilingheight
-        } else {
-            back.ceilingheight
-        };
-        let openbottom = if front.floorheight > back.floorheight {
-            front.floorheight
-        } else {
-            back.floorheight
-        };
-
-        if openbottom >= opentop {
-            return false;
-        }
-
-        let frac = p_intercept_vector(&st.strace, &divl);
-
-        if front.floorheight != back.floorheight {
-            let slope = fixed_div(openbottom - st.sightzstart, frac);
-            if slope > st.bottomslope {
-                st.bottomslope = slope;
+        for seg_idx in firstline..(firstline + count) {
+            let seg = match s.segs.get(seg_idx) {
+                Some(seg) => seg,
+                None => continue,
+            };
+            let linedef_idx = seg.linedef_idx;
+            let ld = match s.lines.get_mut(linedef_idx) {
+                Some(ld) => ld,
+                None => continue,
+            };
+            if ld.validcount == validcount {
+                continue;
             }
-        }
-        if front.ceilingheight != back.ceilingheight {
-            let slope = fixed_div(opentop - st.sightzstart, frac);
-            if slope < st.topslope {
-                st.topslope = slope;
+            ld.validcount = validcount;
+
+            let (v1x, v1y, v2x, v2y) = match (
+                s.vertexes.get(seg.v1_idx),
+                s.vertexes.get(seg.v2_idx),
+            ) {
+                (Some(v1), Some(v2)) => (v1.x, v1.y, v2.x, v2.y),
+                _ => continue,
+            };
+
+            let s1 = p_divline_side(v1x, v1y, &st.strace);
+            let s2 = p_divline_side(v2x, v2y, &st.strace);
+            if s1 == s2 {
+                continue;
+            }
+
+            let divl = Divline {
+                x: v1x,
+                y: v1y,
+                dx: v2x - v1x,
+                dy: v2y - v1y,
+            };
+            let s1 = p_divline_side(st.strace.x, st.strace.y, &divl);
+            let s2 = p_divline_side(st.t2x, st.t2y, &divl);
+            if s1 == s2 {
+                continue;
+            }
+
+            if ld.backsector_idx.is_none() {
+                return false;
+            }
+            if (ld.flags & ML_TWOSIDED) == 0 {
+                return false;
+            }
+
+            let front = match s.sectors.get(seg.frontsector_idx) {
+                Some(f) => f,
+                None => continue,
+            };
+            let back = match s.sectors.get(seg.backsector_idx) {
+                Some(b) => b,
+                None => continue,
+            };
+
+            if front.floorheight == back.floorheight && front.ceilingheight == back.ceilingheight {
+                continue;
+            }
+
+            let opentop = if front.ceilingheight < back.ceilingheight {
+                front.ceilingheight
+            } else {
+                back.ceilingheight
+            };
+            let openbottom = if front.floorheight > back.floorheight {
+                front.floorheight
+            } else {
+                back.floorheight
+            };
+
+            if openbottom >= opentop {
+                return false;
+            }
+
+            let frac = p_intercept_vector(&st.strace, &divl);
+
+            if front.floorheight != back.floorheight {
+                let slope = fixed_div(openbottom - st.sightzstart, frac);
+                if slope > st.bottomslope {
+                    st.bottomslope = slope;
+                }
+            }
+            if front.ceilingheight != back.ceilingheight {
+                let slope = fixed_div(opentop - st.sightzstart, frac);
+                if slope < st.topslope {
+                    st.topslope = slope;
+                }
+            }
+
+            if st.topslope <= st.bottomslope {
+                return false;
             }
         }
 
-        if st.topslope <= st.bottomslope {
-            return false;
-        }
-
-        seg = unsafe { seg.add(1) };
-    }
-
-    true
+        true
+    })
 }
 
 /// Returns true if strace crosses the BSP node successfully.
 /// Original: P_CrossBSPNode
 fn p_cross_bsp_node(st: &mut SightTrace, bspnum: i32) -> bool {
-    let nodes = state::with_state(|s| s.nodes);
-
     if (bspnum as u32 & NF_SUBSECTOR as u32) != 0 {
         let ss_num = if bspnum == -1 {
             0
@@ -238,13 +213,11 @@ fn p_cross_bsp_node(st: &mut SightTrace, bspnum: i32) -> bool {
         return p_cross_subsector(st, ss_num);
     }
 
-    if nodes.is_null() {
-        return true;
-    }
+    let bsp = match state::with_state(|s| s.nodes.get(bspnum as usize).cloned()) {
+        Some(n) => n,
+        None => return true,
+    };
 
-    let bsp = unsafe { &*nodes.add(bspnum as usize) };
-
-    // Cast node to divline for P_DivlineSide
     let node_dl = Divline {
         x: bsp.x,
         y: bsp.y,

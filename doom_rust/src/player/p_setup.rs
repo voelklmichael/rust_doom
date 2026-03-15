@@ -10,13 +10,11 @@
 use crate::doomdata::MapThing;
 use crate::i_swap;
 use crate::m_fixed::{Fixed, FRACBITS, FRACUNIT};
-use crate::rendering::defs::{Line, Node, Seg, Sector, SideDef, SlopeType, Subsector, Vertex};
+use crate::rendering::defs::{DegenMobj, Line, Node, Seg, Sector, SideDef, Subsector, Vertex};
 use crate::rendering::{m_add_to_box, m_clear_box, BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 use crate::rendering::r_data::{r_check_flat_num_for_name, r_check_texture_num_for_name};
 use crate::rendering::state;
 use crate::wad::{w_get_num_for_name, w_read_lump, w_lump_length};
-use crate::z_zone::{z_malloc, PU_LEVEL};
-use std::ptr;
 
 use super::{MAPBLOCKSHIFT, MAXRADIUS};
 use crate::game::d_mode::GameMode;
@@ -95,369 +93,281 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
 
     let num_sectors = num_sectors_from_lump;
 
-    // Allocate and fill vertexes
-    let vertexes_ptr = z_malloc(
-        num_vertexes * std::mem::size_of::<Vertex>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut Vertex;
-    for i in 0..num_vertexes {
-        let x = read_i16(&vertexes_buf, i * 4) as i32 * FRACUNIT;
-        let y = read_i16(&vertexes_buf, i * 4 + 2) as i32 * FRACUNIT;
-        unsafe {
-            (*vertexes_ptr.add(i)).x = x;
-            (*vertexes_ptr.add(i)).y = y;
-        }
-    }
+    // Build vertexes
+    let mut vertexes: Vec<Vertex> = (0..num_vertexes)
+        .map(|i| {
+            let x = read_i16(&vertexes_buf, i * 4) as i32 * FRACUNIT;
+            let y = read_i16(&vertexes_buf, i * 4 + 2) as i32 * FRACUNIT;
+            Vertex { x, y }
+        })
+        .collect();
 
-    // Allocate sectors
-    let sectors_ptr = z_malloc(
-        num_sectors * std::mem::size_of::<Sector>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut Sector;
-    for i in 0..num_sectors {
-        let floorheight = read_i16(&sectors_buf, i * 26) as i32 * FRACUNIT;
-        let ceilingheight = read_i16(&sectors_buf, i * 26 + 2) as i32 * FRACUNIT;
-        let floorpic_name = name_from_8(&sectors_buf[i * 26 + 4..i * 26 + 12]);
-        let ceilingpic_name = name_from_8(&sectors_buf[i * 26 + 12..i * 26 + 20]);
-        let lightlevel = read_i16(&sectors_buf, i * 26 + 20);
-        let special = read_i16(&sectors_buf, i * 26 + 22);
-        let tag = read_i16(&sectors_buf, i * 26 + 24);
+    // Build sectors
+    let mut sectors: Vec<Sector> = (0..num_sectors)
+        .map(|i| {
+            let floorheight = read_i16(&sectors_buf, i * 26) as i32 * FRACUNIT;
+            let ceilingheight = read_i16(&sectors_buf, i * 26 + 2) as i32 * FRACUNIT;
+            let floorpic_name = name_from_8(&sectors_buf[i * 26 + 4..i * 26 + 12]);
+            let ceilingpic_name = name_from_8(&sectors_buf[i * 26 + 12..i * 26 + 20]);
+            let lightlevel = read_i16(&sectors_buf, i * 26 + 20);
+            let special = read_i16(&sectors_buf, i * 26 + 22);
+            let tag = read_i16(&sectors_buf, i * 26 + 24);
+            let floorpic = if floorpic_name.is_empty() || floorpic_name == "-" {
+                0
+            } else {
+                r_check_flat_num_for_name(&floorpic_name).max(0) as i16
+            };
+            let ceilingpic = if ceilingpic_name.is_empty() || ceilingpic_name == "-" {
+                0
+            } else {
+                r_check_flat_num_for_name(&ceilingpic_name).max(0) as i16
+            };
+            Sector {
+                floorheight,
+                ceilingheight,
+                floorpic,
+                ceilingpic,
+                lightlevel,
+                special,
+                tag,
+                soundtraversed: 0,
+                soundtarget: None,
+                blockbox: [0, 0, 0, 0],
+                soundorg: DegenMobj {
+                    thinker: crate::game::d_think::Thinker::default(),
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                },
+                validcount: 0,
+                thinglist: None,
+                specialdata: None,
+                linecount: 0,
+                lines: Vec::new(),
+            }
+        })
+        .collect();
 
-        let floorpic = if floorpic_name.is_empty() || floorpic_name == "-" {
-            0
-        } else {
-            r_check_flat_num_for_name(&floorpic_name).max(0) as i16
-        };
-        let ceilingpic = if ceilingpic_name.is_empty() || ceilingpic_name == "-" {
-            0
-        } else {
-            r_check_flat_num_for_name(&ceilingpic_name).max(0) as i16
-        };
+    // Build sidedefs
+    let mut sides: Vec<SideDef> = (0..num_sidedefs)
+        .map(|i| {
+            let x = read_i16(&sidedefs_buf, i * 30) as i32 * FRACUNIT;
+            let y = read_i16(&sidedefs_buf, i * 30 + 2) as i32 * FRACUNIT;
+            let uppertex = name_from_8(&sidedefs_buf[i * 30 + 4..i * 30 + 12]);
+            let lowertex = name_from_8(&sidedefs_buf[i * 30 + 12..i * 30 + 20]);
+            let midtex = name_from_8(&sidedefs_buf[i * 30 + 20..i * 30 + 28]);
+            let sector_idx = read_i16(&sidedefs_buf, i * 30 + 28) as usize;
+            let sector_idx = if sector_idx < num_sectors { sector_idx } else { 0 };
+            let toptexture = if uppertex.is_empty() || uppertex == "-" {
+                0
+            } else {
+                r_check_texture_num_for_name(&uppertex).max(0) as i16
+            };
+            let bottomtexture = if lowertex.is_empty() || lowertex == "-" {
+                0
+            } else {
+                r_check_texture_num_for_name(&lowertex).max(0) as i16
+            };
+            let midtexture = if midtex.is_empty() || midtex == "-" {
+                0
+            } else {
+                r_check_texture_num_for_name(&midtex).max(0) as i16
+            };
+            SideDef {
+                textureoffset: x,
+                rowoffset: y,
+                toptexture,
+                bottomtexture,
+                midtexture,
+                sector_idx,
+            }
+        })
+        .collect();
 
-        unsafe {
-            let sec = sectors_ptr.add(i);
-            (*sec).floorheight = floorheight;
-            (*sec).ceilingheight = ceilingheight;
-            (*sec).floorpic = floorpic;
-            (*sec).ceilingpic = ceilingpic;
-            (*sec).lightlevel = lightlevel;
-            (*sec).special = special;
-            (*sec).tag = tag;
-            (*sec).soundtraversed = 0;
-            (*sec).soundtarget = ptr::null_mut();
-            (*sec).blockbox = [0, 0, 0, 0];
-            (*sec).soundorg = std::mem::zeroed();
-            (*sec).validcount = 0;
-            (*sec).thinglist = ptr::null_mut();
-            (*sec).specialdata = ptr::null_mut();
-            (*sec).linecount = 0;
-            (*sec).lines = ptr::null_mut();
-        }
-    }
+    // Build lines
+    let mut lines: Vec<Line> = (0..num_linedefs)
+        .map(|i| {
+            let v1_idx = read_i16(&linedefs_buf, i * 14) as usize;
+            let v2_idx = read_i16(&linedefs_buf, i * 14 + 2) as usize;
+            let flags = read_i16(&linedefs_buf, i * 14 + 4);
+            let special = read_i16(&linedefs_buf, i * 14 + 6);
+            let tag = read_i16(&linedefs_buf, i * 14 + 8);
+            let sidenum0 = read_i16(&linedefs_buf, i * 14 + 10);
+            let sidenum1 = read_i16(&linedefs_buf, i * 14 + 12);
 
-    // Allocate sidedefs
-    let sides_ptr = z_malloc(
-        num_sidedefs * std::mem::size_of::<SideDef>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut SideDef;
-    for i in 0..num_sidedefs {
-        let x = read_i16(&sidedefs_buf, i * 30) as i32 * FRACUNIT;
-        let y = read_i16(&sidedefs_buf, i * 30 + 2) as i32 * FRACUNIT;
-        let uppertex = name_from_8(&sidedefs_buf[i * 30 + 4..i * 30 + 12]);
-        let lowertex = name_from_8(&sidedefs_buf[i * 30 + 12..i * 30 + 20]);
-        let midtex = name_from_8(&sidedefs_buf[i * 30 + 20..i * 30 + 28]);
-        let sector_idx = read_i16(&sidedefs_buf, i * 30 + 28);
+            let v1_idx = v1_idx.min(num_vertexes.saturating_sub(1));
+            let v2_idx = v2_idx.min(num_vertexes.saturating_sub(1));
 
-        let toptexture = if uppertex.is_empty() || uppertex == "-" {
-            0
-        } else {
-            r_check_texture_num_for_name(&uppertex).max(0) as i16
-        };
-        let bottomtexture = if lowertex.is_empty() || lowertex == "-" {
-            0
-        } else {
-            r_check_texture_num_for_name(&lowertex).max(0) as i16
-        };
-        let midtexture = if midtex.is_empty() || midtex == "-" {
-            0
-        } else {
-            r_check_texture_num_for_name(&midtex).max(0) as i16
-        };
-
-        let sector_ptr = if sector_idx >= 0 && (sector_idx as usize) < num_sectors {
-            unsafe { sectors_ptr.add(sector_idx as usize) }
-        } else {
-            ptr::null_mut()
-        };
-
-        unsafe {
-            let side = sides_ptr.add(i);
-            (*side).textureoffset = x;
-            (*side).rowoffset = y;
-            (*side).toptexture = toptexture;
-            (*side).bottomtexture = bottomtexture;
-            (*side).midtexture = midtexture;
-            (*side).sector = sector_ptr;
-        }
-    }
-
-    // Allocate lines
-    let lines_ptr = z_malloc(
-        num_linedefs * std::mem::size_of::<Line>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut Line;
-    for i in 0..num_linedefs {
-        let v1_idx = read_i16(&linedefs_buf, i * 14) as usize;
-        let v2_idx = read_i16(&linedefs_buf, i * 14 + 2) as usize;
-        let flags = read_i16(&linedefs_buf, i * 14 + 4);
-        let special = read_i16(&linedefs_buf, i * 14 + 6);
-        let tag = read_i16(&linedefs_buf, i * 14 + 8);
-        let sidenum0 = read_i16(&linedefs_buf, i * 14 + 10);
-        let sidenum1 = read_i16(&linedefs_buf, i * 14 + 12);
-
-        let v1 = if v1_idx < num_vertexes {
-            unsafe { vertexes_ptr.add(v1_idx) }
-        } else {
-            ptr::null_mut()
-        };
-        let v2 = if v2_idx < num_vertexes {
-            unsafe { vertexes_ptr.add(v2_idx) }
-        } else {
-            ptr::null_mut()
-        };
-
-        let (dx, dy, bbox) = if !v1.is_null() && !v2.is_null() {
-            unsafe {
-                let v1x = (*v1).x;
-                let v1y = (*v1).y;
-                let v2x = (*v2).x;
-                let v2y = (*v2).y;
-                let left = v1x.min(v2x);
-                let right = v1x.max(v2x);
-                let bottom = v1y.min(v2y);
-                let top = v1y.max(v2y);
+            let (dx, dy, bbox) = if v1_idx < num_vertexes && v2_idx < num_vertexes {
+                let v1x = vertexes[v1_idx].x;
+                let v1y = vertexes[v1_idx].y;
+                let v2x = vertexes[v2_idx].x;
+                let v2y = vertexes[v2_idx].y;
                 (
                     v2x - v1x,
                     v2y - v1y,
-                    [top, bottom, left, right], // BOXTOP, BOXBOTTOM, BOXLEFT, BOXRIGHT
+                    [
+                        v1y.max(v2y),
+                        v1y.min(v2y),
+                        v1x.min(v2x),
+                        v1x.max(v2x),
+                    ],
                 )
-            }
-        } else {
-            (0, 0, [0, 0, 0, 0])
-        };
-
-        let slopetype = if dy == 0 {
-            SlopeType::Horizontal
-        } else if dx == 0 {
-            SlopeType::Vertical
-        } else if (dx as i64 * dy as i64) > 0 {
-            SlopeType::Positive
-        } else {
-            SlopeType::Negative
-        };
-
-        let front_side = if sidenum0 >= 0 && (sidenum0 as usize) < num_sidedefs {
-            unsafe { sides_ptr.add(sidenum0 as usize) }
-        } else {
-            ptr::null_mut()
-        };
-        let back_side = if sidenum1 >= 0 && (sidenum1 as usize) < num_sidedefs {
-            unsafe { sides_ptr.add(sidenum1 as usize) }
-        } else {
-            ptr::null_mut()
-        };
-
-        let frontsector = if !front_side.is_null() {
-            unsafe { (*front_side).sector }
-        } else {
-            ptr::null_mut()
-        };
-        let backsector = if !back_side.is_null() {
-            unsafe { (*back_side).sector }
-        } else {
-            ptr::null_mut()
-        };
-
-        unsafe {
-            let line = lines_ptr.add(i);
-            (*line).v1 = v1;
-            (*line).v2 = v2;
-            (*line).dx = dx;
-            (*line).dy = dy;
-            (*line).flags = flags;
-            (*line).special = special;
-            (*line).tag = tag;
-            (*line).sidenum = [sidenum0, sidenum1];
-            (*line).bbox = bbox;
-            (*line).slopetype = slopetype;
-            (*line).frontsector = frontsector;
-            (*line).backsector = backsector;
-            (*line).validcount = 0;
-            (*line).specialdata = ptr::null_mut();
-        }
-    }
-
-    // Allocate segs
-    let segs_ptr = z_malloc(
-        num_segs * std::mem::size_of::<Seg>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut Seg;
-    for i in 0..num_segs {
-        let v1_idx = read_i16(&segs_buf, i * 12) as usize;
-        let v2_idx = read_i16(&segs_buf, i * 12 + 2) as usize;
-        let angle_raw = read_i16(&segs_buf, i * 12 + 4) as u16;
-        let linedef_idx = read_i16(&segs_buf, i * 12 + 6) as usize;
-        let side = read_i16(&segs_buf, i * 12 + 8);
-        let offset = read_i16(&segs_buf, i * 12 + 10) as i32 * FRACUNIT;
-
-        let angle = (angle_raw as u32) << 16; // 16-bit BAM to 32-bit BAM
-
-        let v1 = if v1_idx < num_vertexes {
-            unsafe { vertexes_ptr.add(v1_idx) }
-        } else {
-            ptr::null_mut()
-        };
-        let v2 = if v2_idx < num_vertexes {
-            unsafe { vertexes_ptr.add(v2_idx) }
-        } else {
-            ptr::null_mut()
-        };
-
-        let linedef = if linedef_idx < num_linedefs {
-            unsafe { lines_ptr.add(linedef_idx) }
-        } else {
-            ptr::null_mut()
-        };
-
-        let (sidedef, frontsector, backsector) = if !linedef.is_null() {
-            unsafe {
-                let ld = &*linedef;
-                let side_idx = if side != 0 { ld.sidenum[1] } else { ld.sidenum[0] };
-                let sidedef_ptr = if side_idx >= 0 && (side_idx as usize) < num_sidedefs {
-                    sides_ptr.add(side_idx as usize)
-                } else {
-                    ptr::null_mut()
-                };
-                let fs = ld.frontsector;
-                let bs = ld.backsector;
-                (sidedef_ptr, fs, bs)
-            }
-        } else {
-            (ptr::null_mut(), ptr::null_mut(), ptr::null_mut())
-        };
-
-        unsafe {
-            let seg = segs_ptr.add(i);
-            (*seg).v1 = v1;
-            (*seg).v2 = v2;
-            (*seg).offset = offset;
-            (*seg).angle = angle;
-            (*seg).sidedef = sidedef;
-            (*seg).linedef = linedef;
-            (*seg).frontsector = frontsector;
-            (*seg).backsector = backsector;
-        }
-    }
-
-    // Allocate subsectors
-    let subsectors_ptr = z_malloc(
-        num_ssectors * std::mem::size_of::<Subsector>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut Subsector;
-    for i in 0..num_ssectors {
-        let numlines = read_i16(&ssectors_buf, i * 4);
-        let firstline = read_i16(&ssectors_buf, i * 4 + 2);
-
-        let seg_idx = firstline as usize;
-        let sector = if seg_idx < num_segs {
-            let seg = unsafe { &*segs_ptr.add(seg_idx) };
-            if seg.sidedef.is_null() {
-                seg.frontsector
             } else {
-                unsafe { (*seg.sidedef).sector }
+                (0, 0, [0, 0, 0, 0])
+            };
+
+            let slopetype = crate::rendering::slope_type_from_dx_dy(dx, dy);
+
+            let (frontsector_idx, backsector_idx) = if sidenum0 >= 0 && (sidenum0 as usize) < num_sidedefs {
+                let fs = sides[sidenum0 as usize].sector_idx;
+                let bs = if sidenum1 >= 0 && (sidenum1 as usize) < num_sidedefs {
+                    Some(sides[sidenum1 as usize].sector_idx)
+                } else {
+                    None
+                };
+                (fs, bs)
+            } else {
+                (0, None)
+            };
+
+            Line {
+                v1_idx,
+                v2_idx,
+                dx,
+                dy,
+                flags,
+                special,
+                tag,
+                sidenum: [sidenum0, sidenum1],
+                bbox,
+                slopetype,
+                frontsector_idx,
+                backsector_idx,
+                validcount: 0,
+                specialdata: None,
             }
-        } else {
-            ptr::null_mut()
-        };
+        })
+        .collect();
 
-        unsafe {
-            let ss = subsectors_ptr.add(i);
-            (*ss).sector = sector;
-            (*ss).numlines = numlines;
-            (*ss).firstline = firstline;
-        }
-    }
+    // Build segs
+    let mut segs: Vec<Seg> = (0..num_segs)
+        .map(|i| {
+            let v1_idx = read_i16(&segs_buf, i * 12) as usize;
+            let v2_idx = read_i16(&segs_buf, i * 12 + 2) as usize;
+            let angle_raw = read_i16(&segs_buf, i * 12 + 4) as u16;
+            let linedef_idx = read_i16(&segs_buf, i * 12 + 6) as usize;
+            let side = read_i16(&segs_buf, i * 12 + 8);
+            let offset = read_i16(&segs_buf, i * 12 + 10) as i32 * FRACUNIT;
+            let angle = (angle_raw as u32) << 16;
 
-    // Allocate nodes
-    let nodes_ptr = z_malloc(
-        num_nodes * std::mem::size_of::<Node>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut Node;
-    for i in 0..num_nodes {
-        let x = read_i16(&nodes_buf, i * 28) as i32 * FRACUNIT;
-        let y = read_i16(&nodes_buf, i * 28 + 2) as i32 * FRACUNIT;
-        let dx = read_i16(&nodes_buf, i * 28 + 4) as i32 * FRACUNIT;
-        let dy = read_i16(&nodes_buf, i * 28 + 6) as i32 * FRACUNIT;
-        // Doom node bbox order: right, top, left, bottom. We use: top(0), bottom(1), left(2), right(3)
-        let bbox_front_right = read_i16(&nodes_buf, i * 28 + 8) as i32 * FRACUNIT;
-        let bbox_front_top = read_i16(&nodes_buf, i * 28 + 10) as i32 * FRACUNIT;
-        let bbox_front_left = read_i16(&nodes_buf, i * 28 + 12) as i32 * FRACUNIT;
-        let bbox_front_bottom = read_i16(&nodes_buf, i * 28 + 14) as i32 * FRACUNIT;
-        let bbox_back_right = read_i16(&nodes_buf, i * 28 + 16) as i32 * FRACUNIT;
-        let bbox_back_top = read_i16(&nodes_buf, i * 28 + 18) as i32 * FRACUNIT;
-        let bbox_back_left = read_i16(&nodes_buf, i * 28 + 20) as i32 * FRACUNIT;
-        let bbox_back_bottom = read_i16(&nodes_buf, i * 28 + 22) as i32 * FRACUNIT;
-        let child0 = read_i16(&nodes_buf, i * 28 + 24) as u16;
-        let child1 = read_i16(&nodes_buf, i * 28 + 26) as u16;
+            let v1_idx = v1_idx.min(num_vertexes.saturating_sub(1));
+            let v2_idx = v2_idx.min(num_vertexes.saturating_sub(1));
 
-        unsafe {
-            let node = nodes_ptr.add(i);
-            (*node).x = x;
-            (*node).y = y;
-            (*node).dx = dx;
-            (*node).dy = dy;
-            // Bbox order: top(0), bottom(1), left(2), right(3)
-            (*node).bbox = [
-                [
-                    bbox_front_top,
-                    bbox_front_bottom,
-                    bbox_front_left,
-                    bbox_front_right,
+            let (sidedef_idx, frontsector_idx, backsector_idx) = if linedef_idx < num_linedefs {
+                let ld = &lines[linedef_idx];
+                let side_idx = if side != 0 { ld.sidenum[1] } else { ld.sidenum[0] };
+                let sidedef_idx = if side_idx >= 0 && (side_idx as usize) < num_sidedefs {
+                    side_idx as usize
+                } else {
+                    0
+                };
+                let fs = ld.frontsector_idx;
+                let bs = ld.backsector_idx.unwrap_or(fs);
+                (sidedef_idx, fs, bs)
+            } else {
+                (0, 0, 0)
+            };
+
+            Seg {
+                v1_idx,
+                v2_idx,
+                offset,
+                angle,
+                sidedef_idx,
+                linedef_idx,
+                frontsector_idx,
+                backsector_idx,
+            }
+        })
+        .collect();
+
+    // Build subsectors
+    let subsectors: Vec<Subsector> = (0..num_ssectors)
+        .map(|i| {
+            let numlines = read_i16(&ssectors_buf, i * 4);
+            let firstline = read_i16(&ssectors_buf, i * 4 + 2);
+            let seg_idx = firstline as usize;
+            let sector_idx = if seg_idx < segs.len() {
+                segs[seg_idx].frontsector_idx
+            } else {
+                0
+            };
+            Subsector {
+                sector_idx,
+                numlines,
+                firstline,
+            }
+        })
+        .collect();
+
+    // Build nodes
+    let nodes: Vec<Node> = (0..num_nodes)
+        .map(|i| {
+            let x = read_i16(&nodes_buf, i * 28) as i32 * FRACUNIT;
+            let y = read_i16(&nodes_buf, i * 28 + 2) as i32 * FRACUNIT;
+            let dx = read_i16(&nodes_buf, i * 28 + 4) as i32 * FRACUNIT;
+            let dy = read_i16(&nodes_buf, i * 28 + 6) as i32 * FRACUNIT;
+            let bbox_front_right = read_i16(&nodes_buf, i * 28 + 8) as i32 * FRACUNIT;
+            let bbox_front_top = read_i16(&nodes_buf, i * 28 + 10) as i32 * FRACUNIT;
+            let bbox_front_left = read_i16(&nodes_buf, i * 28 + 12) as i32 * FRACUNIT;
+            let bbox_front_bottom = read_i16(&nodes_buf, i * 28 + 14) as i32 * FRACUNIT;
+            let bbox_back_right = read_i16(&nodes_buf, i * 28 + 16) as i32 * FRACUNIT;
+            let bbox_back_top = read_i16(&nodes_buf, i * 28 + 18) as i32 * FRACUNIT;
+            let bbox_back_left = read_i16(&nodes_buf, i * 28 + 20) as i32 * FRACUNIT;
+            let bbox_back_bottom = read_i16(&nodes_buf, i * 28 + 22) as i32 * FRACUNIT;
+            let child0 = read_i16(&nodes_buf, i * 28 + 24) as u16;
+            let child1 = read_i16(&nodes_buf, i * 28 + 26) as u16;
+            Node {
+                x,
+                y,
+                dx,
+                dy,
+                bbox: [
+                    [
+                        bbox_front_top,
+                        bbox_front_bottom,
+                        bbox_front_left,
+                        bbox_front_right,
+                    ],
+                    [
+                        bbox_back_top,
+                        bbox_back_bottom,
+                        bbox_back_left,
+                        bbox_back_right,
+                    ],
                 ],
-                [
-                    bbox_back_top,
-                    bbox_back_bottom,
-                    bbox_back_left,
-                    bbox_back_right,
-                ],
-            ];
-            (*node).children = [child0, child1];
-        }
-    }
+                children: [child0, child1],
+            }
+        })
+        .collect();
 
     // Set rendering state
     state::with_state_mut(|s| {
         s.numvertexes = num_vertexes as i32;
-        s.vertexes = vertexes_ptr;
+        s.vertexes = vertexes;
         s.numsegs = num_segs as i32;
-        s.segs = segs_ptr;
+        s.segs = segs;
         s.numsectors = num_sectors as i32;
-        s.sectors = sectors_ptr;
+        s.sectors = sectors;
         s.numsubsectors = num_ssectors as i32;
-        s.subsectors = subsectors_ptr;
+        s.subsectors = subsectors;
         s.numnodes = num_nodes as i32;
-        s.nodes = nodes_ptr;
+        s.nodes = nodes;
         s.numlines = num_linedefs as i32;
-        s.lines = lines_ptr;
+        s.lines = lines;
         s.numsides = num_sidedefs as i32;
-        s.sides = sides_ptr;
+        s.sides = sides;
     });
 
     // Load REJECT (lump 9) - for P_CheckSight
@@ -469,7 +379,7 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
     p_load_blockmap(blockmap_lump);
 
     // Build sector line lists and blockboxes
-    p_group_lines(num_sectors, num_linedefs, sectors_ptr, lines_ptr);
+    p_group_lines();
 
     // Initialize thinkers and spawn map things
     super::p_tick::p_init_thinkers();
@@ -514,18 +424,13 @@ fn p_load_reject(lump: usize, num_sectors: usize) {
     let lumplen = w_lump_length(lump) as usize;
     let copy_len = lumplen.min(minlength);
 
-    let ptr = z_malloc(minlength, PU_LEVEL, ptr::null_mut()) as *mut u8;
-    let mut buf = vec![0u8; lumplen.max(1)];
+    let mut reject = vec![0u8; minlength];
     if lumplen > 0 {
+        let mut buf = vec![0u8; lumplen];
         w_read_lump(lump, &mut buf);
+        reject[..copy_len].copy_from_slice(&buf[..copy_len]);
     }
-    unsafe {
-        ptr::copy_nonoverlapping(buf.as_ptr(), ptr, copy_len);
-        if copy_len < minlength {
-            ptr::write_bytes(ptr.add(copy_len), 0, minlength - copy_len);
-        }
-        state::with_state_mut(|s| s.rejectmatrix = ptr);
-    }
+    state::with_state_mut(|s| s.rejectmatrix = reject);
 }
 
 /// Load blockmap from WAD. Original: P_LoadBlockMap
@@ -535,145 +440,116 @@ fn p_load_blockmap(lump: usize) {
         return;
     }
     let count = lumplen / 2;
-    let blockmaplump_ptr = z_malloc(count * 2, PU_LEVEL, ptr::null_mut()) as *mut i16;
+    let mut blockmaplump = vec![0i16; count];
     let mut buf = vec![0u8; lumplen];
     w_read_lump(lump, &mut buf);
     for i in 0..count {
-        unsafe {
-            *blockmaplump_ptr.add(i) = read_i16(&buf, i * 2) as i16;
-        }
+        blockmaplump[i] = read_i16(&buf, i * 2) as i16;
     }
-    let blockmap_ptr = unsafe { blockmaplump_ptr.add(4) };
-    let bmaporgx = (unsafe { *blockmaplump_ptr } as i32) << FRACBITS;
-    let bmaporgy = (unsafe { *blockmaplump_ptr.add(1) } as i32) << FRACBITS;
-    let bmapwidth = unsafe { *blockmaplump_ptr.add(2) } as i32;
-    let bmapheight = unsafe { *blockmaplump_ptr.add(3) } as i32;
+    let bmaporgx = (blockmaplump[0] as i32) << FRACBITS;
+    let bmaporgy = (blockmaplump[1] as i32) << FRACBITS;
+    let bmapwidth = blockmaplump[2] as i32;
+    let bmapheight = blockmaplump[3] as i32;
     let blocklinks_count = (bmapwidth * bmapheight) as usize;
-    let blocklinks_ptr =
-        z_malloc(blocklinks_count * std::mem::size_of::<*mut std::ffi::c_void>(), PU_LEVEL, ptr::null_mut())
-            as *mut *mut std::ffi::c_void;
-    unsafe {
-        ptr::write_bytes(blocklinks_ptr, 0, blocklinks_count);
-    }
+    let blocklinks = vec![std::ptr::null_mut::<std::ffi::c_void>(); blocklinks_count];
     state::with_state_mut(|s| {
-        s.blockmaplump = blockmaplump_ptr;
-        s.blockmap = blockmap_ptr;
+        s.blockmaplump = blockmaplump;
         s.bmaporgx = bmaporgx;
         s.bmaporgy = bmaporgy;
         s.bmapwidth = bmapwidth;
         s.bmapheight = bmapheight;
-        s.blocklinks = blocklinks_ptr;
+        s.blocklinks = blocklinks;
     });
 }
 
 /// Build sector line lists and blockboxes. Original: P_GroupLines
-fn p_group_lines(
-    num_sectors: usize,
-    num_lines: usize,
-    sectors_ptr: *mut Sector,
-    lines_ptr: *mut Line,
-) {
-    // Count lines per sector
-    for i in 0..num_lines {
-        let li = unsafe { &*lines_ptr.add(i) };
-        if !li.frontsector.is_null() {
-            unsafe {
-                (*li.frontsector).linecount += 1;
+fn p_group_lines() {
+    state::with_state_mut(|s| {
+        let num_sectors = s.sectors.len();
+        let num_lines = s.lines.len();
+        let vertexes = &s.vertexes;
+
+        // Reset linecount and lines for each sector
+        for sector in s.sectors.iter_mut() {
+            sector.linecount = 0;
+            sector.lines.clear();
+        }
+
+        // First pass: count lines per sector
+        for i in 0..num_lines {
+            let line = &s.lines[i];
+            let fs = line.frontsector_idx;
+            if fs < num_sectors {
+                s.sectors[fs].linecount += 1;
+            }
+            if let Some(bs) = line.backsector_idx {
+                if bs < num_sectors && bs != fs {
+                    s.sectors[bs].linecount += 1;
+                }
             }
         }
-        if !li.backsector.is_null() && li.backsector != li.frontsector {
-            unsafe {
-                (*li.backsector).linecount += 1;
+
+        // Pre-allocate lines Vec for each sector
+        for sector in s.sectors.iter_mut() {
+            sector.lines.reserve(sector.linecount as usize);
+        }
+
+        // Second pass: add line indices to each sector's lines
+        for i in 0..num_lines {
+            let line = &s.lines[i];
+            let fs = line.frontsector_idx;
+            if fs < num_sectors {
+                s.sectors[fs].lines.push(i);
+            }
+            if let Some(bs) = line.backsector_idx {
+                if bs < num_sectors && bs != fs {
+                    s.sectors[bs].lines.push(i);
+                }
             }
         }
-    }
 
-    let totallines: i32 = (0..num_sectors)
-        .map(|i| unsafe { (*sectors_ptr.add(i)).linecount })
-        .sum();
+        let (bmaporgx, bmaporgy, bmapwidth, bmapheight) =
+            (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight);
 
-    let linebuffer_ptr = z_malloc(
-        (totallines as usize) * std::mem::size_of::<*mut Line>(),
-        PU_LEVEL,
-        ptr::null_mut(),
-    ) as *mut *mut Line;
-
-    let mut linebuffer_offset = 0usize;
-    for i in 0..num_sectors {
-        let sec = unsafe { sectors_ptr.add(i) };
-        let linecount = unsafe { (*sec).linecount } as usize;
-        unsafe {
-            (*sec).lines = linebuffer_ptr.add(linebuffer_offset);
-            (*sec).linecount = 0;
-        }
-        linebuffer_offset += linecount;
-    }
-
-    for i in 0..num_lines {
-        let li = unsafe { lines_ptr.add(i) };
-        let line = unsafe { &*li };
-        if !line.frontsector.is_null() {
-            let sector = line.frontsector;
-            let idx = unsafe { (*sector).linecount } as usize;
-            unsafe {
-                *((*sector).lines.add(idx)) = li;
-                (*sector).linecount += 1;
+        // Compute blockboxes and soundorg for each sector
+        for sector in s.sectors.iter_mut() {
+            let mut bbox: [Fixed; 4] = [0; 4];
+            m_clear_box(&mut bbox);
+            for &line_idx in &sector.lines {
+                if line_idx < num_lines {
+                    let line = &s.lines[line_idx];
+                    let v1_idx = line.v1_idx;
+                    let v2_idx = line.v2_idx;
+                    if v1_idx < vertexes.len() {
+                        let v = &vertexes[v1_idx];
+                        m_add_to_box(&mut bbox, v.x, v.y);
+                    }
+                    if v2_idx < vertexes.len() {
+                        let v = &vertexes[v2_idx];
+                        m_add_to_box(&mut bbox, v.x, v.y);
+                    }
+                }
             }
+            let (bx_top, bx_bottom, bx_left, bx_right) = (
+                bbox[BOXTOP],
+                bbox[BOXBOTTOM],
+                bbox[BOXLEFT],
+                bbox[BOXRIGHT],
+            );
+            sector.soundorg.x = (bx_right + bx_left) / 2;
+            sector.soundorg.y = (bx_top + bx_bottom) / 2;
+            let mut block = (bx_top - bmaporgy + MAXRADIUS) >> MAPBLOCKSHIFT;
+            block = if block >= bmapheight { bmapheight - 1 } else { block };
+            sector.blockbox[BOXTOP] = block;
+            let mut block = (bx_bottom - bmaporgy - MAXRADIUS) >> MAPBLOCKSHIFT;
+            block = if block < 0 { 0 } else { block };
+            sector.blockbox[BOXBOTTOM] = block;
+            let mut block = (bx_right - bmaporgx + MAXRADIUS) >> MAPBLOCKSHIFT;
+            block = if block >= bmapwidth { bmapwidth - 1 } else { block };
+            sector.blockbox[BOXRIGHT] = block;
+            let mut block = (bx_left - bmaporgx - MAXRADIUS) >> MAPBLOCKSHIFT;
+            block = if block < 0 { 0 } else { block };
+            sector.blockbox[BOXLEFT] = block;
         }
-        if !line.backsector.is_null() && line.backsector != line.frontsector {
-            let sector = line.backsector;
-            let idx = unsafe { (*sector).linecount } as usize;
-            unsafe {
-                *((*sector).lines.add(idx)) = li;
-                (*sector).linecount += 1;
-            }
-        }
-    }
-
-    let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = state::with_state(|s| {
-        (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight)
     });
-
-    for i in 0..num_sectors {
-        let sector = unsafe { sectors_ptr.add(i) };
-        let mut bbox: [Fixed; 4] = [0; 4];
-        m_clear_box(&mut bbox);
-        let linecount = unsafe { (*sector).linecount } as usize;
-        for j in 0..linecount {
-            let li = unsafe { *((*sector).lines.add(j)) };
-            if !li.is_null() {
-                let line = unsafe { &*li };
-                if !line.v1.is_null() {
-                    let v = unsafe { &*line.v1 };
-                    m_add_to_box(&mut bbox, v.x, v.y);
-                }
-                if !line.v2.is_null() {
-                    let v = unsafe { &*line.v2 };
-                    m_add_to_box(&mut bbox, v.x, v.y);
-                }
-            }
-        }
-        let (bx_top, bx_bottom, bx_left, bx_right) = (
-            bbox[BOXTOP],
-            bbox[BOXBOTTOM],
-            bbox[BOXLEFT],
-            bbox[BOXRIGHT],
-        );
-        unsafe {
-            (*sector).soundorg.x = (bx_right + bx_left) / 2;
-            (*sector).soundorg.y = (bx_top + bx_bottom) / 2;
-        }
-        let mut block = (bx_top - bmaporgy + MAXRADIUS) >> MAPBLOCKSHIFT;
-        block = if block >= bmapheight { bmapheight - 1 } else { block };
-        unsafe { (*sector).blockbox[BOXTOP] = block };
-        let mut block = (bx_bottom - bmaporgy - MAXRADIUS) >> MAPBLOCKSHIFT;
-        block = if block < 0 { 0 } else { block };
-        unsafe { (*sector).blockbox[BOXBOTTOM] = block };
-        let mut block = (bx_right - bmaporgx + MAXRADIUS) >> MAPBLOCKSHIFT;
-        block = if block >= bmapwidth { bmapwidth - 1 } else { block };
-        unsafe { (*sector).blockbox[BOXRIGHT] = block };
-        let mut block = (bx_left - bmaporgx - MAXRADIUS) >> MAPBLOCKSHIFT;
-        block = if block < 0 { 0 } else { block };
-        unsafe { (*sector).blockbox[BOXLEFT] = block };
-    }
 }

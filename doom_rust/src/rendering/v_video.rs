@@ -1,3 +1,5 @@
+// TODO(UNSAFE_ELIMINATION): Remove when migrated to Vec + indices
+#[allow(unsafe_code)]
 //
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard

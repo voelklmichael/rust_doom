@@ -10,7 +10,6 @@
 
 use crate::doomdef::SCREENWIDTH_USIZE;
 use crate::m_fixed::Fixed;
-use crate::player::p_mobj::Mobj;
 
 // =============================================================================
 // Public API (from .h)
@@ -58,8 +57,8 @@ pub struct DegenMobj {
 }
 
 /// Sector - runtime record, stores things/mobjs.
-#[repr(C)]
-#[derive(Debug)]
+/// Uses indices for thinglist/soundtarget (MobjIndex) and lines (Vec<usize>).
+#[derive(Debug, Clone)]
 pub struct Sector {
     pub floorheight: Fixed,
     pub ceilingheight: Fixed,
@@ -69,18 +68,17 @@ pub struct Sector {
     pub special: i16,
     pub tag: i16,
     pub soundtraversed: i32,
-    pub soundtarget: *mut Mobj,
+    pub soundtarget: Option<crate::player::mobjs::MobjIndex>,
     pub blockbox: [i32; 4],
     pub soundorg: DegenMobj,
     pub validcount: i32,
-    pub thinglist: *mut Mobj,
-    pub specialdata: *mut std::ffi::c_void,
+    pub thinglist: Option<crate::player::mobjs::MobjIndex>,
+    pub specialdata: Option<usize>,
     pub linecount: i32,
-    pub lines: *mut *mut Line,
+    pub lines: Vec<usize>,
 }
 
-/// SideDef.
-#[repr(C)]
+/// SideDef. sector_idx indexes into sectors Vec.
 #[derive(Debug, Clone, Copy)]
 pub struct SideDef {
     pub textureoffset: Fixed,
@@ -88,7 +86,7 @@ pub struct SideDef {
     pub toptexture: i16,
     pub bottomtexture: i16,
     pub midtexture: i16,
-    pub sector: *mut Sector,
+    pub sector_idx: usize,
 }
 
 /// Slope type for line clipping.
@@ -101,12 +99,11 @@ pub enum SlopeType {
     Negative = 3,
 }
 
-/// LineDef.
-#[repr(C)]
-#[derive(Debug)]
+/// LineDef. v1_idx, v2_idx index vertexes; frontsector_idx, backsector_idx index sectors.
+#[derive(Debug, Clone)]
 pub struct Line {
-    pub v1: *mut Vertex,
-    pub v2: *mut Vertex,
+    pub v1_idx: usize,
+    pub v2_idx: usize,
     pub dx: Fixed,
     pub dy: Fixed,
     pub flags: i16,
@@ -115,33 +112,31 @@ pub struct Line {
     pub sidenum: [i16; 2],
     pub bbox: [Fixed; 4],
     pub slopetype: SlopeType,
-    pub frontsector: *mut Sector,
-    pub backsector: *mut Sector,
+    pub frontsector_idx: usize,
+    pub backsector_idx: Option<usize>,
     pub validcount: i32,
-    pub specialdata: *mut std::ffi::c_void,
+    pub specialdata: Option<usize>,
 }
 
-/// SubSector - BSP leaf, list of line segs.
-#[repr(C)]
+/// SubSector - BSP leaf, list of line segs. sector_idx indexes sectors.
 #[derive(Debug, Clone, Copy)]
 pub struct Subsector {
-    pub sector: *mut Sector,
+    pub sector_idx: usize,
     pub numlines: i16,
     pub firstline: i16,
 }
 
-/// LineSeg.
-#[repr(C)]
+/// LineSeg. All *_idx fields index into respective Vecs in RenderState.
 #[derive(Debug)]
 pub struct Seg {
-    pub v1: *mut Vertex,
-    pub v2: *mut Vertex,
+    pub v1_idx: usize,
+    pub v2_idx: usize,
     pub offset: Fixed,
     pub angle: Angle,
-    pub sidedef: *mut SideDef,
-    pub linedef: *mut Line,
-    pub frontsector: *mut Sector,
-    pub backsector: *mut Sector,
+    pub sidedef_idx: usize,
+    pub linedef_idx: usize,
+    pub frontsector_idx: usize,
+    pub backsector_idx: usize,
 }
 
 /// BSP node.
@@ -217,7 +212,7 @@ pub struct Spritedef {
 
 /// Visplane - floor/ceiling plane for rendering.
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Visplane {
     pub height: Fixed,
     pub picnum: i32,

@@ -1,4 +1,3 @@
-//
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
 //
@@ -9,7 +8,7 @@
 
 use crate::geometry::{ANG180, ANG90, ANGLETOFINESHIFT, FINEANGLES};
 use crate::m_fixed::Fixed;
-use crate::rendering::defs::{Line, Sector, Seg, SideDef};
+use crate::rendering::defs::{Seg, SideDef};
 use crate::rendering::m_bbox::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 use crate::rendering::r_main::{r_point_on_side, r_point_to_angle, NF_SUBSECTOR};
 use crate::rendering::r_plane;
@@ -17,7 +16,6 @@ use crate::rendering::r_segs;
 use crate::rendering::r_sky;
 use crate::rendering::r_things;
 use crate::rendering::state;
-use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
 // =============================================================================
@@ -157,10 +155,7 @@ fn r_clip_pass_wall_segment(first: i32, last: i32) {
 
         let mut idx = start_idx;
         while last >= solidsegs[idx + 1].first - 1 {
-            r_segs::r_store_wall_range(
-                solidsegs[idx].last + 1,
-                solidsegs[idx + 1].first - 1,
-            );
+            r_segs::r_store_wall_range(solidsegs[idx].last + 1, solidsegs[idx + 1].first - 1);
             idx += 1;
 
             if last <= solidsegs[idx].last {
@@ -198,22 +193,40 @@ pub fn r_clear_draw_segs() {
 // R_AddLine
 // =============================================================================
 
-fn r_add_line(line: *mut Seg) {
-    let viewangle = state::with_state(|s| s.viewangle);
-    let clipangle = state::with_state(|s| s.clipangle);
+fn r_add_line(seg_idx: usize) {
+    let action = state::with_state_mut(|s| {
+        let viewangle = s.viewangle;
+        let clipangle = s.clipangle;
+        let seg = match s.segs.get(seg_idx) {
+            Some(seg) => seg,
+            None => return None,
+        };
 
-    unsafe {
-        state::with_state_mut(|s| s.curline = line);
+        s.curline_idx = Some(seg_idx);
 
-        let angle1 = r_point_to_angle((*(*line).v1).x, (*(*line).v1).y);
-        let angle2 = r_point_to_angle((*(*line).v2).x, (*(*line).v2).y);
+        let (v1x, v1y, v2x, v2y) = {
+            let v1 = s
+                .vertexes
+                .get(seg.v1_idx)
+                .copied()
+                .unwrap_or(crate::rendering::defs::Vertex { x: 0, y: 0 });
+            let v2 = s
+                .vertexes
+                .get(seg.v2_idx)
+                .copied()
+                .unwrap_or(crate::rendering::defs::Vertex { x: 0, y: 0 });
+            (v1.x, v1.y, v2.x, v2.y)
+        };
+
+        let angle1 = r_point_to_angle(v1x, v1y);
+        let angle2 = r_point_to_angle(v2x, v2y);
 
         let span = angle1.wrapping_sub(angle2);
         if span >= ANG180 {
-            return;
+            return None;
         }
 
-        state::with_state_mut(|s| s.rw_angle1 = angle1 as i32);
+        s.rw_angle1 = angle1 as i32;
         let mut angle1 = angle1.wrapping_sub(viewangle);
         let mut angle2 = angle2.wrapping_sub(viewangle);
 
@@ -223,7 +236,7 @@ fn r_add_line(line: *mut Seg) {
         if tspan > two_clip {
             tspan = tspan.wrapping_sub(two_clip);
             if tspan >= span {
-                return;
+                return None;
             }
             angle1 = clipangle;
         }
@@ -231,54 +244,53 @@ fn r_add_line(line: *mut Seg) {
         if tspan > two_clip {
             tspan = tspan.wrapping_sub(two_clip);
             if tspan >= span {
-                return;
+                return None;
             }
             angle2 = clipangle.wrapping_neg();
         }
 
         let angle1_idx = ((angle1 + ANG90) >> ANGLETOFINESHIFT) as usize;
         let angle2_idx = ((angle2 + ANG90) >> ANGLETOFINESHIFT) as usize;
-        let x1 = state::with_state(|s| s.viewangletox[angle1_idx.min(FINEANGLES / 2 - 1)]);
-        let x2 = state::with_state(|s| s.viewangletox[angle2_idx.min(FINEANGLES / 2 - 1)]);
+        let x1 = s.viewangletox[angle1_idx.min(FINEANGLES / 2 - 1)];
+        let x2 = s.viewangletox[angle2_idx.min(FINEANGLES / 2 - 1)];
 
         if x1 == x2 {
-            return;
+            return None;
         }
 
-        state::with_state_mut(|s| s.backsector = (*line).backsector);
+        s.backsector_idx = Some(seg.backsector_idx);
 
-        if state::with_state(|s| s.backsector.is_null()) {
+        let front_idx = s.frontsector_idx.unwrap_or(0);
+        let back_idx = seg.backsector_idx;
+
+        return match (s.sectors.get(front_idx), s.sectors.get(back_idx)) {
+            (Some(front), Some(back)) => {
+                let solid = back.ceilingheight <= front.floorheight
+                    || back.floorheight >= front.ceilingheight;
+                let pass = back.ceilingheight != front.ceilingheight
+                    || back.floorheight != front.floorheight;
+                let skip = s
+                    .sides
+                    .get(seg.sidedef_idx)
+                    .map(|sd| {
+                        back.ceilingpic == front.ceilingpic
+                            && back.floorpic == front.floorpic
+                            && back.lightlevel == front.lightlevel
+                            && sd.midtexture == 0
+                    })
+                    .unwrap_or(false);
+                Some((x1, x2, solid, pass, skip))
+            }
+            _ => Some((x1, x2, true, false, false)),
+        };
+    });
+
+    if let Some((x1, x2, solid, pass, skip)) = action {
+        if solid {
             r_clip_solid_wall_segment(x1, x2 - 1);
-            return;
-        }
-
-        let front = state::with_state(|s| s.frontsector);
-        let back = state::with_state(|s| s.backsector);
-
-        if (*back).ceilingheight <= (*front).floorheight
-            || (*back).floorheight >= (*front).ceilingheight
-        {
-            r_clip_solid_wall_segment(x1, x2 - 1);
-            return;
-        }
-
-        if (*back).ceilingheight != (*front).ceilingheight
-            || (*back).floorheight != (*front).floorheight
-        {
+        } else if pass || !skip {
             r_clip_pass_wall_segment(x1, x2 - 1);
-            return;
         }
-
-        let sidedef = (*line).sidedef;
-        if (*back).ceilingpic == (*front).ceilingpic
-            && (*back).floorpic == (*front).floorpic
-            && (*back).lightlevel == (*front).lightlevel
-            && (*sidedef).midtexture == 0
-        {
-            return;
-        }
-
-        r_clip_pass_wall_segment(x1, x2 - 1);
     }
 }
 
@@ -394,59 +406,58 @@ fn r_check_bbox(bspcoord: &[Fixed; 4]) -> bool {
 // =============================================================================
 
 fn r_subsector(num: usize) {
-    unsafe {
-        state::with_state_mut(|s| s.sscount += 1);
+    state::with_state_mut(|s| s.sscount += 1);
 
-        let numsubsectors = state::with_state(|s| s.numsubsectors) as usize;
+    let (sub, frontsector_idx, firstline, count) = state::with_state(|s| {
+        let numsubsectors = s.numsubsectors as usize;
         if num >= numsubsectors {
-            return;
+            return (None, 0, 0, 0);
         }
+        let sub = s.subsectors.get(num).cloned();
+        let (fs, fl, c) = sub
+            .as_ref()
+            .map(|sub| {
+                (
+                    sub.sector_idx,
+                    sub.firstline as usize,
+                    sub.numlines as usize,
+                )
+            })
+            .unwrap_or((0, 0, 0));
+        (sub, fs, fl, c)
+    });
 
-        let subsectors = state::with_state(|s| s.subsectors);
-        let segs = state::with_state(|s| s.segs);
-        if subsectors.is_null() || segs.is_null() {
-            return;
-        }
+    if sub.is_none() || count == 0 {
+        return;
+    }
 
-        let sub = &*subsectors.add(num);
-        state::with_state_mut(|s| s.frontsector = (*sub).sector);
+    state::with_state_mut(|s| s.frontsector_idx = Some(frontsector_idx));
 
-        let count = (*sub).numlines as usize;
-        let mut line = segs.add((*sub).firstline as usize);
-
-        let viewz = state::with_state(|s| s.viewz);
-        let frontsector = state::with_state(|s| s.frontsector);
-        let floorplane = if (*frontsector).floorheight < viewz {
-            r_plane::r_find_plane(
-                (*frontsector).floorheight,
-                (*frontsector).floorpic as i32,
-                (*frontsector).lightlevel as i32,
-            )
-        } else {
-            std::ptr::null_mut()
-        };
-        state::with_state_mut(|s| s.floorplane = floorplane);
-
+    let (floorplane, ceilingplane) = state::with_state(|s| {
+        let viewz = s.viewz;
+        let front = s.sectors.get(frontsector_idx);
+        let floorplane = front
+            .filter(|f| f.floorheight < viewz)
+            .map(|f| r_plane::r_find_plane(f.floorheight, f.floorpic as i32, f.lightlevel as i32))
+            .unwrap_or(std::ptr::null_mut());
         let skyflatnum = r_sky::with_r_sky_state(|rs| rs.skyflatnum);
-        let ceilingplane = if (*frontsector).ceilingheight > viewz
-            || (*frontsector).ceilingpic as i32 == skyflatnum
-        {
-            r_plane::r_find_plane(
-                (*frontsector).ceilingheight,
-                (*frontsector).ceilingpic as i32,
-                (*frontsector).lightlevel as i32,
-            )
-        } else {
-            std::ptr::null_mut()
-        };
-        state::with_state_mut(|s| s.ceilingplane = ceilingplane);
+        let ceilingplane = front
+            .filter(|f| f.ceilingheight > viewz || f.ceilingpic as i32 == skyflatnum)
+            .map(|f| {
+                r_plane::r_find_plane(f.ceilingheight, f.ceilingpic as i32, f.lightlevel as i32)
+            })
+            .unwrap_or(std::ptr::null_mut());
+        (floorplane, ceilingplane)
+    });
+    state::with_state_mut(|s| {
+        s.floorplane = floorplane;
+        s.ceilingplane = ceilingplane;
+    });
 
-        r_things::r_add_sprites(frontsector);
+    r_things::r_add_sprites(frontsector_idx);
 
-        for _ in 0..count {
-            r_add_line(line);
-            line = line.add(1);
-        }
+    for i in 0..count {
+        r_add_line(firstline + i);
     }
 }
 
@@ -455,9 +466,6 @@ fn r_subsector(num: usize) {
 // =============================================================================
 
 pub fn r_render_bsp_node(bspnum: i32) {
-    let numnodes = state::with_state(|s| s.numnodes);
-    let nodes = state::with_state(|s| s.nodes);
-
     if bspnum & (NF_SUBSECTOR as i32) != 0 {
         let num = if bspnum == -1 {
             0
@@ -469,24 +477,24 @@ pub fn r_render_bsp_node(bspnum: i32) {
     }
 
     let bspnum = bspnum as usize;
-    if nodes.is_null() || bspnum >= numnodes as usize {
-        return;
-    }
-
-    unsafe {
-        let bsp = nodes.add(bspnum);
-        let side = r_point_on_side(
-            state::with_state(|s| s.viewx),
-            state::with_state(|s| s.viewy),
-            &*bsp,
-        );
-
-        r_render_bsp_node((*bsp).children[side as usize] as i32);
-
+    let (child0, child1, bbox1) = state::with_state(|s| {
+        if bspnum >= s.nodes.len() {
+            return (0u16, 0u16, None);
+        }
+        let bsp = &s.nodes[bspnum];
+        let side = r_point_on_side(s.viewx, s.viewy, bsp);
         let other_side = side ^ 1;
-        let bbox = &(*bsp).bbox[other_side as usize];
-        if r_check_bbox(bbox) {
-            r_render_bsp_node((*bsp).children[other_side as usize] as i32);
+        (
+            bsp.children[side as usize],
+            bsp.children[other_side as usize],
+            Some(bsp.bbox[other_side as usize]),
+        )
+    });
+
+    if let Some(bbox) = bbox1 {
+        r_render_bsp_node(child0 as i32);
+        if r_check_bbox(&bbox) {
+            r_render_bsp_node(child1 as i32);
         }
     }
 }

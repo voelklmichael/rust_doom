@@ -1,3 +1,5 @@
+// TODO(UNSAFE_ELIMINATION): Remove when migrated to Vec + indices
+#[allow(unsafe_code)]
 //
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
@@ -9,7 +11,7 @@
 
 use crate::geometry::{finesine, finecosine, finetangent, ANG90, ANG180, ANGLETOFINESHIFT};
 use crate::m_fixed::{fixed_mul, Fixed, FRACBITS};
-use crate::rendering::defs::{Line, SideDef, SIL_BOTH, SIL_BOTTOM, SIL_TOP, MAXDRAWSEGS};
+use crate::rendering::defs::{Line, Seg, SideDef, SIL_BOTH, SIL_BOTTOM, SIL_TOP, MAXDRAWSEGS};
 use crate::rendering::r_data::r_get_column;
 use crate::rendering::r_draw::{colfunc, with_r_draw_state_mut};
 use crate::rendering::r_main::{
@@ -322,34 +324,70 @@ fn r_store_wall_range_inner(
         return;
     }
 
-    let curline = state::with_state(|s| s.curline);
-    let frontsector = state::with_state(|s| s.frontsector);
-    let backsector = state::with_state(|s| s.backsector);
+    let (curline_idx, curline_ptr, frontsector_idx, backsector_idx, sidedef_idx, linedef_idx, frontsector, backsector, v1x, v1y, v2x, v2y, curline_offset, rw_normalangle) = state::with_state(|s| {
+        let curline_idx = match s.curline_idx {
+            Some(idx) => idx,
+            None => return (None, std::ptr::null_mut(), None, None, None, None, None, None, 0, 0, 0, 0, 0, 0u32),
+        };
+        let curline = match s.segs.get(curline_idx) {
+            Some(seg) => seg,
+            None => return (None, std::ptr::null_mut(), None, None, None, None, None, None, 0, 0, 0, 0, 0, 0u32),
+        };
+        let curline_ptr = curline as *const _ as *mut Seg;
+        let v1 = s.vertexes.get(curline.v1_idx).copied().unwrap_or(crate::rendering::defs::Vertex { x: 0, y: 0 });
+        let v2 = s.vertexes.get(curline.v2_idx).copied().unwrap_or(crate::rendering::defs::Vertex { x: 0, y: 0 });
+        let frontsector = s.frontsector_idx.and_then(|i| s.sectors.get(i).cloned());
+        let backsector = s.backsector_idx.and_then(|i| s.sectors.get(i).cloned());
+        let sidedef = s.sides.get(curline.sidedef_idx).cloned();
+        let linedef = s.lines.get(curline.linedef_idx).cloned();
+        let rw_normalangle = curline.angle + ANG90;
+        (
+            Some(curline_idx),
+            curline_ptr,
+            s.frontsector_idx,
+            s.backsector_idx,
+            Some(curline.sidedef_idx),
+            Some(curline.linedef_idx),
+            frontsector,
+            backsector,
+            v1.x,
+            v1.y,
+            v2.x,
+            v2.y,
+            curline.offset,
+            rw_normalangle,
+        )
+    });
 
-    if curline.is_null() || frontsector.is_null() {
+    if curline_idx.is_none() || frontsector.is_none() {
         return;
     }
 
-    let sidedef = unsafe { (*curline).sidedef };
-    let linedef = unsafe { (*curline).linedef };
+    let frontsector = frontsector.as_ref().unwrap();
+    let backsector = backsector.as_ref();
+    let sidedef = state::with_state(|s| sidedef_idx.and_then(|i| s.sides.get(i).cloned()));
+    let linedef = state::with_state(|s| linedef_idx.and_then(|i| s.lines.get(i).cloned()));
 
-    if !linedef.is_null() {
-        unsafe { (*linedef).flags |= crate::rendering::defs::ML_MAPPED };
+    if let (Some(ref ld), Some(idx)) = (linedef.as_ref(), linedef_idx) {
+        state::with_state_mut(|s| {
+            if let Some(l) = s.lines.get_mut(idx) {
+                l.flags |= crate::rendering::defs::ML_MAPPED;
+            }
+        });
     }
     state::with_state_mut(|s| {
-        s.sidedef = sidedef;
-        s.linedef = linedef;
+        s.sidedef_idx = sidedef_idx;
+        s.linedef_idx = linedef_idx;
     });
 
     let rw_angle1 = state::with_state(|s| s.rw_angle1) as u32;
-    let rw_normalangle = unsafe { (*curline).angle + ANG90 };
     state::with_state_mut(|s| s.rw_normalangle = rw_normalangle);
     let mut offsetangle = rw_normalangle.wrapping_sub(rw_angle1);
     if offsetangle > ANG90 {
         offsetangle = ANG90;
     }
     let distangle = ANG90 - offsetangle;
-    let hyp = r_point_to_dist(unsafe { (*(*curline).v1).x }, unsafe { (*(*curline).v1).y });
+    let hyp = r_point_to_dist(v1x, v1y);
     let sineval = finesine((distangle >> ANGLETOFINESHIFT) as usize);
     state::with_state_mut(|s| s.rw_distance = fixed_mul(hyp, sineval));
 
@@ -371,10 +409,11 @@ fn r_store_wall_range_inner(
         0
     };
 
+    let viewz = state::with_state(|s| s.viewz);
     unsafe {
         (*ds_p).x1 = start;
         (*ds_p).x2 = stop;
-        (*ds_p).curline = curline;
+        (*ds_p).curline = curline_ptr;
         (*ds_p).scale1 = scale1;
         (*ds_p).scale2 = scale2;
         (*ds_p).scalestep = scalestep;
@@ -387,8 +426,8 @@ fn r_store_wall_range_inner(
     let texturetranslation = state::with_state(|s| s.texturetranslation);
     let skyflatnum = r_sky::with_r_sky_state(|rs| rs.skyflatnum);
 
-    ss.worldtop = unsafe { (*frontsector).ceilingheight - viewz };
-    ss.worldbottom = unsafe { (*frontsector).floorheight - viewz };
+    ss.worldtop = frontsector.ceilingheight - viewz;
+    ss.worldbottom = frontsector.floorheight - viewz;
 
     ss.midtexture = 0;
     ss.toptexture = 0;
@@ -396,29 +435,30 @@ fn r_store_wall_range_inner(
     ss.maskedtexture = false;
     unsafe { (*ds_p).maskedtexturecol = ptr::null_mut() };
 
-    if backsector.is_null() {
+    if backsector.is_none() {
+        let sidedef = match &sidedef {
+            Some(sd) => sd,
+            None => return,
+        };
         let texnum = if texturetranslation.is_null() {
-            unsafe { (*sidedef).midtexture as i32 }
+            sidedef.midtexture as i32
         } else {
-            unsafe { *texturetranslation.add((*sidedef).midtexture as usize) }
+            unsafe { *texturetranslation.add(sidedef.midtexture as usize) }
         };
         ss.midtexture = texnum;
         ss.markfloor = true;
         ss.markceiling = true;
 
-        if !linedef.is_null()
-            && unsafe { ((*linedef).flags & crate::rendering::defs::ML_DONTPEGBOTTOM) != 0 }
+        if linedef.as_ref().map(|ld| (ld.flags & crate::rendering::defs::ML_DONTPEGBOTTOM) != 0).unwrap_or(false)
         {
             let th = if textureheight.is_null() {
                 128 << crate::m_fixed::FRACBITS
             } else {
                 unsafe { *textureheight.add(texnum as usize) }
             };
-            ss.rw_midtexturemid = unsafe {
-                (*frontsector).floorheight + th - viewz + (*sidedef).rowoffset
-            };
+            ss.rw_midtexturemid = frontsector.floorheight + th - viewz + sidedef.rowoffset;
         } else {
-            ss.rw_midtexturemid = ss.worldtop + unsafe { (*sidedef).rowoffset };
+            ss.rw_midtexturemid = ss.worldtop + sidedef.rowoffset;
         }
 
         crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
@@ -431,37 +471,45 @@ fn r_store_wall_range_inner(
             }
         });
     } else {
+        let back = match backsector {
+            Some(b) => b,
+            None => return,
+        };
+        let sidedef = match &sidedef {
+            Some(sd) => sd,
+            None => return,
+        };
         unsafe {
             (*ds_p).sprtopclip = ptr::null_mut();
             (*ds_p).sprbottomclip = ptr::null_mut();
             (*ds_p).silhouette = 0;
         }
 
-        if unsafe { (*frontsector).floorheight > (*backsector).floorheight } {
+        if frontsector.floorheight > back.floorheight {
             unsafe {
                 (*ds_p).silhouette = SIL_BOTTOM;
-                (*ds_p).bsilheight = (*frontsector).floorheight;
+                (*ds_p).bsilheight = frontsector.floorheight;
             }
-        } else if unsafe { (*backsector).floorheight > viewz } {
+        } else if back.floorheight > viewz {
             unsafe {
                 (*ds_p).silhouette = SIL_BOTTOM;
                 (*ds_p).bsilheight = i32::MAX;
             }
         }
 
-        if unsafe { (*frontsector).ceilingheight < (*backsector).ceilingheight } {
+        if frontsector.ceilingheight < back.ceilingheight {
             unsafe {
                 (*ds_p).silhouette |= SIL_TOP;
-                (*ds_p).tsilheight = (*frontsector).ceilingheight;
+                (*ds_p).tsilheight = frontsector.ceilingheight;
             }
-        } else if unsafe { (*backsector).ceilingheight < viewz } {
+        } else if back.ceilingheight < viewz {
             unsafe {
                 (*ds_p).silhouette |= SIL_TOP;
                 (*ds_p).tsilheight = i32::MIN;
             }
         }
 
-        if unsafe { (*backsector).ceilingheight <= (*frontsector).floorheight } {
+        if back.ceilingheight <= frontsector.floorheight {
             crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
                 unsafe {
                     (*ds_p).sprbottomclip = rd.negonearray.as_mut_ptr();
@@ -471,7 +519,7 @@ fn r_store_wall_range_inner(
             });
         }
 
-        if unsafe { (*backsector).floorheight >= (*frontsector).ceilingheight } {
+        if back.floorheight >= frontsector.ceilingheight {
             crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
                 unsafe {
                     (*ds_p).sprtopclip = rd.screenheightarray.as_mut_ptr();
@@ -481,25 +529,23 @@ fn r_store_wall_range_inner(
             });
         }
 
-        ss.worldhigh = unsafe { (*backsector).ceilingheight - viewz };
-        ss.worldlow = unsafe { (*backsector).floorheight - viewz };
+        ss.worldhigh = back.ceilingheight - viewz;
+        ss.worldlow = back.floorheight - viewz;
 
-        if unsafe { (*frontsector).ceilingpic as i32 == skyflatnum }
-            && unsafe { (*backsector).ceilingpic as i32 == skyflatnum }
-        {
+        if frontsector.ceilingpic as i32 == skyflatnum && back.ceilingpic as i32 == skyflatnum {
             ss.worldtop = ss.worldhigh;
         }
 
         ss.markfloor = ss.worldlow != ss.worldbottom
-            || unsafe { (*backsector).floorpic != (*frontsector).floorpic }
-            || unsafe { (*backsector).lightlevel != (*frontsector).lightlevel };
+            || back.floorpic != frontsector.floorpic
+            || back.lightlevel != frontsector.lightlevel;
 
         ss.markceiling = ss.worldhigh != ss.worldtop
-            || unsafe { (*backsector).ceilingpic != (*frontsector).ceilingpic }
-            || unsafe { (*backsector).lightlevel != (*frontsector).lightlevel };
+            || back.ceilingpic != frontsector.ceilingpic
+            || back.lightlevel != frontsector.lightlevel;
 
-        if unsafe { (*backsector).ceilingheight <= (*frontsector).floorheight }
-            || unsafe { (*backsector).floorheight >= (*frontsector).ceilingheight }
+        if back.ceilingheight <= frontsector.floorheight
+            || back.floorheight >= frontsector.ceilingheight
         {
             ss.markceiling = true;
             ss.markfloor = true;
@@ -507,9 +553,9 @@ fn r_store_wall_range_inner(
 
         if ss.worldhigh < ss.worldtop {
             let texnum = if texturetranslation.is_null() {
-                unsafe { (*sidedef).toptexture as i32 }
+                sidedef.toptexture as i32
             } else {
-                unsafe { *texturetranslation.add((*sidedef).toptexture as usize) }
+                unsafe { *texturetranslation.add(sidedef.toptexture as usize) }
             };
             ss.toptexture = texnum;
             let th = if textureheight.is_null() {
@@ -517,34 +563,30 @@ fn r_store_wall_range_inner(
             } else {
                 unsafe { *textureheight.add(texnum as usize) }
             };
-            if !linedef.is_null()
-                && unsafe { ((*linedef).flags & crate::rendering::defs::ML_DONTPEGTOP) != 0 }
+            if linedef.as_ref().map(|ld| (ld.flags & crate::rendering::defs::ML_DONTPEGTOP) != 0).unwrap_or(false)
             {
-                ss.rw_topexturemid = ss.worldtop + unsafe { (*sidedef).rowoffset };
+                ss.rw_topexturemid = ss.worldtop + sidedef.rowoffset;
             } else {
-                ss.rw_topexturemid = unsafe {
-                    (*backsector).ceilingheight + th - viewz + (*sidedef).rowoffset
-                };
+                ss.rw_topexturemid = back.ceilingheight + th - viewz + sidedef.rowoffset;
             }
         }
 
         if ss.worldlow > ss.worldbottom {
             let texnum = if texturetranslation.is_null() {
-                unsafe { (*sidedef).bottomtexture as i32 }
+                sidedef.bottomtexture as i32
             } else {
-                unsafe { *texturetranslation.add((*sidedef).bottomtexture as usize) }
+                unsafe { *texturetranslation.add(sidedef.bottomtexture as usize) }
             };
             ss.bottomtexture = texnum;
-            if !linedef.is_null()
-                && unsafe { ((*linedef).flags & crate::rendering::defs::ML_DONTPEGBOTTOM) != 0 }
+            if linedef.as_ref().map(|ld| (ld.flags & crate::rendering::defs::ML_DONTPEGBOTTOM) != 0).unwrap_or(false)
             {
-                ss.rw_bottomtexturemid = ss.worldtop + unsafe { (*sidedef).rowoffset };
+                ss.rw_bottomtexturemid = ss.worldtop + sidedef.rowoffset;
             } else {
-                ss.rw_bottomtexturemid = ss.worldlow + unsafe { (*sidedef).rowoffset };
+                ss.rw_bottomtexturemid = ss.worldlow + sidedef.rowoffset;
             }
         }
 
-        if unsafe { (*sidedef).midtexture != 0 } {
+        if sidedef.midtexture != 0 {
             ss.maskedtexture = true;
             let openings_ptr = ps.openings.as_mut_ptr();
             let base = unsafe { openings_ptr.add(ps.lastopening) };
@@ -572,19 +614,17 @@ fn r_store_wall_range_inner(
         if rw_normalangle.wrapping_sub(rw_angle1) < ANG180 {
             rw_off = -rw_off;
         }
-        ss.rw_offset = rw_off + unsafe { (*sidedef).textureoffset + (*curline).offset };
+        let (textureoffset, _) = sidedef.as_ref().map(|s| (s.textureoffset, s.rowoffset)).unwrap_or((0, 0));
+        ss.rw_offset = rw_off + textureoffset + curline_offset;
         ss.rw_centerangle = ANG90 + viewangle - rw_normalangle;
 
         let fixcol = with_r_main_state(|rm| rm.fixedcolormap);
         if fixcol.is_null() {
             let extralight = with_r_main_state(|rm| rm.extralight);
-            let mut lightnum =
-                unsafe { (*frontsector).lightlevel as i32 >> LIGHTSEGSHIFT } + extralight;
-            let v1 = unsafe { *(*curline).v1 };
-            let v2 = unsafe { *(*curline).v2 };
-            if v1.y == v2.y {
+            let mut lightnum = (frontsector.lightlevel as i32 >> LIGHTSEGSHIFT) + extralight;
+            if v1y == v2y {
                 lightnum -= 1;
-            } else if v1.x == v2.x {
+            } else if v1x == v2x {
                 lightnum += 1;
             }
             ss.walllights = with_r_main_state(|rm| {
@@ -600,12 +640,10 @@ fn r_store_wall_range_inner(
         }
     }
 
-    if unsafe { (*frontsector).floorheight >= viewz } {
+    if frontsector.floorheight >= viewz {
         ss.markfloor = false;
     }
-    if unsafe { (*frontsector).ceilingheight <= viewz }
-        && unsafe { (*frontsector).ceilingpic as i32 != skyflatnum }
-    {
+    if frontsector.ceilingheight <= viewz && frontsector.ceilingpic as i32 != skyflatnum {
         ss.markceiling = false;
     }
 
@@ -618,7 +656,7 @@ fn r_store_wall_range_inner(
     ss.bottomstep = -fixed_mul(ss.rw_scalestep, worldbottom);
     ss.bottomfrac = (centeryfrac >> 4) - fixed_mul(worldbottom, ss.rw_scale);
 
-    if !backsector.is_null() {
+    if backsector.is_some() {
         let worldhigh = ss.worldhigh >> 4;
         let worldlow = ss.worldlow >> 4;
 
@@ -698,23 +736,35 @@ pub fn r_render_masked_seg_range(ds: *mut crate::rendering::defs::DrawSeg, x1: i
             return;
         }
 
-        let curline = (*ds).curline;
-        let frontsector = state::with_state(|s| s.frontsector);
-        let backsector = state::with_state(|s| s.backsector);
-        if curline.is_null() || frontsector.is_null() {
+        let curline_ptr = (*ds).curline;
+        if curline_ptr.is_null() {
             return;
         }
+        let seg = unsafe { &*curline_ptr };
 
-        let sidedef = (*curline).sidedef;
-        let linedef = (*curline).linedef;
-        if sidedef.is_null() {
-            return;
-        }
+        let (sidedef, linedef, frontsector, backsector, v1, v2) = state::with_state(|s| {
+            let sd = s.sides.get(seg.sidedef_idx).cloned();
+            let ld = s.lines.get(seg.linedef_idx).cloned();
+            let fs = s.frontsector_idx.and_then(|i| s.sectors.get(i).cloned());
+            let bs = s.backsector_idx.and_then(|i| s.sectors.get(i).cloned());
+            let v1 = s.vertexes.get(seg.v1_idx).copied();
+            let v2 = s.vertexes.get(seg.v2_idx).copied();
+            (sd, ld, fs, bs, v1, v2)
+        });
+
+        let sidedef = match sidedef {
+            Some(sd) => sd,
+            None => return,
+        };
+        let frontsector = match frontsector {
+            Some(fs) => fs,
+            None => return,
+        };
 
         let texnum = if state::with_state(|s| s.texturetranslation.is_null()) {
-            (*sidedef).midtexture as i32
+            sidedef.midtexture as i32
         } else {
-            *state::with_state(|s| s.texturetranslation).add((*sidedef).midtexture as usize)
+            unsafe { *state::with_state(|s| s.texturetranslation).add(sidedef.midtexture as usize) }
         };
 
         let viewz = state::with_state(|s| s.viewz);
@@ -722,29 +772,24 @@ pub fn r_render_masked_seg_range(ds: *mut crate::rendering::defs::DrawSeg, x1: i
         let th = if textureheight.is_null() {
             128 << crate::m_fixed::FRACBITS
         } else {
-            *textureheight.add(texnum as usize)
+            unsafe { *textureheight.add(texnum as usize) }
         };
 
-        let dc_texturemid = if !linedef.is_null()
-            && ((*linedef).flags & crate::rendering::defs::ML_DONTPEGBOTTOM) != 0
+        let back = backsector.as_ref();
+
+        let dc_texturemid = if linedef.as_ref().map(|ld| (ld.flags & crate::rendering::defs::ML_DONTPEGBOTTOM) != 0).unwrap_or(false)
         {
-            let fh = if backsector.is_null() {
-                (*frontsector).floorheight
-            } else if (*frontsector).floorheight > (*backsector).floorheight {
-                (*frontsector).floorheight
-            } else {
-                (*backsector).floorheight
+            let fh = match back {
+                None => frontsector.floorheight,
+                Some(b) => frontsector.floorheight.max(b.floorheight),
             };
-            fh + th - viewz + (*sidedef).rowoffset
+            fh + th - viewz + sidedef.rowoffset
         } else {
-            let ch = if backsector.is_null() {
-                (*frontsector).ceilingheight
-            } else if (*frontsector).ceilingheight < (*backsector).ceilingheight {
-                (*frontsector).ceilingheight
-            } else {
-                (*backsector).ceilingheight
+            let ch = match back {
+                None => frontsector.ceilingheight,
+                Some(b) => frontsector.ceilingheight.min(b.ceilingheight),
             };
-            ch - viewz + (*sidedef).rowoffset
+            ch - viewz + sidedef.rowoffset
         };
 
         let (fixedcolormap, extralight, centeryfrac) = with_r_main_state(|rm| {
@@ -758,13 +803,12 @@ pub fn r_render_masked_seg_range(ds: *mut crate::rendering::defs::DrawSeg, x1: i
         }
 
         let walllights = if fixedcolormap.is_null() {
-            let lightnum = ((*frontsector).lightlevel as i32 >> LIGHTSEGSHIFT) + extralight;
-            let v1 = *(*curline).v1;
-            let v2 = *(*curline).v2;
+            let lightnum = (frontsector.lightlevel as i32 >> LIGHTSEGSHIFT) + extralight;
+            let (v1x, v1y, v2x, v2y) = v1.and_then(|v1| v2.map(|v2| (v1.x, v1.y, v2.x, v2.y))).unwrap_or((0, 0, 0, 0));
             let mut ln = lightnum;
-            if v1.y == v2.y {
+            if v1y == v2y {
                 ln -= 1;
-            } else if v1.x == v2.x {
+            } else if v1x == v2x {
                 ln += 1;
             }
             let ln = ln.max(0).min(crate::rendering::r_main::LIGHTLEVELS as i32 - 1);

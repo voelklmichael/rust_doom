@@ -1,3 +1,5 @@
+// TODO(UNSAFE_ELIMINATION): Remove when migrated to Arc<Mutex<T>>
+#[allow(unsafe_code)]
 //
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
@@ -49,35 +51,34 @@ pub struct RenderState {
     pub sprites: *mut Spritedef,
 
     pub numvertexes: i32,
-    pub vertexes: *mut Vertex,
+    pub vertexes: Vec<Vertex>,
 
     pub numsegs: i32,
-    pub segs: *mut Seg,
+    pub segs: Vec<Seg>,
 
     pub numsectors: i32,
-    pub sectors: *mut Sector,
+    pub sectors: Vec<Sector>,
 
     pub numsubsectors: i32,
-    pub subsectors: *mut Subsector,
+    pub subsectors: Vec<Subsector>,
 
     pub numnodes: i32,
-    pub nodes: *mut Node,
+    pub nodes: Vec<Node>,
 
     pub numlines: i32,
-    pub lines: *mut Line,
+    pub lines: Vec<Line>,
 
     pub numsides: i32,
-    pub sides: *mut SideDef,
+    pub sides: Vec<SideDef>,
 
-    // Blockmap (from p_setup, used by p_maputl)
+    // Blockmap (from p_setup, used by p_maputl) - Vec-based, no raw pointers
     pub bmaporgx: Fixed,
     pub bmaporgy: Fixed,
     pub bmapwidth: i32,
     pub bmapheight: i32,
-    pub blockmap: *mut i16,
-    pub blockmaplump: *mut i16,
-    pub blocklinks: *mut *mut std::ffi::c_void,
-    pub rejectmatrix: *mut u8,
+    pub blockmaplump: Vec<i16>,
+    pub blocklinks: Vec<*mut std::ffi::c_void>,
+    pub rejectmatrix: Vec<u8>,
 
     // POV data
     pub viewx: Fixed,
@@ -98,12 +99,12 @@ pub struct RenderState {
     pub floorplane: *mut Visplane,
     pub ceilingplane: *mut Visplane,
 
-    // BSP/seg state
-    pub curline: *mut Seg,
-    pub sidedef: *mut SideDef,
-    pub linedef: *mut Line,
-    pub frontsector: *mut Sector,
-    pub backsector: *mut Sector,
+    // BSP/seg state (indices into Vecs above)
+    pub curline_idx: Option<usize>,
+    pub sidedef_idx: Option<usize>,
+    pub linedef_idx: Option<usize>,
+    pub frontsector_idx: Option<usize>,
+    pub backsector_idx: Option<usize>,
     pub drawsegs: [DrawSeg; crate::rendering::defs::MAXDRAWSEGS],
     pub ds_p: *mut DrawSeg,
 }
@@ -128,27 +129,26 @@ impl Default for RenderState {
             numsprites: 0,
             sprites: std::ptr::null_mut(),
             numvertexes: 0,
-            vertexes: std::ptr::null_mut(),
+            vertexes: Vec::new(),
             numsegs: 0,
-            segs: std::ptr::null_mut(),
+            segs: Vec::new(),
             numsectors: 0,
-            sectors: std::ptr::null_mut(),
+            sectors: Vec::new(),
             numsubsectors: 0,
-            subsectors: std::ptr::null_mut(),
+            subsectors: Vec::new(),
             numnodes: 0,
-            nodes: std::ptr::null_mut(),
+            nodes: Vec::new(),
             numlines: 0,
-            lines: std::ptr::null_mut(),
+            lines: Vec::new(),
             numsides: 0,
-            sides: std::ptr::null_mut(),
+            sides: Vec::new(),
             bmaporgx: 0,
             bmaporgy: 0,
             bmapwidth: 0,
             bmapheight: 0,
-            blockmap: std::ptr::null_mut(),
-            blockmaplump: std::ptr::null_mut(),
-            blocklinks: std::ptr::null_mut(),
-            rejectmatrix: std::ptr::null_mut(),
+            blockmaplump: Vec::new(),
+            blocklinks: Vec::new(),
+            rejectmatrix: Vec::new(),
             viewx: 0,
             viewy: 0,
             viewz: 0,
@@ -163,11 +163,11 @@ impl Default for RenderState {
             sscount: 0,
             floorplane: std::ptr::null_mut(),
             ceilingplane: std::ptr::null_mut(),
-            curline: std::ptr::null_mut(),
-            sidedef: std::ptr::null_mut(),
-            linedef: std::ptr::null_mut(),
-            frontsector: std::ptr::null_mut(),
-            backsector: std::ptr::null_mut(),
+            curline_idx: None,
+            sidedef_idx: None,
+            linedef_idx: None,
+            frontsector_idx: None,
+            backsector_idx: None,
             drawsegs: unsafe { std::mem::zeroed() },
             ds_p: std::ptr::null_mut(),
         }

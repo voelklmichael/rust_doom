@@ -7,106 +7,32 @@
 //
 // Original: p_tick.h / p_tick.c
 
-use crate::game::d_think::{thinker_marked_removed, Thinker};
-use crate::z_zone::z_free;
-use std::ptr;
-use std::sync::{Mutex, OnceLock};
+use crate::player::mobjs;
+use crate::player::p_mobj::p_mobj_thinker_safe;
 
-// =============================================================================
-// PTickState - thread-safe via OnceLock + Mutex
-// =============================================================================
-
-/// Safety: Thinker contains raw pointers; access is serialized by Mutex.
-unsafe impl Send for PTickState {}
-
-static P_TICK_STATE: OnceLock<Mutex<PTickState>> = OnceLock::new();
-
-pub struct PTickState {
-    /// Both the head and tail of the thinker list. Original: thinkercap
-    pub thinkercap: Thinker,
-}
-
-fn get_p_tick_state() -> &'static Mutex<PTickState> {
-    P_TICK_STATE.get_or_init(|| {
-        Mutex::new(PTickState {
-            thinkercap: Thinker {
-                prev: ptr::null_mut(),
-                next: ptr::null_mut(),
-                function: crate::game::d_think::ActionF {
-                    acv: crate::game::d_think::no_op,
-                },
-            },
-        })
-    })
-}
-
-/// Access PTickState.
-pub fn with_ptick_state<F, R>(f: F) -> R
-where
-    F: FnOnce(&mut PTickState) -> R,
-{
-    let mut guard = get_p_tick_state().lock().unwrap();
-    f(&mut guard)
-}
-
-/// Initialize thinker list.
+/// Initialize thinker list. Mobjs use index-based storage; no-op for new system.
 /// Original: P_InitThinkers
-pub fn p_init_thinkers() {
-    with_ptick_state(|s| {
-        let cap = &mut s.thinkercap as *mut Thinker;
-        s.thinkercap.prev = cap;
-        s.thinkercap.next = cap;
-    });
-}
+pub fn p_init_thinkers() {}
 
-/// Add a new thinker at the end of the list.
-/// Original: P_AddThinker
-pub fn p_add_thinker(thinker: *mut Thinker) {
-    if thinker.is_null() {
-        return;
-    }
-    with_ptick_state(|s| {
-        let cap = &mut s.thinkercap as *mut Thinker;
-        unsafe {
-            (*thinker).next = cap;
-            (*thinker).prev = s.thinkercap.prev;
-            (*s.thinkercap.prev).next = thinker;
-            s.thinkercap.prev = thinker;
-        }
-    });
-}
-
-/// Remove thinker - deferred deallocation. Marks for removal; actual free in p_run_thinkers.
-/// Original: P_RemoveThinker
-pub fn p_remove_thinker(thinker: *mut Thinker) {
-    if thinker.is_null() {
-        return;
-    }
-    unsafe {
-        (*thinker).function.acp1 = thinker_marked_removed;
-    }
-}
-
-/// Run all thinkers. Removes and frees those marked by P_RemoveThinker.
+/// Run all thinkers. Uses Arc<Mutex<Vec<Option<Mobj>>>> + thinker_indices.
 /// Original: P_RunThinkers
 pub fn p_run_thinkers() {
-    with_ptick_state(|s| {
-        let cap = &mut s.thinkercap as *mut Thinker;
-        unsafe {
-            let mut current = s.thinkercap.next;
-            while current != cap {
-                let next = (*current).next;
-                if (*current).function.acp1 == thinker_marked_removed {
-                    (*(*current).next).prev = (*current).prev;
-                    (*(*current).prev).next = (*current).next;
-                    z_free(current as *mut u8);
-                } else {
-                    let acp1 = (*current).function.acp1;
-                    acp1(current as *mut ());
-                }
-                current = next;
+    mobjs::with_mobjs_state(|s| {
+        for &idx in &s.thinker_indices {
+            if s.to_remove.contains(&idx) {
+                continue;
+            }
+            if let Some(mo) = s.mobjs.get_mut(idx).and_then(|o| o.as_mut()) {
+                p_mobj_thinker_safe(mo);
             }
         }
+        let to_remove: Vec<_> = s.to_remove.drain().collect();
+        for idx in &to_remove {
+            if let Some(slot) = s.mobjs.get_mut(*idx) {
+                *slot = None;
+            }
+        }
+        s.thinker_indices.retain(|idx| !to_remove.contains(idx));
     });
 }
 

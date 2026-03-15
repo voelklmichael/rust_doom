@@ -8,10 +8,24 @@
 // Original: m_bbox.h / m_bbox.c
 
 use crate::m_fixed::Fixed;
+use crate::rendering::defs::SlopeType;
 
 // =============================================================================
 // Public API (from .h)
 // =============================================================================
+
+/// Compute slope type from line direction (dx, dy). Original: R_PointOnLineSide logic.
+pub fn slope_type_from_dx_dy(dx: Fixed, dy: Fixed) -> SlopeType {
+    if dy == 0 {
+        SlopeType::Horizontal
+    } else if dx == 0 {
+        SlopeType::Vertical
+    } else if (dx > 0) == (dy > 0) {
+        SlopeType::Positive
+    } else {
+        SlopeType::Negative
+    }
+}
 
 /// Bounding box coordinate indices.
 pub const BOXTOP: usize = 0;

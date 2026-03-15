@@ -9,7 +9,7 @@
 
 use crate::game::d_think::Thinker;
 use crate::m_fixed::Fixed;
-use crate::rendering::defs::{Line, Sector};
+use crate::rendering::defs::Sector;
 
 /// Vertical door thinker. Original: vldoor_t
 #[repr(C)]
@@ -31,21 +31,14 @@ pub unsafe extern "C" fn t_vertical_door(door: *mut ()) {
 
 /// Execute door special. Original: EV_DoDoor
 /// Returns true if a door mover was started.
-pub fn ev_do_door(
-    _line: *const Line,
-    _doortype: i32,
-) -> bool {
-    let _ = (_line, _doortype);
+pub fn ev_do_door(_line_idx: usize, _doortype: i32) -> bool {
+    let _ = (_line_idx, _doortype);
     false
 }
 
 /// Execute locked door. Original: EV_DoLockedDoor
-pub fn ev_do_locked_door(
-    _line: *const Line,
-    _doortype: i32,
-    _key: i32,
-) -> bool {
-    let _ = (_line, _doortype, _key);
+pub fn ev_do_locked_door(_line_idx: usize, _doortype: i32, _key: i32) -> bool {
+    let _ = (_line_idx, _doortype, _key);
     false
 }
 

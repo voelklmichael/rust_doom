@@ -1,4 +1,3 @@
-//
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
 //
@@ -13,7 +12,7 @@ use crate::geometry::{
     ANGLETOFINESHIFT, DBITS, FINEANGLES,
 };
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
-use crate::rendering::defs::{Node, Seg, Subsector};
+use crate::rendering::defs::{Node, Seg, Subsector, Vertex};
 use crate::rendering::m_bbox::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 use crate::rendering::r_draw;
 use crate::rendering::state;
@@ -25,9 +24,6 @@ use std::sync::{Mutex, OnceLock};
 // =============================================================================
 
 static R_MAIN_STATE: OnceLock<Mutex<RMainState>> = OnceLock::new();
-
-/// Safety: Raw pointers in RMainState point to zone-allocated data that outlives the state.
-unsafe impl Send for RMainState {}
 
 pub struct RMainState {
     pub setsizeneeded: bool,
@@ -201,59 +197,64 @@ pub fn r_point_on_side(x: Fixed, y: Fixed, node: &Node) -> i32 {
 
 /// Point-on-seg-side test. Returns 0 (front) or 1 (back).
 pub fn r_point_on_seg_side(x: Fixed, y: Fixed, line: &Seg) -> i32 {
-    unsafe {
-        let lx = (*line.v1).x;
-        let ly = (*line.v1).y;
-        let ldx = (*line.v2).x - lx;
-        let ldy = (*line.v2).y - ly;
+    let (lx, ly, ldx, ldy) = state::with_state(|s| {
+        let v1 = s
+            .vertexes
+            .get(line.v1_idx)
+            .copied()
+            .unwrap_or(Vertex { x: 0, y: 0 });
+        let v2 = s
+            .vertexes
+            .get(line.v2_idx)
+            .copied()
+            .unwrap_or(Vertex { x: 0, y: 0 });
+        (v1.x, v1.y, v2.x - v1.x, v2.y - v1.y)
+    });
 
-        if ldx == 0 {
-            return if x <= lx {
-                if ldy > 0 {
-                    1
-                } else {
-                    0
-                }
-            } else if ldy < 0 {
+    if ldx == 0 {
+        return if x <= lx {
+            if ldy > 0 {
                 1
             } else {
                 0
-            };
-        }
-        if ldy == 0 {
-            return if y <= ly {
-                if ldx < 0 {
-                    1
-                } else {
-                    0
-                }
-            } else {
-                if ldx > 0 {
-                    1
-                } else {
-                    0
-                }
-            };
-        }
-
-        let dx = x - lx;
-        let dy = y - ly;
-
-        if (ldy ^ ldx ^ dx ^ dy) & SIGN_MASK != 0 {
-            if (ldy ^ dx) & SIGN_MASK != 0 {
-                return 1;
             }
-            return 0;
-        }
-
-        let left = fixed_mul(ldy >> FRACBITS, dx);
-        let right = fixed_mul(dy, ldx >> FRACBITS);
-
-        if right < left {
-            0
-        } else {
+        } else if ldy < 0 {
             1
+        } else {
+            0
+        };
+    }
+    if ldy == 0 {
+        return if y <= ly {
+            if ldx < 0 {
+                1
+            } else {
+                0
+            }
+        } else if ldx > 0 {
+            1
+        } else {
+            0
+        };
+    }
+
+    let dx = x - lx;
+    let dy = y - ly;
+
+    if (ldy ^ ldx ^ dx ^ dy) & SIGN_MASK != 0 {
+        if (ldy ^ dx) & SIGN_MASK != 0 {
+            return 1;
         }
+        return 0;
+    }
+
+    let left = fixed_mul(ldy >> FRACBITS, dx);
+    let right = fixed_mul(dy, ldx >> FRACBITS);
+
+    if right < left {
+        0
+    } else {
+        1
     }
 }
 
@@ -360,25 +361,27 @@ pub fn r_scale_from_global_angle(visangle: Angle) -> Fixed {
     }
 }
 
-/// Find subsector containing point (x,y).
-pub fn r_point_in_subsector(x: Fixed, y: Fixed) -> *mut Subsector {
-    let numnodes = state::with_state(|s| s.numnodes);
-    let subsectors = state::with_state(|s| s.subsectors);
-    let nodes = state::with_state(|s| s.nodes);
+/// Find subsector containing point (x,y). Returns subsector index.
+pub fn r_point_in_subsector(x: Fixed, y: Fixed) -> usize {
+    state::with_state(|s| {
+        let numnodes = s.numnodes;
+        let nodes = &s.nodes;
+        let subsectors = &s.subsectors;
 
-    if numnodes == 0 {
-        return subsectors;
-    }
+        if numnodes == 0 || subsectors.is_empty() {
+            return 0;
+        }
 
-    let mut nodenum = (numnodes - 1) as usize;
+        let mut nodenum = (numnodes - 1) as usize;
 
-    while nodenum & (NF_SUBSECTOR as usize) == 0 {
-        let node_ptr = unsafe { nodes.add(nodenum) };
-        let side = r_point_on_side(x, y, unsafe { &*node_ptr });
-        nodenum = unsafe { (*node_ptr).children[side as usize] as usize };
-    }
+        while nodenum & (NF_SUBSECTOR as usize) == 0 {
+            let node = &nodes[nodenum];
+            let side = r_point_on_side(x, y, node);
+            nodenum = node.children[side as usize] as usize;
+        }
 
-    unsafe { subsectors.add(nodenum & !(NF_SUBSECTOR as usize)) }
+        nodenum & !(NF_SUBSECTOR as usize)
+    })
 }
 
 // =============================================================================
@@ -492,7 +495,6 @@ fn r_execute_set_view_size() {
     });
 
     unsafe {
-
         state::with_state_mut(|s| {
             if setblocks == 11 {
                 s.scaledviewwidth = SCREENWIDTH;
@@ -532,9 +534,10 @@ fn r_execute_set_view_size() {
 
             // distscale (C formula: FRACUNIT/cos)
             for i in 0..(viewwidth as usize) {
-                let cosadj =
-                    finecosine((state::with_state(|s| s.xtoviewangle[i]) >> ANGLETOFINESHIFT) as usize)
-                        .abs();
+                let cosadj = finecosine(
+                    (state::with_state(|s| s.xtoviewangle[i]) >> ANGLETOFINESHIFT) as usize,
+                )
+                .abs();
                 rd.distscale[i] = fixed_div(FRACUNIT, cosadj.max(1));
             }
 
@@ -603,15 +606,11 @@ pub fn view_player_from_console() -> Option<ViewPlayerStub> {
             return None;
         }
         let p = &st.players[idx];
-        let mo = p.mo;
-        if mo.is_null() {
-            return None;
-        }
-        let mo = mo as *const crate::player::p_mobj::Mobj;
-        Some(ViewPlayerStub {
-            mo_x: unsafe { (*mo).x },
-            mo_y: unsafe { (*mo).y },
-            mo_angle: unsafe { (*mo).angle },
+        let mo_idx = p.mo?;
+        crate::player::mobjs::with_mobj_ref(mo_idx, |mo| ViewPlayerStub {
+            mo_x: mo.x,
+            mo_y: mo.y,
+            mo_angle: mo.angle,
             viewz: p.viewz,
             extralight: p.extralight,
             fixedcolormap: p.fixedcolormap,

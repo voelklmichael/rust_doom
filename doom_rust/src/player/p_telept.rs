@@ -7,7 +7,8 @@
 //
 // Original: p_telept.c
 
-use crate::rendering::defs::{Line, Sector};
+use crate::m_fixed::Fixed;
+use crate::player::mobjs::{mobj_ptr_from_index, MobjIndex};
 use crate::rendering::state;
 
 use super::p_mobj::Mobj;
@@ -17,16 +18,18 @@ use super::p_spec::MO_TELEPORTMAN;
 /// Execute teleport special. Original: EV_Teleport
 /// Finds sectors with line tag, then a MO_TELEPORTMAN thing in those sectors.
 /// Returns true if thing was teleported.
-pub fn ev_teleport(line: *const Line, _side: i32, thing: *mut Mobj) -> bool {
-    if line.is_null() || thing.is_null() {
+pub fn ev_teleport(line_idx: usize, _side: i32, thing: *mut Mobj) -> bool {
+    if thing.is_null() {
         return false;
     }
-    let tag = unsafe { (*line).tag } as i32;
-    let dest = find_teleport_dest(tag);
-    if dest.is_null() {
-        return false;
-    }
-    let (dest_x, dest_y) = unsafe { ((*dest).x, (*dest).y) };
+    let tag = match state::with_state(|s| s.lines.get(line_idx).map(|l| l.tag as i32)) {
+        Some(t) => t,
+        None => return false,
+    };
+    let (dest_x, dest_y) = match find_teleport_dest(tag) {
+        Some((x, y)) => (x, y),
+        None => return false,
+    };
     if !p_teleport_move(thing, dest_x, dest_y) {
         return false;
     }
@@ -40,38 +43,39 @@ pub fn ev_teleport(line: *const Line, _side: i32, thing: *mut Mobj) -> bool {
     true
 }
 
-/// Find a MO_TELEPORTMAN in a sector with the given tag. Returns first found.
-fn find_teleport_dest(tag: i32) -> *mut Mobj {
-    let (sectors, numsectors) = state::with_state(|s| (s.sectors, s.numsectors));
-    if sectors.is_null() || numsectors <= 0 {
-        return std::ptr::null_mut();
-    }
-    for i in 0..(numsectors as usize) {
-        let sec = unsafe { sectors.add(i) };
-        if unsafe { (*sec).tag as i32 } != tag {
-            continue;
+/// Find a MO_TELEPORTMAN in a sector with the given tag. Returns (x, y) of first found.
+fn find_teleport_dest(tag: i32) -> Option<(Fixed, Fixed)> {
+    state::with_state(|s| {
+        for (sec_idx, sec) in s.sectors.iter().enumerate() {
+            if sec.tag as i32 != tag {
+                continue;
+            }
+            if let Some((x, y)) = find_teleportman_in_sector(sec_idx) {
+                return Some((x, y));
+            }
         }
-        let mo = find_teleportman_in_sector(sec);
-        if !mo.is_null() {
-            return mo;
-        }
-    }
-    std::ptr::null_mut()
+        None
+    })
 }
 
-/// Find first MO_TELEPORTMAN in sector's thinglist.
-fn find_teleportman_in_sector(sec: *mut Sector) -> *mut Mobj {
-    if sec.is_null() {
-        return std::ptr::null_mut();
-    }
-    let mut mo = unsafe { (*sec).thinglist };
-    while !mo.is_null() {
-        if unsafe { (*mo).type_ } == MO_TELEPORTMAN {
-            return mo;
+/// Find first MO_TELEPORTMAN in sector's thinglist. Returns (x, y).
+fn find_teleportman_in_sector(sec_idx: usize) -> Option<(Fixed, Fixed)> {
+    let mut mo_idx: Option<MobjIndex> =
+        state::with_state(|s| s.sectors.get(sec_idx).and_then(|sec| sec.thinglist));
+    while let Some(idx) = mo_idx {
+        if idx.is_null() {
+            break;
         }
-        mo = unsafe { (*mo).snext };
+        let ptr = mobj_ptr_from_index(idx);
+        if ptr.is_null() {
+            break;
+        }
+        if unsafe { (*ptr).type_ } == MO_TELEPORTMAN {
+            return Some(unsafe { ((*ptr).x, (*ptr).y) });
+        }
+        mo_idx = crate::player::mobjs::mobj_index_from_ptr(unsafe { (*ptr).snext });
     }
-    std::ptr::null_mut()
+    None
 }
 
 // NOTE: P_TeleportMove is in p_map.rs

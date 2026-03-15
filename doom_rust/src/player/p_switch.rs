@@ -7,26 +7,29 @@
 //
 // Original: p_switch.c (partial)
 
-use crate::rendering::defs::Line;
 use super::p_mobj::Mobj;
 
 /// Use (activate) a special line. Original: P_UseSpecialLine
 /// Returns true if line was activated.
-pub fn p_use_special_line(thing: *mut Mobj, line: *const Line) -> bool {
-    if thing.is_null() || line.is_null() {
+pub fn p_use_special_line(thing: *mut Mobj, line_idx: usize) -> bool {
+    if thing.is_null() {
         return false;
     }
-    let special = unsafe { (*line).special as i32 };
+    let special = crate::rendering::state::with_state(|s| {
+        s.lines.get(line_idx).map(|l| l.special as i32)
+    });
+    let special = match special {
+        Some(s) => s,
+        None => return false,
+    };
     match special {
         11 => {
-            // Exit level
-            p_change_switch_texture(line, false);
+            p_change_switch_texture(line_idx, false);
             crate::game::g_game::g_exit_level();
             true
         }
         51 => {
-            // Secret exit
-            p_change_switch_texture(line, false);
+            p_change_switch_texture(line_idx, false);
             crate::game::g_game::g_secret_exit_level();
             true
         }
@@ -35,11 +38,8 @@ pub fn p_use_special_line(thing: *mut Mobj, line: *const Line) -> bool {
 }
 
 /// Change switch texture to "on" state. Original: P_ChangeSwitchTexture
-pub fn p_change_switch_texture(
-    _line: *const Line,
-    _useagain: bool,
-) {
-    let _ = (_line, _useagain);
+pub fn p_change_switch_texture(_line_idx: usize, _useagain: bool) {
+    let _ = (_line_idx, _useagain);
 }
 
 // TODO: Button list, switch animation - require g_game, deh_main, s_sound

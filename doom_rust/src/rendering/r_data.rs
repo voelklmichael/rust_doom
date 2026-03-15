@@ -1,4 +1,3 @@
-//
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
 //
@@ -26,10 +25,6 @@ use std::sync::{Mutex, OnceLock};
 // =============================================================================
 
 static R_DATA_STATE: OnceLock<Mutex<RDataState>> = OnceLock::new();
-
-/// Safety: Raw pointers in RDataState are only used while holding the Mutex lock.
-/// They point to zone-allocated data that outlives the state.
-unsafe impl Send for RDataState {}
 
 pub struct RDataState {
     pub firstflat: i32,
@@ -88,7 +83,11 @@ pub fn with_r_data_state<F, R>(f: F) -> R
 where
     F: FnOnce(&RDataState) -> R,
 {
-    let guard = R_DATA_STATE.get().expect("r_data not initialized").lock().unwrap();
+    let guard = R_DATA_STATE
+        .get()
+        .expect("r_data not initialized")
+        .lock()
+        .unwrap();
     f(&guard)
 }
 
@@ -97,7 +96,11 @@ pub fn with_r_data_state_mut<F, R>(f: F) -> R
 where
     F: FnOnce(&mut RDataState) -> R,
 {
-    let mut guard = R_DATA_STATE.get().expect("r_data not initialized").lock().unwrap();
+    let mut guard = R_DATA_STATE
+        .get()
+        .expect("r_data not initialized")
+        .lock()
+        .unwrap();
     f(&mut guard)
 }
 
@@ -142,7 +145,6 @@ pub struct Texture {
     pub patchcount: i16,
     pub patches: [Texpatch; 1],
 }
-
 
 // =============================================================================
 // Helpers for reading from lump data
@@ -325,23 +327,21 @@ fn r_generate_lookup(s: &mut RDataState, texnum: i32) {
 
 /// Retrieve column data for span blitting.
 pub fn r_get_column(tex: i32, col: i32) -> *mut u8 {
-    with_r_data_state_mut(|s| {
-        unsafe {
-            let mask = *s.texturewidthmask.add(tex as usize);
-            let col = col & mask;
-            let lump = *(*s.texturecolumnlump.add(tex as usize)).add(col as usize);
-            let ofs = *(*s.texturecolumnofs.add(tex as usize)).add(col as usize);
+    with_r_data_state_mut(|s| unsafe {
+        let mask = *s.texturewidthmask.add(tex as usize);
+        let col = col & mask;
+        let lump = *(*s.texturecolumnlump.add(tex as usize)).add(col as usize);
+        let ofs = *(*s.texturecolumnofs.add(tex as usize)).add(col as usize);
 
-            if lump > 0 {
-                return w_cache_lump_num(lump as i32, PU_CACHE)
-                    .as_ptr_mut()
-                    .add(ofs as usize);
-            }
-            if (*s.texturecomposite.add(tex as usize)).is_null() {
-                r_generate_composite(s, tex);
-            }
-            (*s.texturecomposite.add(tex as usize)).add(ofs as usize)
+        if lump > 0 {
+            return w_cache_lump_num(lump as i32, PU_CACHE)
+                .as_ptr_mut()
+                .add(ofs as usize);
         }
+        if (*s.texturecomposite.add(tex as usize)).is_null() {
+            r_generate_composite(s, tex);
+        }
+        (*s.texturecomposite.add(tex as usize)).add(ofs as usize)
     })
 }
 

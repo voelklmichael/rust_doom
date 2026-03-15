@@ -1,4 +1,3 @@
-//
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
 //
@@ -10,10 +9,10 @@
 use std::sync::atomic::AtomicI32;
 use std::sync::{Mutex, OnceLock};
 
-use crate::game::d_mode::{GameMission, GameMode, GameVersion, Skill};
 use crate::doomdata::MapThing;
-use crate::doomdef::{Gamestate, MAXPLAYERS, NUMAMMO, NUMCARDS, NUMWEAPONS, Weapontype};
+use crate::doomdef::{Gamestate, Weapontype, MAXPLAYERS, NUMAMMO, NUMCARDS, NUMWEAPONS};
 use crate::doomtype::Boolean;
+use crate::game::d_mode::{GameMission, GameMode, GameVersion, Skill};
 use crate::game::d_ticcmd::Ticcmd;
 use crate::m_fixed::Fixed;
 
@@ -31,7 +30,8 @@ pub const NUMPSPRITES: usize = 2;
 #[derive(Debug, Clone, Copy)]
 pub struct Pspdef {
     /// NULL state means not active.
-    pub state: *mut std::ffi::c_void,
+    //pub state: *mut std::ffi::c_void,
+    pub state: Option<()>,
     pub tics: i32,
     pub sx: Fixed,
     pub sy: Fixed,
@@ -40,7 +40,8 @@ pub struct Pspdef {
 impl Default for Pspdef {
     fn default() -> Self {
         Self {
-            state: std::ptr::null_mut(),
+            //state: std::ptr::null_mut(),
+            state: None,
             tics: 0,
             sx: 0,
             sy: 0,
@@ -62,11 +63,10 @@ pub enum PlayerState {
 }
 
 /// Player internal state. Full player_t in d_player.h.
-#[repr(C)]
 #[derive(Debug, Clone)]
 pub struct Player {
-    /// Player mobj (Mobj*).
-    pub mo: *mut std::ffi::c_void,
+    /// Player mobj index (replaces Mobj*).
+    pub mo: Option<crate::player::mobjs::MobjIndex>,
     pub playerstate: PlayerState,
     /// Buffered input per game tick.
     pub cmd: Ticcmd,
@@ -120,7 +120,8 @@ pub struct Player {
     /// Tics of bonus/pickup flash. Decremented each tic.
     pub bonuscount: i32,
     /// Who did damage (NULL for floors/ceilings).
-    pub attacker: *mut std::ffi::c_void,
+    //pub attacker: *mut std::ffi::c_void,
+    pub attacker: Option<()>,
     /// So gun flashes light up areas.
     pub extralight: i32,
     /// Current PLAYPAL; can be set to REDCOLORMAP for pain, etc.
@@ -136,7 +137,7 @@ pub struct Player {
 impl Default for Player {
     fn default() -> Self {
         Self {
-            mo: std::ptr::null_mut(),
+            mo: None,
             playerstate: PlayerState::Reborn,
             cmd: Ticcmd::default(),
             viewz: 0,
@@ -163,7 +164,7 @@ impl Default for Player {
                 false, // chainsaw
                 false, // supershotgun
             ],
-            ammo: [50, 0, 0, 0],  // 50 bullets, no shells/cells/missiles
+            ammo: [50, 0, 0, 0], // 50 bullets, no shells/cells/missiles
             maxammo: [200, 50, 300, 50],
             attackdown: 0,
             usedown: 0,
@@ -175,7 +176,7 @@ impl Default for Player {
             message: None,
             damagecount: 0,
             bonuscount: 0,
-            attacker: std::ptr::null_mut(),
+            attacker: None,
             extralight: 0,
             fixedcolormap: 0,
             colormap: 0,
@@ -247,9 +248,6 @@ pub const MAX_DM_STARTS: usize = 10;
 
 static DOOMSTAT_STATE: OnceLock<Mutex<DoomstatState>> = OnceLock::new();
 
-/// Safety: Raw pointers in DoomstatState are only used while holding the Mutex lock.
-unsafe impl Send for DoomstatState {}
-
 pub struct DoomstatState {
     // Game mode - identify IWAD as shareware, retail etc.
     pub gamemode: GameMode,
@@ -314,7 +312,7 @@ pub struct DoomstatState {
     pub players: [Player; MAXPLAYERS],
     pub playeringame: [Boolean; MAXPLAYERS],
     pub deathmatchstarts: [MapThing; MAX_DM_STARTS],
-    pub deathmatch_p: *const MapThing,
+    //pub deathmatch_p: *const MapThing,
     pub playerstarts: [MapThing; MAXPLAYERS],
 
     // Intermission
@@ -328,7 +326,7 @@ pub struct DoomstatState {
     pub mousesensitivity: i32,
     pub bodyqueslot: i32,
     pub skyflatnum: i32,
-    pub netcmds: *mut Ticcmd,
+    //pub netcmds: *mut Ticcmd,
 }
 
 fn get_doomstat_state() -> &'static Mutex<DoomstatState> {
@@ -383,9 +381,21 @@ fn get_doomstat_state() -> &'static Mutex<DoomstatState> {
             gamestate: Gamestate::Level,
             players: std::array::from_fn(|_| Player::default()),
             playeringame: [false; MAXPLAYERS],
-            deathmatchstarts: [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAX_DM_STARTS],
-            deathmatch_p: std::ptr::null(),
-            playerstarts: [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAXPLAYERS],
+            deathmatchstarts: [MapThing {
+                x: 0,
+                y: 0,
+                angle: 0,
+                type_: 0,
+                options: 0,
+            }; MAX_DM_STARTS],
+            //deathmatch_p: std::ptr::null(),
+            playerstarts: [MapThing {
+                x: 0,
+                y: 0,
+                angle: 0,
+                type_: 0,
+                options: 0,
+            }; MAXPLAYERS],
             wminfo: WbStartStruct::default(),
             savegamedir: None,
             basedefault: [0; 1024],
@@ -394,7 +404,7 @@ fn get_doomstat_state() -> &'static Mutex<DoomstatState> {
             mousesensitivity: 5,
             bodyqueslot: 0,
             skyflatnum: 0,
-            netcmds: std::ptr::null_mut(),
+            // netcmds: std::ptr::null_mut(),
         })
     })
 }
@@ -409,7 +419,7 @@ where
 }
 
 const DEFAULT_PLAYER: Player = Player {
-    mo: std::ptr::null_mut(),
+    mo: None,
     playerstate: PlayerState::Reborn,
     cmd: Ticcmd {
         forwardmove: 0,
@@ -436,9 +446,7 @@ const DEFAULT_PLAYER: Player = Player {
     frags: [0; MAXPLAYERS],
     readyweapon: Weapontype::Pistol,
     pendingweapon: Weapontype::Pistol,
-    weaponowned: [
-        true, false, false, false, false, false, false, false, false,
-    ],
+    weaponowned: [true, false, false, false, false, false, false, false, false],
     ammo: [50, 0, 0, 0],
     maxammo: [200, 50, 300, 50],
     attackdown: 0,
@@ -451,11 +459,16 @@ const DEFAULT_PLAYER: Player = Player {
     message: None,
     damagecount: 0,
     bonuscount: 0,
-    attacker: std::ptr::null_mut(),
+    attacker: None,
     extralight: 0,
     fixedcolormap: 0,
     colormap: 0,
-    psprites: [Pspdef { state: std::ptr::null_mut(), tics: 0, sx: 0, sy: 0 }; NUMPSPRITES],
+    psprites: [Pspdef {
+        state: None,
+        tics: 0,
+        sx: 0,
+        sy: 0,
+    }; NUMPSPRITES],
     didsecret: false,
 };
 
@@ -480,11 +493,9 @@ where
 /// logical_gamemission: pack_chex -> doom, pack_hacx -> doom2, else gamemission
 #[inline]
 pub fn logical_gamemission() -> GameMission {
-    with_doomstat_state(|st| {
-        match st.gamemission {
-            GameMission::PackChex => GameMission::Doom,
-            GameMission::PackHacx => GameMission::Doom2,
-            m => m,
-        }
+    with_doomstat_state(|st| match st.gamemission {
+        GameMission::PackChex => GameMission::Doom,
+        GameMission::PackHacx => GameMission::Doom2,
+        m => m,
     })
 }

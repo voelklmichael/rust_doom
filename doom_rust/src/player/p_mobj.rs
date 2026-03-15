@@ -11,9 +11,7 @@ use crate::doomdata::MapThing;
 use crate::game::d_think::Thinker;
 use crate::info::types::{Mobjinfo, Mobjtype, State};
 use crate::m_fixed::{Fixed, FRACUNIT};
-use crate::z_zone::{z_malloc, PU_LEVEL};
-
-use std::ptr;
+use crate::player::mobjs::{self, MobjIndex};
 
 // =============================================================================
 // Mobj flags
@@ -71,14 +69,14 @@ pub struct Mobj {
     pub x: Fixed,
     pub y: Fixed,
     pub z: Fixed,
-    pub snext: *mut Mobj,
-    pub sprev: *mut Mobj,
+    // pub snext: *mut Mobj,
+    // pub sprev: *mut Mobj,
     pub angle: u32,
     pub sprite: i32,
     pub frame: i32,
-    pub bnext: *mut Mobj,
-    pub bprev: *mut Mobj,
-    pub subsector: *mut std::ffi::c_void,
+    // pub bnext: *mut Mobj,
+    // pub bprev: *mut Mobj,
+    // pub subsector: *mut std::ffi::c_void,
     pub floorz: Fixed,
     pub ceilingz: Fixed,
     pub radius: Fixed,
@@ -88,48 +86,44 @@ pub struct Mobj {
     pub momz: Fixed,
     pub validcount: i32,
     pub type_: Mobjtype,
-    pub info: *const Mobjinfo,
+    // pub info: *const Mobjinfo,
     pub tics: i32,
-    pub state: *const State,
+    // pub state: *const State,
     pub flags: i32,
     pub health: i32,
     pub movedir: i32,
     pub movecount: i32,
-    pub target: *mut Mobj,
+    // pub target: *mut Mobj,
     pub reactiontime: i32,
     pub threshold: i32,
-    pub player: *mut std::ffi::c_void,
+    // pub player: *mut std::ffi::c_void,
     pub lastlook: i32,
     pub spawnpoint: MapThing,
-    pub tracer: *mut Mobj,
+    // pub tracer: *mut Mobj,
 }
 
-/// MobjThinker - called each tic. Original: P_MobjThinker
-pub unsafe extern "C" fn p_mobj_thinker(mobj: *mut ()) {
-    let mo = mobj as *mut Mobj;
-    if mo.is_null() {
-        return;
-    }
-    if (*mo).momx != 0 || (*mo).momy != 0 || ((*mo).flags & MF_SKULLFLY) != 0 {
+/// Mobj thinker logic - safe version taking &mut Mobj. Original: P_MobjThinker
+pub fn p_mobj_thinker_safe(mo: &mut Mobj) {
+    if mo.momx != 0 || mo.momy != 0 || (mo.flags & MF_SKULLFLY) != 0 {
         dbg!("p_xy_movement not yet implemented");
-        //p_xy_movement(mo);
     }
-    if (*mo).z != (*mo).floorz || (*mo).momz != 0 {
+    if mo.z != mo.floorz || mo.momz != 0 {
         dbg!("p_z_movement not yet implemented");
-        //p_z_movement(mo);
     }
-    // State tic countdown and advancement
-    if (*mo).tics != -1 {
-        (*mo).tics -= 1;
-        if (*mo).tics == 0 {
-            let state = (*mo).state;
-            if state.is_null() {
-                return;
-            }
-            let nextstate = (*state).nextstate;
-            dbg!("p_set_mobj_state not yet implemented");
-            // if !p_set_mobj_state(mo, nextstate) {
-            //     return; // freed itself
+    if mo.tics != -1 {
+        mo.tics -= 1;
+        if mo.tics == 0 {
+            let states_ref = crate::info::states();
+            todo!()
+            // let state_ptr = mo.state;
+            // if !state_ptr.is_null() {
+            //     if let Some(st) = states_ref
+            //         .iter()
+            //         .find(|s| std::ptr::eq(*s as *const State, state_ptr))
+            //     {
+            //         let _nextstate = st.nextstate;
+            //         dbg!("p_set_mobj_state not yet implemented");
+            //     }
             // }
         }
     }
@@ -372,97 +366,76 @@ const FRICTION: Fixed = 0xe800;
 // }
 
 /// Spawn a map object at (x,y,z) of given type. Original: P_SpawnMobj
-pub fn p_spawn_mobj(x: Fixed, y: Fixed, z: Fixed, type_: Mobjtype) -> *mut Mobj {
-    // use super::p_maputl::p_set_thing_position;
-    use super::p_tick::p_add_thinker;
+/// Returns MobjIndex (use with_mobjs_state to access).
+pub fn p_spawn_mobj(x: Fixed, y: Fixed, z: Fixed, type_: Mobjtype) -> MobjIndex {
     use crate::info::{states, MOBJINFO, NUMMOBJTYPES};
 
     if (type_ as usize) >= NUMMOBJTYPES {
-        return ptr::null_mut();
+        return MobjIndex::NULL;
     }
 
     let info = &MOBJINFO[type_ as usize];
-    let ptr = z_malloc(std::mem::size_of::<Mobj>(), PU_LEVEL, ptr::null_mut()) as *mut Mobj;
-    if ptr.is_null() {
-        return ptr::null_mut();
-    }
-
-    unsafe {
-        ptr::write_bytes(ptr as *mut u8, 0, std::mem::size_of::<Mobj>());
-    }
-
     let states_ref = states();
     let spawnstate = info.spawnstate as usize;
     if spawnstate >= states_ref.len() {
-        return ptr;
+        return MobjIndex::NULL;
     }
     let st = &states_ref[spawnstate];
 
     let radius_fixed = info.radius * FRACUNIT;
     let height_fixed = info.height * FRACUNIT;
 
-    unsafe {
-        (*ptr).type_ = type_;
-        (*ptr).info = info as *const Mobjinfo;
-        (*ptr).x = x;
-        (*ptr).y = y;
-        (*ptr).radius = radius_fixed;
-        (*ptr).height = height_fixed;
-        (*ptr).flags = info.flags;
-        (*ptr).health = info.spawnhealth;
-        (*ptr).reactiontime = info.reactiontime;
-        (*ptr).state = st as *const State;
-        (*ptr).tics = st.tics;
-        (*ptr).sprite = st.sprite;
-        (*ptr).frame = st.frame;
-        (*ptr).thinker.function.acp1 = p_mobj_thinker;
-    }
+    let z_val = if z == crate::player::ONFLOORZ {
+        0 // floorz from subsector; 0 when not yet set
+    } else if z == crate::player::ONCEILINGZ {
+        -height_fixed // ceilingz - height when subsector null
+    } else {
+        z
+    };
 
-    // p_set_thing_position(ptr);
+    let mobj = Mobj {
+        thinker: Thinker::default(),
+        x,
+        y,
+        z: z_val,
+        // snext: std::ptr::null_mut(),
+        // sprev: std::ptr::null_mut(),
+        angle: 0,
+        sprite: st.sprite,
+        frame: st.frame,
+        // bnext: std::ptr::null_mut(),
+        // bprev: std::ptr::null_mut(),
+        // subsector: std::ptr::null_mut(),
+        floorz: 0,
+        ceilingz: 0,
+        radius: radius_fixed,
+        height: height_fixed,
+        momx: 0,
+        momy: 0,
+        momz: 0,
+        validcount: 0,
+        type_,
+        // info: info as *const Mobjinfo,
+        tics: st.tics,
+        // state: st as *const State,
+        flags: info.flags,
+        health: info.spawnhealth,
+        movedir: 0,
+        movecount: 0,
+        // target: std::ptr::null_mut(),
+        reactiontime: info.reactiontime,
+        threshold: 0,
+        // player: std::ptr::null_mut(),
+        lastlook: 0,
+        spawnpoint: MapThing::default(),
+        // tracer: std::ptr::null_mut(),
+    };
+
+    let idx = mobjs::mobj_alloc(mobj);
+
     dbg!("p_set_thing_position not yet implemented");
 
-    unsafe {
-        (*ptr).floorz = {
-            let ss = (*ptr).subsector.cast::<crate::rendering::defs::Subsector>();
-            if ss.is_null() {
-                0
-            } else {
-                let sec = (*ss).sector;
-                if sec.is_null() {
-                    0
-                } else {
-                    (*sec).floorheight
-                }
-            }
-        };
-        (*ptr).ceilingz = {
-            let ss = (*ptr).subsector.cast::<crate::rendering::defs::Subsector>();
-            if ss.is_null() {
-                0
-            } else {
-                let sec = (*ss).sector;
-                if sec.is_null() {
-                    0
-                } else {
-                    (*sec).ceilingheight
-                }
-            }
-        };
-    }
-
-    unsafe {
-        if z == crate::player::ONFLOORZ {
-            (*ptr).z = (*ptr).floorz;
-        } else if z == crate::player::ONCEILINGZ {
-            (*ptr).z = (*ptr).ceilingz - height_fixed;
-        } else {
-            (*ptr).z = z;
-        }
-    }
-
-    p_add_thinker(unsafe { &mut (*ptr).thinker as *mut Thinker });
-
-    ptr
+    idx
 }
 
 // /// Remove mobj from world and thinker list. Original: P_RemoveMobj
@@ -476,8 +449,7 @@ pub fn p_spawn_mobj(x: Fixed, y: Fixed, z: Fixed, type_: Mobjtype) -> *mut Mobj 
 
 /// Spawn player at map thing (type 1-4). Original: P_SpawnPlayer
 pub fn p_spawn_player(mthing: &MapThing) {
-    use crate::doomstat::{with_doomstat_state, PlayerState};
-    //use crate::game::g_game::g_player_reborn;
+    use crate::doomstat::PlayerState;
     use crate::info::MT_PLAYER;
 
     let mt_type = mthing.type_ as i32;
@@ -496,8 +468,8 @@ pub fn p_spawn_player(mthing: &MapThing) {
     let y = (mthing.y as i32) * FRACUNIT;
     let z = crate::player::ONFLOORZ;
 
-    let mobj = p_spawn_mobj(x, y, z, MT_PLAYER);
-    if mobj.is_null() {
+    let mobj_idx = p_spawn_mobj(x, y, z, MT_PLAYER);
+    if mobj_idx.is_null() {
         return;
     }
 
@@ -505,31 +477,35 @@ pub fn p_spawn_player(mthing: &MapThing) {
         let p = &mut st.players[idx];
         if p.playerstate == PlayerState::Reborn {
             dbg!("g_player_reborn not yet implemented");
-            //g_player_reborn(idx);
         }
         let p = &mut st.players[idx];
 
-        unsafe {
-            if mt_type > 1 {
-                (*mobj).flags |= ((mt_type - 1) as i32) << MF_TRANSSHIFT;
+        mobjs::with_mobjs_state(|mobjs| {
+            if let Some(mo) = mobjs.mobjs[mobj_idx.0].as_mut() {
+                if mt_type > 1 {
+                    mo.flags |= ((mt_type - 1) as i32) << MF_TRANSSHIFT;
+                }
+                mo.angle = (crate::geometry::ANG45 as u32)
+                    .wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
+                // mo.player = p as *mut crate::doomstat::Player as *mut std::ffi::c_void;
+                todo!();
+                mo.health = p.health;
             }
-            (*mobj).angle =
-                (crate::geometry::ANG45 as u32).wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
-            (*mobj).player = p as *mut crate::doomstat::Player as *mut std::ffi::c_void;
-            (*mobj).health = p.health;
-        }
+        });
 
-        p.mo = mobj as *mut std::ffi::c_void;
+        p.mo = Some(mobj_idx);
         p.playerstate = PlayerState::Live;
         p.viewheight = super::VIEWHEIGHT;
-        p.viewz = unsafe { (*mobj).z } + super::VIEWHEIGHT;
+        p.viewz = mobjs::with_mobjs_state(|s| {
+            s.mobjs[mobj_idx.0]
+                .as_ref()
+                .map(|mo| mo.z + super::VIEWHEIGHT)
+                .unwrap_or(0)
+        });
         p.extralight = 0;
         p.fixedcolormap = 0;
     });
 
-    // super::p_pspr::p_setup_psprites(unsafe {
-    //     &mut PLAYERS[idx] as *mut crate::doomstat::Player as *mut std::ffi::c_void
-    // });
     dbg!("p_setup_psprites not yet implemented");
 }
 
@@ -598,13 +574,15 @@ pub fn p_spawn_map_thing(mthing: &MapThing) {
         crate::player::ONFLOORZ
     };
 
-    let mobj = p_spawn_mobj(x, y, z, mobj_type);
-    if mobj.is_null() {
+    let mobj_idx = p_spawn_mobj(x, y, z, mobj_type);
+    if mobj_idx.is_null() {
         return;
     }
 
-    unsafe {
-        (*mobj).spawnpoint = *mthing;
-        (*mobj).angle = (ANG45 as u32).wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
-    }
+    mobjs::with_mobjs_state(|s| {
+        if let Some(mo) = s.mobjs[mobj_idx.0].as_mut() {
+            mo.spawnpoint = *mthing;
+            mo.angle = (ANG45 as u32).wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
+        }
+    });
 }

@@ -12,7 +12,7 @@ use crate::game::d_think::{no_op_acp1, ActionF};
 use crate::info::types::{Mobjinfo, Mobjtype, Spritenum, State, S_NULL};
 
 // Sprite indices (from spritenum_t)
-const _SPR_TROO: Spritenum = 0;  // Imp
+const _SPR_TROO: Spritenum = 0; // Imp
 const _SPR_POSS: Spritenum = 29; // Shotgun guy
 const _SPR_PLAY: Spritenum = 58; // Player
 
@@ -40,7 +40,7 @@ fn state_null() -> State {
         sprite: 0,
         frame: 0,
         tics: -1,
-        action: ActionF { acp1: no_op_acp1 },
+        action: ActionF { acp1: None },
         nextstate: S_NULL,
         misc1: 0,
         misc2: 0,
@@ -54,9 +54,7 @@ static STATES_INNER: OnceLock<[State; NUMSTATES]> = OnceLock::new();
 pub fn states() -> &'static [State; NUMSTATES] {
     STATES_INNER.get_or_init(|| {
         let null = state_null();
-        [
-            null, null, null, null, null, null, null, null, null, null,
-        ]
+        [null, null, null, null, null, null, null, null, null, null]
     })
 }
 

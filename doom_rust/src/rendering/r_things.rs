@@ -1,4 +1,3 @@
-//
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
 //
@@ -50,10 +49,6 @@ struct ThingsState {
     vsprsortedhead: Vissprite,
     sprite_names: Option<Vec<[u8; 4]>>,
 }
-
-// Safety: Raw pointers in Vissprite are only used while holding the Mutex lock.
-// The vissprites array and vsprsortedhead are self-contained within this struct.
-unsafe impl Send for ThingsState {}
 
 impl Default for ThingsState {
     fn default() -> Self {
@@ -219,39 +214,52 @@ pub fn r_sprite_num_for_name(name: &str) -> i32 {
 }
 
 /// Add sprites for sector things.
-pub fn r_add_sprites(sec: *mut crate::rendering::defs::Sector) {
+pub fn r_add_sprites(sector_idx: usize) {
+    let (validcount, lightlevel, thinglist) = state::with_state_mut(|s| {
+        let sec = match s.sectors.get_mut(sector_idx) {
+            Some(sec) => sec,
+            None => return (0, 0, None),
+        };
+        let validcount = crate::rendering::r_main::with_r_main_state(|rm| rm.validcount);
+        if sec.validcount == validcount {
+            return (validcount, 0, None);
+        }
+        sec.validcount = validcount;
+        (validcount, sec.lightlevel as i32, sec.thinglist)
+    });
+
+    if thinglist.is_none() {
+        return;
+    }
+
     with_things_state(|state| {
-        unsafe {
-            if sec.is_null() {
-                return;
-            }
-            let validcount = crate::rendering::r_main::with_r_main_state(|rm| rm.validcount);
-            if (*sec).validcount == validcount {
-                return;
-            }
-            (*sec).validcount = validcount;
+        let sprites = state::with_state(|s| s.sprites);
+        let numsprites = state::with_state(|s| s.numsprites);
+        if sprites.is_null() || numsprites <= 0 {
+            return;
+        }
 
-            let sprites = state::with_state(|s| s.sprites);
-            let numsprites = state::with_state(|s| s.numsprites);
-            if sprites.is_null() || numsprites <= 0 {
-                return;
-            }
+        let extralight = crate::rendering::r_main::with_r_main_state(|rm| rm.extralight);
+        let mut lightnum = (lightlevel >> LIGHTSEGSHIFT) + extralight;
+        if lightnum < 0 {
+            lightnum = 0;
+        } else if lightnum >= LIGHTLEVELS as i32 {
+            lightnum = LIGHTLEVELS as i32 - 1;
+        }
+        let spritelights = crate::rendering::r_main::with_r_main_state(|rm| {
+            rm.scalelight[lightnum as usize].as_ptr() as *mut *mut u8
+        });
 
-            let extralight = crate::rendering::r_main::with_r_main_state(|rm| rm.extralight);
-            let mut lightnum = ((*sec).lightlevel as i32 >> LIGHTSEGSHIFT) + extralight;
-            if lightnum < 0 {
-                lightnum = 0;
-            } else if lightnum >= LIGHTLEVELS as i32 {
-                lightnum = LIGHTLEVELS as i32 - 1;
-            }
-            let spritelights = crate::rendering::r_main::with_r_main_state(|rm| {
-                rm.scalelight[lightnum as usize].as_ptr() as *mut *mut u8
-            });
-
-            let mut thing = (*sec).thinglist;
-            while !thing.is_null() {
-                r_project_sprite(thing, spritelights, state);
-                thing = (*thing).snext;
+        let mut thing = thinglist;
+        while let Some(idx) = thing {
+            let ptr = crate::player::mobjs::mobj_ptr_from_index(idx);
+            if !ptr.is_null() {
+                unsafe {
+                    r_project_sprite(ptr, spritelights, state);
+                    thing = crate::player::mobjs::mobj_index_from_ptr((*ptr).snext);
+                }
+            } else {
+                break;
             }
         }
     });
@@ -309,8 +317,9 @@ fn r_project_sprite(thing: *mut Mobj, spritelights: *const *mut u8, state: &mut 
         let viewx = state::with_state(|s| s.viewx);
         let viewy = state::with_state(|s| s.viewy);
         let viewz = state::with_state(|s| s.viewz);
-        let (viewcos, viewsin, centerxfrac) =
-            crate::rendering::r_main::with_r_main_state(|rm| (rm.viewcos, rm.viewsin, rm.centerxfrac));
+        let (viewcos, viewsin, centerxfrac) = crate::rendering::r_main::with_r_main_state(|rm| {
+            (rm.viewcos, rm.viewsin, rm.centerxfrac)
+        });
         let viewwidth = state::with_state(|s| s.viewwidth);
         let colormaps = state::with_state(|s| s.colormaps);
         let firstspritelump = state::with_state(|s| s.firstspritelump);
@@ -611,7 +620,13 @@ fn r_draw_sprite_impl(spr: *mut Vissprite, state: &mut ThingsState) {
             }
         }
 
-        r_draw_vis_sprite(spr, (*spr).x1, (*spr).x2, clipbot.as_ptr(), cliptop.as_ptr());
+        r_draw_vis_sprite(
+            spr,
+            (*spr).x1,
+            (*spr).x2,
+            clipbot.as_ptr(),
+            cliptop.as_ptr(),
+        );
     }
 }
 

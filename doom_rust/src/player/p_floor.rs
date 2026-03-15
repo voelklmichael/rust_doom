@@ -30,7 +30,7 @@ pub struct FloorMover {
     pub thinker: Thinker,
     pub floortype: i32,
     pub crush: bool,
-    pub sector: *mut Sector,
+    pub sector_idx: usize,
     pub direction: i32, // 1 = down, -1 = up
     pub newspecial: i32,
     pub texture: i16,
@@ -39,57 +39,45 @@ pub struct FloorMover {
 }
 
 /// Find lowest floor height among sectors touching this one. Original: P_FindLowestFloorSurrounding
-pub fn find_lowest_floor_surrounding(sec: *mut Sector) -> Fixed {
-    if sec.is_null() {
-        return 0;
-    }
-    let mut minheight = unsafe { (*sec).floorheight };
-    let linecount = unsafe { (*sec).linecount } as usize;
-    let lines = unsafe { (*sec).lines };
-    if lines.is_null() {
-        return minheight;
-    }
-    for i in 0..linecount {
-        let line = unsafe { *lines.add(i) };
-        if line.is_null() {
-            continue;
-        }
-        let other = super::p_spec::get_next_sector(line, sec);
-        if !other.is_null() {
-            let h = unsafe { (*other).floorheight };
-            if h < minheight {
-                minheight = h;
+pub fn find_lowest_floor_surrounding(sec_idx: usize) -> Fixed {
+    crate::rendering::state::with_state(|s| {
+        let sec = match s.sectors.get(sec_idx) {
+            Some(sec) => sec,
+            None => return 0,
+        };
+        let mut minheight = sec.floorheight;
+        for &line_idx in &sec.lines {
+            if let Some(other_idx) = super::p_spec::get_next_sector(line_idx, sec_idx) {
+                if let Some(other) = s.sectors.get(other_idx) {
+                    if other.floorheight < minheight {
+                        minheight = other.floorheight;
+                    }
+                }
             }
         }
-    }
-    minheight
+        minheight
+    })
 }
 
 /// Find highest floor height among sectors touching this one. Original: P_FindHighestFloorSurrounding
-pub fn find_highest_floor_surrounding(sec: *mut Sector) -> Fixed {
-    if sec.is_null() {
-        return 0;
-    }
-    let mut maxheight = unsafe { (*sec).floorheight };
-    let linecount = unsafe { (*sec).linecount } as usize;
-    let lines = unsafe { (*sec).lines };
-    if lines.is_null() {
-        return maxheight;
-    }
-    for i in 0..linecount {
-        let line = unsafe { *lines.add(i) };
-        if line.is_null() {
-            continue;
-        }
-        let other = super::p_spec::get_next_sector(line, sec);
-        if !other.is_null() {
-            let h = unsafe { (*other).floorheight };
-            if h > maxheight {
-                maxheight = h;
+pub fn find_highest_floor_surrounding(sec_idx: usize) -> Fixed {
+    crate::rendering::state::with_state(|s| {
+        let sec = match s.sectors.get(sec_idx) {
+            Some(sec) => sec,
+            None => return 0,
+        };
+        let mut maxheight = sec.floorheight;
+        for &line_idx in &sec.lines {
+            if let Some(other_idx) = super::p_spec::get_next_sector(line_idx, sec_idx) {
+                if let Some(other) = s.sectors.get(other_idx) {
+                    if other.floorheight > maxheight {
+                        maxheight = other.floorheight;
+                    }
+                }
             }
         }
-    }
-    maxheight
+        maxheight
+    })
 }
 
 /// Floor mover thinker. Original: T_MoveFloor
@@ -98,88 +86,88 @@ pub unsafe extern "C" fn t_move_floor(floor: *mut ()) {
     if fm.is_null() {
         return;
     }
-    let sector = (*fm).sector;
-    if sector.is_null() {
-        p_remove_thinker(&mut (*fm).thinker as *mut Thinker);
-        return;
-    }
-    let moved = if (*fm).direction > 0 {
-        // Moving down
-        let mut res = false;
-        let newheight = (*sector).floorheight - (*fm).speed;
-        if newheight < (*fm).floordestheight {
-            (*sector).floorheight = (*fm).floordestheight;
-            res = true;
+    let sector_idx = (*fm).sector_idx;
+    let moved = crate::rendering::state::with_state_mut(|s| {
+        let sector = match s.sectors.get_mut(sector_idx) {
+            Some(sec) => sec,
+            None => return false,
+        };
+        if (*fm).direction > 0 {
+            let newheight = sector.floorheight - (*fm).speed;
+            if newheight < (*fm).floordestheight {
+                sector.floorheight = (*fm).floordestheight;
+                true
+            } else {
+                sector.floorheight = newheight;
+                (*fm).floordestheight == newheight
+            }
         } else {
-            (*sector).floorheight = newheight;
-            res = (*fm).floordestheight == newheight;
+            let newheight = sector.floorheight + (*fm).speed;
+            if newheight > (*fm).floordestheight {
+                sector.floorheight = (*fm).floordestheight;
+                true
+            } else {
+                sector.floorheight = newheight;
+                (*fm).floordestheight == newheight
+            }
         }
-        res
-    } else {
-        // Moving up
-        let mut res = false;
-        let newheight = (*sector).floorheight + (*fm).speed;
-        if newheight > (*fm).floordestheight {
-            (*sector).floorheight = (*fm).floordestheight;
-            res = true;
-        } else {
-            (*sector).floorheight = newheight;
-            res = (*fm).floordestheight == newheight;
-        }
-        res
-    };
+    });
     if moved {
-        (*sector).specialdata = std::ptr::null_mut();
+        crate::rendering::state::with_state_mut(|s| {
+            if let Some(sec) = s.sectors.get_mut(sector_idx) {
+                sec.specialdata = None;
+            }
+        });
         p_remove_thinker(&mut (*fm).thinker as *mut Thinker);
-        // TODO: S_StartSound for floor stop
     }
 }
 
 /// Execute floor special. Original: EV_DoFloor
 /// Returns true if a floor mover was started.
-pub fn ev_do_floor(line: *const Line, floortype: i32) -> bool {
-    if line.is_null() {
-        return false;
-    }
-    let sector = unsafe { (*line).frontsector };
-    if sector.is_null() {
-        return false;
-    }
-    // Check if sector already has a floor mover
-    if !unsafe { (*sector).specialdata }.is_null() {
-        return false;
-    }
+pub fn ev_do_floor(line_idx: usize, floortype: i32) -> bool {
+    let (sector_idx, floorheight) = match crate::rendering::state::with_state(|s| {
+        let line = s.lines.get(line_idx)?;
+        let sec_idx = line.frontsector_idx;
+        let sec = s.sectors.get(sec_idx)?;
+        if sec.specialdata.is_some() {
+            return None; // already has floor mover
+        }
+        Some((sec_idx, sec.floorheight))
+    }) {
+        Some(x) => x,
+        None => return false,
+    };
     let (floordestheight, direction) = match floortype {
         FLOORTYPE_LOWER_TO_LOWEST => {
-            let dest = find_lowest_floor_surrounding(sector);
-            if dest >= unsafe { (*sector).floorheight } {
+            let dest = find_lowest_floor_surrounding(sector_idx);
+            if dest >= floorheight {
                 return false;
             }
             (dest, 1)
         }
         FLOORTYPE_LOWER => {
-            let dest = unsafe { (*sector).floorheight } - 8 * FRACUNIT;
+            let dest = floorheight - 8 * FRACUNIT;
             if dest < 0 {
                 return false;
             }
             (dest, 1)
         }
         FLOORTYPE_RAISE_TO_NEAREST => {
-            let dest = find_highest_floor_surrounding(sector);
-            if dest <= unsafe { (*sector).floorheight } {
+            let dest = find_highest_floor_surrounding(sector_idx);
+            if dest <= floorheight {
                 return false;
             }
             (dest, -1)
         }
         FLOORTYPE_RAISE_TO_LOWEST => {
-            let dest = find_lowest_floor_surrounding(sector);
-            if dest <= unsafe { (*sector).floorheight } {
+            let dest = find_lowest_floor_surrounding(sector_idx);
+            if dest <= floorheight {
                 return false;
             }
             (dest, -1)
         }
         FLOORTYPE_RAISE => {
-            let dest = unsafe { (*sector).floorheight } + 8 * FRACUNIT;
+            let dest = floorheight + 8 * FRACUNIT;
             (dest, -1)
         }
         _ => return false,
@@ -202,16 +190,18 @@ pub fn ev_do_floor(line: *const Line, floortype: i32) -> bool {
         };
         (*fm).floortype = floortype;
         (*fm).crush = false;
-        (*fm).sector = sector;
+        (*fm).sector_idx = sector_idx;
         (*fm).direction = direction;
         (*fm).newspecial = 0;
         (*fm).texture = 0;
         (*fm).floordestheight = floordestheight;
         (*fm).speed = FLOORSPEED;
     }
-    unsafe {
-        (*sector).specialdata = fm as *mut std::ffi::c_void;
-    }
+    crate::rendering::state::with_state_mut(|s| {
+        if let Some(sec) = s.sectors.get_mut(sector_idx) {
+            sec.specialdata = Some(fm as usize);
+        }
+    });
     p_add_thinker(unsafe { &mut (*fm).thinker as *mut Thinker });
     true
 }

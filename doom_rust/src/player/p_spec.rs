@@ -21,73 +21,73 @@ use super::p_telept::ev_teleport;
 /// MO_TELEPORTMAN - thing type for teleport destination (matches MT_TELEPORTMAN in info).
 pub const MO_TELEPORTMAN: i32 = 5;
 
-/// Return sector on the other side of the line. NULL if not two-sided.
+/// Return sector index on the other side of the line. None if not two-sided.
 /// Original: getNextSector
-pub fn get_next_sector(line: *const Line, sec: *const Sector) -> *mut Sector {
-    if line.is_null() || sec.is_null() {
-        return std::ptr::null_mut();
-    }
-    let ld = unsafe { &*line };
-    if (ld.flags & ML_TWOSIDED) == 0 {
-        return std::ptr::null_mut();
-    }
-    let front = ld.frontsector;
-    let back = ld.backsector;
-    if front.is_null() || back.is_null() {
-        return std::ptr::null_mut();
-    }
-    if std::ptr::eq(front, sec) {
-        back
-    } else {
-        front
-    }
+pub fn get_next_sector(line_idx: usize, sec_idx: usize) -> Option<usize> {
+    crate::rendering::state::with_state(|s| {
+        let ld = s.lines.get(line_idx)?;
+        if (ld.flags & ML_TWOSIDED) == 0 {
+            return None;
+        }
+        let back_idx = ld.backsector_idx?;
+        if ld.frontsector_idx == sec_idx {
+            Some(back_idx)
+        } else {
+            Some(ld.frontsector_idx)
+        }
+    })
+}
+
+/// Legacy: get sector pointer from index (for code still using *mut Sector).
+#[allow(dead_code)]
+fn _sector_ptr_from_idx(_idx: usize) -> *mut Sector {
+    std::ptr::null_mut()
 }
 
 /// Called when thing crosses a special line. Dispatches to EV_* stubs.
 /// Original: P_CrossSpecialLine
 pub fn p_cross_special_line(line_index: i32, oldside: i32, thing: *mut Mobj) {
-    if thing.is_null() {
+    if thing.is_null() || line_index < 0 {
         return;
     }
-    let lines = crate::rendering::state::with_state(|s| s.lines);
-    if lines.is_null() || line_index < 0 {
-        return;
-    }
-    let line = unsafe { lines.add(line_index as usize) };
-    ev_do_line_special(line, oldside, thing);
+    let line_idx = line_index as usize;
+    ev_do_line_special(line_idx, oldside, thing);
 }
 
 /// Use (activate) a special line. Dispatches to p_switch or EV_* stubs.
 /// Original: P_UseSpecialLine
-pub fn p_use_special_line(thing: *mut Mobj, line: *const Line) -> bool {
-    if thing.is_null() || line.is_null() {
+pub fn p_use_special_line(thing: *mut Mobj, line_idx: usize) -> bool {
+    if thing.is_null() {
         return false;
     }
-    p_switch_use_line(thing, line) || ev_do_line_special(line, 0, thing)
+    p_switch_use_line(thing, line_idx) || ev_do_line_special(line_idx, 0, thing)
 }
 
 /// Shoot (projectile hits) a special line. Original: P_ShootSpecialLine
-pub fn p_shoot_special_line(thing: *mut Mobj, line: *const Line) -> bool {
-    if thing.is_null() || line.is_null() {
+pub fn p_shoot_special_line(thing: *mut Mobj, line_idx: usize) -> bool {
+    if thing.is_null() {
         return false;
     }
-    ev_do_line_special(line, 0, thing)
+    ev_do_line_special(line_idx, 0, thing)
 }
 
 /// Dispatch line special to appropriate EV_* function.
-fn ev_do_line_special(line: *const Line, side: i32, thing: *mut Mobj) -> bool {
-    if line.is_null() {
-        return false;
-    }
-    let special = unsafe { (*line).special as i32 };
+fn ev_do_line_special(line_idx: usize, side: i32, thing: *mut Mobj) -> bool {
+    let special = crate::rendering::state::with_state(|s| {
+        s.lines.get(line_idx).map(|l| l.special as i32)
+    });
+    let special = match special {
+        Some(s) => s,
+        None => return false,
+    };
     match special {
-        1..=23 => ev_do_floor(line, special),
-        26..=28 => ev_do_ceiling(line, special),
-        29..=34 => ev_do_door(line, special),
-        35..=38 => ev_do_plat(line, special, 0),
-        8 | 9 => ev_start_light_strobing(line),
-        10 | 11 => ev_start_light_flickering(line),
-        39 | 97 | 125 | 126 => ev_teleport(line, side, thing),
+        1..=23 => ev_do_floor(line_idx, special),
+        26..=28 => ev_do_ceiling(line_idx, special),
+        29..=34 => ev_do_door(line_idx, special),
+        35..=38 => ev_do_plat(line_idx, special, 0),
+        8 | 9 => ev_start_light_strobing(line_idx),
+        10 | 11 => ev_start_light_flickering(line_idx),
+        39 | 97 | 125 | 126 => ev_teleport(line_idx, side, thing),
         52 => {
             crate::game::g_game::g_exit_level();
             true
@@ -96,7 +96,7 @@ fn ev_do_line_special(line: *const Line, side: i32, thing: *mut Mobj) -> bool {
             crate::game::g_game::g_secret_exit_level();
             true
         }
-        _ => p_switch_use_line(thing, line),
+        _ => p_switch_use_line(thing, line_idx),
     }
 }
 

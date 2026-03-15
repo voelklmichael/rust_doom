@@ -1,4 +1,3 @@
-//
 // Copyright(C) 1993-1996 Id Software, Inc.
 // Copyright(C) 2005-2014 Simon Howard
 //
@@ -20,9 +19,6 @@ use std::sync::{Mutex, OnceLock};
 // =============================================================================
 
 static R_DRAW_STATE: OnceLock<Mutex<RDrawState>> = OnceLock::new();
-
-/// Safety: Raw pointers in RDrawState point to zone-allocated data that outlives the state.
-unsafe impl Send for RDrawState {}
 
 pub struct RDrawState {
     pub fuzzpos: usize,
@@ -113,13 +109,11 @@ const FUZZOFF: i32 = SCREENWIDTH;
 
 /// Fuzz offset table - samples adjacent pixels for shadow effect.
 static FUZZOFFSET: [i32; FUZZTABLE] = [
-    FUZZOFF, -FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF,
-    FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF,
-    FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, -FUZZOFF, -FUZZOFF, -FUZZOFF,
-    FUZZOFF, -FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF,
-    FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, -FUZZOFF, FUZZOFF,
-    FUZZOFF, FUZZOFF, -FUZZOFF, -FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF,
-    FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF,
+    FUZZOFF, -FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF,
+    FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, -FUZZOFF, -FUZZOFF,
+    -FUZZOFF, FUZZOFF, -FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF,
+    -FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, -FUZZOFF,
+    -FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF, FUZZOFF, -FUZZOFF, FUZZOFF,
 ];
 
 // =============================================================================
@@ -396,13 +390,31 @@ pub fn fuzzcolfunc() {
                 let dc_texturemid = rd.dc_texturemid;
                 if rm.detailshift == 0 {
                     fuzzcolfunc_high(
-                        dc_yl, dc_yh, dc_x, dc_source, dc_colormap, dc_iscale, dc_texturemid,
-                        centery, &vv.ylookup, &vv.columnofs, &mut rd.fuzzpos,
+                        dc_yl,
+                        dc_yh,
+                        dc_x,
+                        dc_source,
+                        dc_colormap,
+                        dc_iscale,
+                        dc_texturemid,
+                        centery,
+                        &vv.ylookup,
+                        &vv.columnofs,
+                        &mut rd.fuzzpos,
                     );
                 } else {
                     fuzzcolfunc_low(
-                        dc_yl, dc_yh, dc_x, dc_source, dc_colormap, dc_iscale, dc_texturemid,
-                        centery, &vv.ylookup, &vv.columnofs, &mut rd.fuzzpos,
+                        dc_yl,
+                        dc_yh,
+                        dc_x,
+                        dc_source,
+                        dc_colormap,
+                        dc_iscale,
+                        dc_texturemid,
+                        centery,
+                        &vv.ylookup,
+                        &vv.columnofs,
+                        &mut rd.fuzzpos,
                     );
                 }
             })
@@ -411,7 +423,12 @@ pub fn fuzzcolfunc() {
 }
 
 /// Draw translated column (player colors). High detail.
-fn transcolfunc_high(rd: &RDrawState, centery: i32, ylookup: &[*mut u8; 200], columnofs: &[i32; 320]) {
+fn transcolfunc_high(
+    rd: &RDrawState,
+    centery: i32,
+    ylookup: &[*mut u8; 200],
+    columnofs: &[i32; 320],
+) {
     unsafe {
         let count = rd.dc_yh - rd.dc_yl;
         if count < 0 {
@@ -449,7 +466,12 @@ fn transcolfunc_high(rd: &RDrawState, centery: i32, ylookup: &[*mut u8; 200], co
 }
 
 /// Draw translated column. Low detail.
-fn transcolfunc_low(rd: &RDrawState, centery: i32, ylookup: &[*mut u8; 200], columnofs: &[i32; 320]) {
+fn transcolfunc_low(
+    rd: &RDrawState,
+    centery: i32,
+    ylookup: &[*mut u8; 200],
+    columnofs: &[i32; 320],
+) {
     unsafe {
         let count = rd.dc_yh - rd.dc_yl;
         if count < 0 {
@@ -515,19 +537,17 @@ pub fn transcolfunc() {
 /// offset = byte offset into screen buffer; count = number of bytes.
 /// Without background_buffer we clear to 0 (black).
 pub fn r_video_erase(offset: usize, count: i32) {
-    v_video::with_v_video_state(|vv| {
-        unsafe {
-            if vv.viewimage.is_null() || count <= 0 {
-                return;
-            }
-            let screen_size = (SCREENWIDTH * SCREENHEIGHT) as usize;
-            if offset >= screen_size {
-                return;
-            }
-            let count = count.min(screen_size as i32 - offset as i32) as usize;
-            if count > 0 {
-                std::ptr::write_bytes(vv.viewimage.add(offset), 0, count);
-            }
+    v_video::with_v_video_state(|vv| unsafe {
+        if vv.viewimage.is_null() || count <= 0 {
+            return;
+        }
+        let screen_size = (SCREENWIDTH * SCREENHEIGHT) as usize;
+        if offset >= screen_size {
+            return;
+        }
+        let count = count.min(screen_size as i32 - offset as i32) as usize;
+        if count > 0 {
+            std::ptr::write_bytes(vv.viewimage.add(offset), 0, count);
         }
     });
 }
@@ -544,10 +564,10 @@ fn spanfunc_high(rd: &RDrawState, ylookup: &[*mut u8; 200], columnofs: &[i32; 32
         }
 
         // Pack position: x in top 16 bits, y in bottom 16 (Doom's optimization).
-        let mut position: u32 = ((rd.ds_xfrac as u32) << 10) & 0xffff_0000
-            | ((rd.ds_yfrac as u32) >> 6) & 0x0000_ffff;
-        let step: u32 = ((rd.ds_xstep as u32) << 10) & 0xffff_0000
-            | ((rd.ds_ystep as u32) >> 6) & 0x0000_ffff;
+        let mut position: u32 =
+            ((rd.ds_xfrac as u32) << 10) & 0xffff_0000 | ((rd.ds_yfrac as u32) >> 6) & 0x0000_ffff;
+        let step: u32 =
+            ((rd.ds_xstep as u32) << 10) & 0xffff_0000 | ((rd.ds_ystep as u32) >> 6) & 0x0000_ffff;
 
         let mut count = rd.ds_x2 - rd.ds_x1;
         let mut dest_ptr = dest.add(columnofs[rd.ds_x1 as usize] as usize);
@@ -578,10 +598,10 @@ fn spanfunc_low(rd: &RDrawState, ylookup: &[*mut u8; 200], columnofs: &[i32; 320
             return;
         }
 
-        let mut position: u32 = ((rd.ds_xfrac as u32) << 10) & 0xffff_0000
-            | ((rd.ds_yfrac as u32) >> 6) & 0x0000_ffff;
-        let step: u32 = ((rd.ds_xstep as u32) << 10) & 0xffff_0000
-            | ((rd.ds_ystep as u32) >> 6) & 0x0000_ffff;
+        let mut position: u32 =
+            ((rd.ds_xfrac as u32) << 10) & 0xffff_0000 | ((rd.ds_yfrac as u32) >> 6) & 0x0000_ffff;
+        let step: u32 =
+            ((rd.ds_xstep as u32) << 10) & 0xffff_0000 | ((rd.ds_ystep as u32) >> 6) & 0x0000_ffff;
 
         let mut count = rd.ds_x2 - rd.ds_x1;
         let x1 = rd.ds_x1 << 1;

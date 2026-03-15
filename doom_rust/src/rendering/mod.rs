@@ -21,7 +21,7 @@ pub use defs::{
     SpriteFrame, Spritedef, Subsector, Thinker, Vertex, Visplane, Vissprite, MAXDRAWSEGS, SIL_BOTH,
     SIL_BOTTOM, SIL_NONE, SIL_TOP,
 };
-pub use m_bbox::{m_add_to_box, m_clear_box, Bbox, BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
+pub use m_bbox::{m_add_to_box, m_clear_box, slope_type_from_dx_dy, Bbox, BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 pub use r_bsp::{r_clear_clip_segs, r_clear_draw_segs, r_render_bsp_node};
 pub use r_data::{
     r_check_flat_num_for_name,
@@ -46,7 +46,9 @@ pub use r_main::{
     r_scale_from_global_angle,
     r_set_view_size,
     r_setup_frame,
-     view_player_from_console,
+    view_player_from_console,
+    with_r_main_state,
+    with_r_main_state_mut,
     ViewPlayerStub,
     LIGHTLEVELS,
     MAXLIGHTSCALE,

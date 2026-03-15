@@ -349,92 +349,85 @@ pub fn p_unarchive_players<R: Read>(r: &mut R) -> std::io::Result<()> {
         p.attacker = std::ptr::null_mut();
     }
     Ok(())
+    })
 }
 
 /// Archive world (sectors, lines, sides). Original: P_ArchiveWorld
 pub fn p_archive_world<W: Write>(w: &mut W) -> std::io::Result<()> {
     use crate::m_fixed::FRACBITS;
-    let (sectors, numsectors, lines, numlines, sides) = crate::rendering::state::with_state(|s| {
-        (s.sectors, s.numsectors as usize, s.lines, s.numlines as usize, s.sides)
-    });
-
-    if sectors.is_null() || lines.is_null() {
-        return Ok(());
-    }
-
-    for i in 0..numsectors {
-        let sec = unsafe { &*sectors.add(i) };
-        saveg_write16(w, (sec.floorheight >> FRACBITS) as i16)?;
-        saveg_write16(w, (sec.ceilingheight >> FRACBITS) as i16)?;
-        saveg_write16(w, sec.floorpic)?;
-        saveg_write16(w, sec.ceilingpic)?;
-        saveg_write16(w, sec.lightlevel)?;
-        saveg_write16(w, sec.special)?;
-        saveg_write16(w, sec.tag)?;
-    }
-
-    for i in 0..numlines {
-        let li = unsafe { &*lines.add(i) };
-        saveg_write16(w, li.flags)?;
-        saveg_write16(w, li.special)?;
-        saveg_write16(w, li.tag)?;
-        for j in 0..2 {
-            if li.sidenum[j] == -1 {
-                continue;
-            }
-            let si = unsafe { &*sides.add(li.sidenum[j] as usize) };
-            saveg_write16(w, (si.textureoffset >> FRACBITS) as i16)?;
-            saveg_write16(w, (si.rowoffset >> FRACBITS) as i16)?;
-            saveg_write16(w, si.toptexture)?;
-            saveg_write16(w, si.bottomtexture)?;
-            saveg_write16(w, si.midtexture)?;
+    crate::rendering::state::with_state(|s| {
+        if s.sectors.is_empty() || s.lines.is_empty() {
+            return Ok(());
         }
-    }
-    Ok(())
+        for sec in &s.sectors {
+            saveg_write16(w, (sec.floorheight >> FRACBITS) as i16)?;
+            saveg_write16(w, (sec.ceilingheight >> FRACBITS) as i16)?;
+            saveg_write16(w, sec.floorpic)?;
+            saveg_write16(w, sec.ceilingpic)?;
+            saveg_write16(w, sec.lightlevel)?;
+            saveg_write16(w, sec.special)?;
+            saveg_write16(w, sec.tag)?;
+        }
+        for li in &s.lines {
+            saveg_write16(w, li.flags)?;
+            saveg_write16(w, li.special)?;
+            saveg_write16(w, li.tag)?;
+            for j in 0..2 {
+                if li.sidenum[j] == -1 {
+                    continue;
+                }
+                let sidenum_idx = li.sidenum[j] as usize;
+                if let Some(si) = s.sides.get(sidenum_idx) {
+                    saveg_write16(w, (si.textureoffset >> FRACBITS) as i16)?;
+                    saveg_write16(w, (si.rowoffset >> FRACBITS) as i16)?;
+                    saveg_write16(w, si.toptexture)?;
+                    saveg_write16(w, si.bottomtexture)?;
+                    saveg_write16(w, si.midtexture)?;
+                }
+            }
+        }
+        Ok(())
+    })
 }
 
 /// Unarchive world. Original: P_UnArchiveWorld
 pub fn p_unarchive_world<R: Read>(r: &mut R) -> std::io::Result<()> {
     use crate::m_fixed::FRACBITS;
-    let (sectors, numsectors, lines, numlines, sides) = crate::rendering::state::with_state(|s| {
-        (s.sectors, s.numsectors as usize, s.lines, s.numlines as usize, s.sides)
-    });
-
-    if sectors.is_null() || lines.is_null() {
-        return Ok(());
-    }
-
-    for i in 0..numsectors {
-        let sec = unsafe { &mut *sectors.add(i) };
-        sec.floorheight = (saveg_read16(r)? as i32) << FRACBITS;
-        sec.ceilingheight = (saveg_read16(r)? as i32) << FRACBITS;
-        sec.floorpic = saveg_read16(r)?;
-        sec.ceilingpic = saveg_read16(r)?;
-        sec.lightlevel = saveg_read16(r)?;
-        sec.special = saveg_read16(r)?;
-        sec.tag = saveg_read16(r)?;
-        sec.specialdata = std::ptr::null_mut();
-        sec.soundtarget = std::ptr::null_mut::<crate::player::p_mobj::Mobj>();
-    }
-
-    for i in 0..numlines {
-        let li = unsafe { &mut *lines.add(i) };
-        li.flags = saveg_read16(r)?;
-        li.special = saveg_read16(r)?;
-        li.tag = saveg_read16(r)?;
-        for j in 0..2 {
-            if li.sidenum[j] == -1 {
-                continue;
-            }
-            let si = unsafe { &mut *sides.add(li.sidenum[j] as usize) };
-            si.textureoffset = (saveg_read16(r)? as i32) << FRACBITS;
-            si.rowoffset = (saveg_read16(r)? as i32) << FRACBITS;
-            si.toptexture = saveg_read16(r)?;
-            si.bottomtexture = saveg_read16(r)?;
-            si.midtexture = saveg_read16(r)?;
+    crate::rendering::state::with_state_mut(|s| {
+        if s.sectors.is_empty() || s.lines.is_empty() {
+            return Ok(());
         }
-    }
-    Ok(())
+        for sec in &mut s.sectors {
+            sec.floorheight = (saveg_read16(r)? as i32) << FRACBITS;
+            sec.ceilingheight = (saveg_read16(r)? as i32) << FRACBITS;
+            sec.floorpic = saveg_read16(r)?;
+            sec.ceilingpic = saveg_read16(r)?;
+            sec.lightlevel = saveg_read16(r)?;
+            sec.special = saveg_read16(r)?;
+            sec.tag = saveg_read16(r)?;
+            sec.specialdata = None;
+            sec.soundtarget = None;
+        }
+        for li in &mut s.lines {
+            li.flags = saveg_read16(r)?;
+            li.special = saveg_read16(r)?;
+            li.tag = saveg_read16(r)?;
+            for j in 0..2 {
+                if li.sidenum[j] == -1 {
+                    continue;
+                }
+                let sidenum_idx = li.sidenum[j] as usize;
+                if let Some(si) = s.sides.get_mut(sidenum_idx) {
+                    si.textureoffset = (saveg_read16(r)? as i32) << FRACBITS;
+                    si.rowoffset = (saveg_read16(r)? as i32) << FRACBITS;
+                    si.toptexture = saveg_read16(r)?;
+                    si.bottomtexture = saveg_read16(r)?;
+                    si.midtexture = saveg_read16(r)?;
+                }
+            }
+        }
+        Ok(())
+    })
 }
 
 const TC_END: u8 = 0;
@@ -636,23 +629,17 @@ pub fn p_unarchive_thinkers<R: Read>(r: &mut R) -> std::io::Result<()> {
             }
 
             p_set_thing_position(ptr);
+            let (floorz, ceilingz) = crate::rendering::state::with_state(|s| {
+                let sub_idx = unsafe { (*ptr).subsector as usize };
+                s.subsectors
+                    .get(sub_idx)
+                    .and_then(|sub| s.sectors.get(sub.sector_idx))
+                    .map(|sec| (sec.floorheight, sec.ceilingheight))
+                    .unwrap_or_else(|| unsafe { ((*ptr).floorz, (*ptr).ceilingz) })
+            });
             unsafe {
-                (*ptr).floorz = {
-                    let ss = (*ptr).subsector.cast::<crate::rendering::defs::Subsector>();
-                    if ss.is_null() {
-                        (*ptr).floorz
-                    } else {
-                        (*(*ss).sector).floorheight
-                    }
-                };
-                (*ptr).ceilingz = {
-                    let ss = (*ptr).subsector.cast::<crate::rendering::defs::Subsector>();
-                    if ss.is_null() {
-                        (*ptr).ceilingz
-                    } else {
-                        (*(*ss).sector).ceilingheight
-                    }
-                };
+                (*ptr).floorz = floorz;
+                (*ptr).ceilingz = ceilingz;
             }
             p_add_thinker(unsafe { &mut (*ptr).thinker as *mut Thinker });
         } else {
@@ -671,27 +658,58 @@ const TC_GLOW: u8 = 6;
 const TC_ENDSPECIALS: u8 = 7;
 
 fn sector_index(sector: *mut crate::rendering::defs::Sector) -> i32 {
-    let (sectors, numsectors) = crate::rendering::state::with_state(|s| (s.sectors, s.numsectors as usize));
-    if sectors.is_null() || numsectors == 0 {
-        return 0;
-    }
-    let base = sectors as usize;
-    let ptr = sector as usize;
-    let idx = (ptr - base) / std::mem::size_of::<crate::rendering::defs::Sector>();
-    if idx < numsectors {
-        idx as i32
-    } else {
-        0
-    }
+    crate::rendering::state::with_state(|s| {
+        if sector.is_null() || s.sectors.is_empty() {
+            return 0;
+        }
+        let base = s.sectors.as_ptr() as usize;
+        let ptr = sector as usize;
+        if ptr < base {
+            return 0;
+        }
+        let idx = (ptr - base) / std::mem::size_of::<crate::rendering::defs::Sector>();
+        if idx < s.sectors.len() {
+            idx as i32
+        } else {
+            0
+        }
+    })
 }
 
 fn sector_from_index(idx: i32) -> *mut crate::rendering::defs::Sector {
-    let (sectors, numsectors) = crate::rendering::state::with_state(|s| (s.sectors, s.numsectors));
-    if sectors.is_null() || idx < 0 || idx >= numsectors {
-        std::ptr::null_mut()
-    } else {
-        unsafe { sectors.add(idx as usize) }
+    crate::rendering::state::with_state(|s| {
+        if idx < 0 || (idx as usize) >= s.sectors.len() {
+            std::ptr::null_mut()
+        } else {
+            unsafe { s.sectors.as_ptr().add(idx as usize) as *mut crate::rendering::defs::Sector }
+        }
+    })
+}
+
+/// Set sector.specialdata to thinker pointer (as usize). Sector uses Option<usize>.
+fn set_sector_specialdata(sector_ptr: *mut crate::rendering::defs::Sector, value: usize) {
+    if sector_ptr.is_null() {
+        return;
     }
+    crate::rendering::state::with_state_mut(|s| {
+        let base = s.sectors.as_ptr() as usize;
+        let sec_ptr = sector_ptr as usize;
+        if sec_ptr >= base {
+            let idx = (sec_ptr - base) / std::mem::size_of::<crate::rendering::defs::Sector>();
+            if idx < s.sectors.len() {
+                s.sectors[idx].specialdata = Some(value);
+            }
+        }
+    });
+}
+
+/// Set sector.specialdata by index. Used for FloorMover which uses sector_idx.
+fn set_sector_specialdata_by_idx(sector_idx: usize, value: usize) {
+    crate::rendering::state::with_state_mut(|s| {
+        if let Some(sec) = s.sectors.get_mut(sector_idx) {
+            sec.specialdata = Some(value);
+        }
+    });
 }
 
 /// Archive specials (ceiling, floor, door, etc.). Original: P_ArchiveSpecials
@@ -748,7 +766,7 @@ pub fn p_archive_specials<W: Write>(w: &mut W) -> std::io::Result<()> {
                 saveg_write32(w, 0)?;
                 saveg_write32(w, m.floortype)?;
                 saveg_write32(w, if m.crush { 1 } else { 0 })?;
-                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.sector_idx as i32)?;
                 saveg_write32(w, m.direction)?;
                 saveg_write32(w, m.newspecial)?;
                 saveg_write16(w, m.texture)?;
@@ -878,7 +896,7 @@ pub fn p_unarchive_specials<R: Read>(r: &mut R) -> std::io::Result<()> {
                     (*ptr).thinker.function.acp1 = t_vertical_door;
                 }
                 if !unsafe { (*ptr).sector }.is_null() {
-                    unsafe { (*(*ptr).sector).specialdata = ptr as *mut std::ffi::c_void };
+                    set_sector_specialdata(unsafe { (*ptr).sector }, ptr as usize);
                 }
                 p_add_thinker(unsafe { &mut (*ptr).thinker as *mut Thinker });
             }
@@ -888,10 +906,11 @@ pub fn p_unarchive_specials<R: Read>(r: &mut R) -> std::io::Result<()> {
                 if ptr.is_null() {
                     crate::i_system::i_error("P_UnArchiveSpecials: out of memory");
                 }
+                let sector_idx = saveg_read32(r)? as usize;
                 unsafe {
                     (*ptr).floortype = saveg_read32(r)?;
                     (*ptr).crush = saveg_read32(r)? != 0;
-                    (*ptr).sector = sector_from_index(saveg_read32(r)?);
+                    (*ptr).sector_idx = sector_idx;
                     (*ptr).direction = saveg_read32(r)?;
                     (*ptr).newspecial = saveg_read32(r)?;
                     (*ptr).texture = saveg_read16(r)?;
@@ -901,9 +920,7 @@ pub fn p_unarchive_specials<R: Read>(r: &mut R) -> std::io::Result<()> {
                     (*ptr).thinker.next = std::ptr::null_mut();
                     (*ptr).thinker.function.acp1 = t_move_floor;
                 }
-                if !unsafe { (*ptr).sector }.is_null() {
-                    unsafe { (*(*ptr).sector).specialdata = ptr as *mut std::ffi::c_void };
-                }
+                set_sector_specialdata_by_idx(sector_idx, ptr as usize);
                 p_add_thinker(unsafe { &mut (*ptr).thinker as *mut Thinker });
             }
             TC_PLAT => {
@@ -929,7 +946,7 @@ pub fn p_unarchive_specials<R: Read>(r: &mut R) -> std::io::Result<()> {
                     (*ptr).thinker.function.acp1 = t_plat_raise;
                 }
                 if !unsafe { (*ptr).sector }.is_null() {
-                    unsafe { (*(*ptr).sector).specialdata = ptr as *mut std::ffi::c_void };
+                    set_sector_specialdata(unsafe { (*ptr).sector }, ptr as usize);
                 }
                 p_add_thinker(unsafe { &mut (*ptr).thinker as *mut Thinker });
                 p_add_active_plat(ptr);

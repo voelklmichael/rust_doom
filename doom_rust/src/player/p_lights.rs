@@ -69,34 +69,29 @@ pub fn ev_light_turn_on(sector: *mut Sector, bright: i32) -> bool {
 
 /// Start light strobing. Original: EV_StartLightStrobing
 /// Requires T_StrobeFlash thinker - stub returns false.
-pub fn ev_start_light_strobing(_line: *const Line) -> bool {
+pub fn ev_start_light_strobing(_line_idx: usize) -> bool {
     // TODO: spawn StrobeFlash thinker on line's sector
     false
 }
 
 /// Start light flickering. Original: EV_StartLightFlickering
 /// Requires T_LightFlash thinker - stub returns false.
-pub fn ev_start_light_flickering(_line: *const Line) -> bool {
+pub fn ev_start_light_flickering(_line_idx: usize) -> bool {
     // TODO: spawn LightFlash thinker on line's sector
     false
 }
 
 /// Turn on all sectors with given tag. Used when sector is null in EV_LightTurnOn.
 pub fn ev_light_turn_on_by_tag(tag: i32, bright: i32) -> bool {
-    let (sectors, numsectors) = state::with_state(|s| (s.sectors, s.numsectors));
-    if sectors.is_null() || numsectors <= 0 {
-        return false;
-    }
     let bright = bright.clamp(0, 255) as i16;
-    let mut any = false;
-    for i in 0..(numsectors as usize) {
-        let sec = unsafe { sectors.add(i) };
-        if unsafe { (*sec).tag as i32 } == tag {
-            unsafe {
-                (*sec).lightlevel = bright;
+    state::with_state_mut(|s| {
+        let mut any = false;
+        for sec in &mut s.sectors {
+            if sec.tag as i32 == tag {
+                sec.lightlevel = bright;
+                any = true;
             }
-            any = true;
         }
-    }
-    any
+        any
+    })
 }

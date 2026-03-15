@@ -9,8 +9,8 @@
 
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
 use std::sync::{Mutex, OnceLock};
-use crate::rendering::defs::{Line, SlopeType, Subsector};
-use crate::rendering::{r_point_in_subsector, r_main};
+use crate::rendering::defs::{Line, SlopeType, Vertex};
+use crate::rendering::{r_point_in_subsector, with_r_main_state, with_r_main_state_mut};
 use crate::rendering::state;
 use crate::rendering::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 
@@ -31,35 +31,33 @@ pub fn p_aprox_distance(dx: Fixed, dy: Fixed) -> Fixed {
 
 /// Returns 0 (front) or 1 (back).
 /// Original: P_PointOnLineSide
-pub fn p_point_on_line_side(x: Fixed, y: Fixed, line: *const Line) -> i32 {
-    if line.is_null() {
-        return 0;
-    }
-    let ld = unsafe { &*line };
-    let v1_x = unsafe { (*ld.v1).x };
-    let v1_y = unsafe { (*ld.v1).y };
+pub fn p_point_on_line_side(x: Fixed, y: Fixed, line: &Line) -> i32 {
+    let (v1_x, v1_y) = state::with_state(|s| {
+        let v = s.vertexes.get(line.v1_idx).copied().unwrap_or(crate::rendering::defs::Vertex { x: 0, y: 0 });
+        (v.x, v.y)
+    });
 
-    if ld.dx == 0 {
+    if line.dx == 0 {
         return if x <= v1_x {
-            if ld.dy > 0 {
+            if line.dy > 0 {
                 1
             } else {
                 0
             }
-        } else if ld.dy < 0 {
+        } else if line.dy < 0 {
             1
         } else {
             0
         };
     }
-    if ld.dy == 0 {
+    if line.dy == 0 {
         return if y <= v1_y {
-            if ld.dx < 0 {
+            if line.dx < 0 {
                 1
             } else {
                 0
             }
-        } else if ld.dx > 0 {
+        } else if line.dx > 0 {
             1
         } else {
             0
@@ -68,8 +66,8 @@ pub fn p_point_on_line_side(x: Fixed, y: Fixed, line: *const Line) -> i32 {
 
     let dx = x - v1_x;
     let dy = y - v1_y;
-    let left = fixed_mul(ld.dy >> FRACBITS, dx);
-    let right = fixed_mul(dy, ld.dx >> FRACBITS);
+    let left = fixed_mul(line.dy >> FRACBITS, dx);
+    let right = fixed_mul(dy, line.dx >> FRACBITS);
 
     if right < left {
         0
@@ -179,13 +177,20 @@ pub fn p_point_on_divline_side(x: Fixed, y: Fixed, line: &Divline) -> i32 {
 }
 
 /// Fill divline from linedef. Original: P_MakeDivline
-pub fn p_make_divline(li: *const Line, dl: &mut Divline) {
-    if li.is_null() {
-        return;
+pub fn p_make_divline(line_idx: usize, dl: &mut Divline) {
+    if let Some(line) = state::with_state(|s| s.lines.get(line_idx).cloned()) {
+        p_make_divline_from_line(&line, dl);
     }
-    let line = unsafe { &*li };
-    dl.x = unsafe { (*line.v1).x };
-    dl.y = unsafe { (*line.v1).y };
+}
+
+/// Fill divline from Line ref (uses state for vertexes).
+fn p_make_divline_from_line(line: &Line, dl: &mut Divline) {
+    let (x, y) = state::with_state(|s| {
+        let v = s.vertexes.get(line.v1_idx).copied().unwrap_or(Vertex { x: 0, y: 0 });
+        (v.x, v.y)
+    });
+    dl.x = x;
+    dl.y = y;
     dl.dx = line.dx;
     dl.dy = line.dy;
 }
@@ -201,13 +206,11 @@ pub fn p_intercept_vector(v2: &Divline, v1: &Divline) -> Fixed {
 }
 
 /// Returns 0, 1, or -1 if box crosses line. Original: P_BoxOnLineSide
-pub fn p_box_on_line_side(tmbox: &[Fixed; 4], ld: *const Line) -> i32 {
-    if ld.is_null() {
-        return 0;
-    }
-    let line = unsafe { &*ld };
-    let v1_x = unsafe { (*line.v1).x };
-    let v1_y = unsafe { (*line.v1).y };
+pub fn p_box_on_line_side(tmbox: &[Fixed; 4], line: &Line) -> i32 {
+    let (v1_x, v1_y) = state::with_state(|s| {
+        let v = s.vertexes.get(line.v1_idx).copied().unwrap_or(Vertex { x: 0, y: 0 });
+        (v.x, v.y)
+    });
 
     let (p1, p2) = match line.slopetype {
         SlopeType::Horizontal => {
@@ -229,12 +232,12 @@ pub fn p_box_on_line_side(tmbox: &[Fixed; 4], ld: *const Line) -> i32 {
             (p1, p2)
         }
         SlopeType::Positive => (
-            p_point_on_line_side(tmbox[BOXLEFT], tmbox[BOXTOP], ld),
-            p_point_on_line_side(tmbox[BOXRIGHT], tmbox[BOXBOTTOM], ld),
+            p_point_on_line_side(tmbox[BOXLEFT], tmbox[BOXTOP], line),
+            p_point_on_line_side(tmbox[BOXRIGHT], tmbox[BOXBOTTOM], line),
         ),
         SlopeType::Negative => (
-            p_point_on_line_side(tmbox[BOXRIGHT], tmbox[BOXTOP], ld),
-            p_point_on_line_side(tmbox[BOXLEFT], tmbox[BOXBOTTOM], ld),
+            p_point_on_line_side(tmbox[BOXRIGHT], tmbox[BOXTOP], line),
+            p_point_on_line_side(tmbox[BOXLEFT], tmbox[BOXBOTTOM], line),
         ),
     };
 
@@ -247,26 +250,26 @@ pub fn p_box_on_line_side(tmbox: &[Fixed; 4], ld: *const Line) -> i32 {
 
 /// Sets OPENTOP, OPENBOTTOM, OPENRANGE, LOWFLOOR for two-sided line.
 /// Original: P_LineOpening
-pub fn p_line_opening(linedef: *const Line) {
-    if linedef.is_null() {
-        with_p_maputl_state(|st| st.openrange = 0);
-        return;
-    }
-    let ld = unsafe { &*linedef };
-    if ld.sidenum[1] == -1 {
-        with_p_maputl_state(|st| st.openrange = 0);
-        return;
-    }
-
-    let front = ld.frontsector;
-    let back = ld.backsector;
-    if front.is_null() || back.is_null() {
-        with_p_maputl_state(|st| st.openrange = 0);
-        return;
-    }
-
-    let front = unsafe { &*front };
-    let back = unsafe { &*back };
+pub fn p_line_opening(line_idx: usize) {
+    let (front, back) = state::with_state(|s| {
+        let ld = match s.lines.get(line_idx) {
+            Some(l) => l,
+            None => return (None, None),
+        };
+        if ld.sidenum[1] == -1 {
+            return (None, None);
+        }
+        let front = s.sectors.get(ld.frontsector_idx).cloned();
+        let back = ld.backsector_idx.and_then(|i| s.sectors.get(i).cloned());
+        (front, back)
+    });
+    let (front, back) = match (front, back) {
+        (Some(f), Some(b)) => (f, b),
+        _ => {
+            with_p_maputl_state(|st| st.openrange = 0);
+            return;
+        }
+    };
 
     let opentop = if front.ceilingheight < back.ceilingheight {
         front.ceilingheight
@@ -292,38 +295,50 @@ pub fn p_line_opening(linedef: *const Line) {
 /// Original: P_BlockLinesIterator
 pub fn p_block_lines_iterator<F>(x: i32, y: i32, mut func: F) -> bool
 where
-    F: FnMut(*mut Line) -> bool,
+    F: FnMut(usize) -> bool,
 {
-    let (bmapwidth, bmapheight, blockmap, blockmaplump, lines) = state::with_state(|s| {
-        (s.bmapwidth, s.bmapheight, s.blockmap, s.blockmaplump, s.lines)
+    let line_indices: Vec<usize> = state::with_state(|s| {
+        if x < 0 || y < 0 || x >= s.bmapwidth || y >= s.bmapheight {
+            return vec![];
+        }
+        let blockmaplump = &s.blockmaplump;
+        let lines = &s.lines;
+        if blockmaplump.len() < 4 || lines.is_empty() {
+            return vec![];
+        }
+        let validcount = with_r_main_state(|rm| rm.validcount);
+        let offset_idx = (y * s.bmapwidth + x) as usize;
+        let list_start = 4 + offset_idx;
+        if list_start >= blockmaplump.len() {
+            return vec![];
+        }
+        let mut list_idx = blockmaplump[list_start] as usize;
+        let mut result = Vec::new();
+        loop {
+            if list_idx >= blockmaplump.len() {
+                break;
+            }
+            let linedef_idx = blockmaplump[list_idx] as i16;
+            if linedef_idx == -1 {
+                break;
+            }
+            let line_idx = linedef_idx as usize;
+            if line_idx < lines.len() && lines[line_idx].validcount != validcount {
+                result.push(line_idx);
+            }
+            list_idx += 1;
+        }
+        result
     });
-    if x < 0 || y < 0 || x >= bmapwidth || y >= bmapheight {
-        return true;
-    }
-    if blockmap.is_null() || blockmaplump.is_null() || lines.is_null() {
-        return true;
-    }
-    let validcount = r_main::with_r_main_state(|rm| rm.validcount);
-    let offset_idx = (y * bmapwidth + x) as usize;
-    let offset = unsafe { *blockmap.add(offset_idx) } as usize;
-    let mut list = unsafe { blockmaplump.add(offset) };
-    loop {
-        let linedef_idx = unsafe { *list };
-        if linedef_idx == -1 {
-            break;
-        }
-        let ld = unsafe { lines.add(linedef_idx as usize) };
-        if unsafe { (*ld).validcount } == validcount {
-            list = unsafe { list.add(1) };
-            continue;
-        }
-        unsafe {
-            (*ld).validcount = validcount;
-        }
-        if !func(ld) {
+    for line_idx in line_indices {
+        state::with_state_mut(|s| {
+            if let Some(l) = s.lines.get_mut(line_idx) {
+                l.validcount = with_r_main_state(|rm| rm.validcount);
+            }
+        });
+        if !func(line_idx) {
             return false;
         }
-        list = unsafe { list.add(1) };
     }
     true
 }
@@ -334,16 +349,16 @@ where
     F: FnMut(*mut Mobj) -> bool,
 {
     let (bmapwidth, bmapheight, blocklinks) = state::with_state(|s| {
-        (s.bmapwidth, s.bmapheight, s.blocklinks)
+        (s.bmapwidth, s.bmapheight, s.blocklinks.clone())
     });
     if x < 0 || y < 0 || x >= bmapwidth || y >= bmapheight {
         return true;
     }
-    if blocklinks.is_null() {
+    let idx = (y * bmapwidth + x) as usize;
+    if idx >= blocklinks.len() {
         return true;
     }
-    let idx = (y * bmapwidth + x) as usize;
-    let mut mobj = unsafe { *(blocklinks as *mut *mut Mobj).add(idx) };
+    let mut mobj = unsafe { *(blocklinks.as_ptr().add(idx) as *const *mut Mobj) };
     while !mobj.is_null() {
         let next = unsafe { (*mobj).bnext };
         if !func(mobj) {
@@ -369,13 +384,16 @@ pub fn p_unset_thing_position(thing: *mut Mobj) {
         if !sprev.is_null() {
             unsafe { (*sprev).snext = snext };
         } else {
-            let subsector = unsafe { (*thing).subsector } as *mut Subsector;
-            if !subsector.is_null() {
-                let sector = unsafe { (*subsector).sector };
-                if !sector.is_null() {
-                    unsafe { (*sector).thinglist = snext };
+            let sub_idx = unsafe { (*thing).subsector as usize };
+            crate::rendering::state::with_state_mut(|s| {
+                if let Some(sub) = s.subsectors.get(sub_idx) {
+                    let sec_idx = sub.sector_idx;
+                    if sec_idx < s.sectors.len() {
+                        let sec = &mut s.sectors[sec_idx];
+                        sec.thinglist = crate::player::mobjs::mobj_index_from_ptr(snext);
+                    }
                 }
-            }
+            });
         }
     }
     if flags & super::p_mobj::MF_NOBLOCKMAP == 0 {
@@ -387,17 +405,16 @@ pub fn p_unset_thing_position(thing: *mut Mobj) {
         if !bprev.is_null() {
             unsafe { (*bprev).bnext = bnext };
         } else {
-            let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = state::with_state(|s| {
-                (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight, s.blocklinks)
-            });
-            let blockx = (unsafe { (*thing).x } - bmaporgx) >> MAPBLOCKSHIFT;
-            let blocky = (unsafe { (*thing).y } - bmaporgy) >> MAPBLOCKSHIFT;
-            if blockx >= 0 && blockx < bmapwidth && blocky >= 0 && blocky < bmapheight {
-                let idx = (blocky * bmapwidth + blockx) as usize;
-                unsafe {
-                    *((blocklinks as *mut *mut Mobj).add(idx)) = bnext;
+            state::with_state_mut(|s| {
+                let blockx = (unsafe { (*thing).x } - s.bmaporgx) >> MAPBLOCKSHIFT;
+                let blocky = (unsafe { (*thing).y } - s.bmaporgy) >> MAPBLOCKSHIFT;
+                if blockx >= 0 && blockx < s.bmapwidth && blocky >= 0 && blocky < s.bmapheight {
+                    let idx = (blocky * s.bmapwidth + blockx) as usize;
+                    if idx < s.blocklinks.len() {
+                        s.blocklinks[idx] = bnext as *mut std::ffi::c_void;
+                    }
                 }
-            }
+            });
         }
     }
 }
@@ -407,47 +424,64 @@ pub fn p_set_thing_position(thing: *mut Mobj) {
     if thing.is_null() {
         return;
     }
-    let ss = r_point_in_subsector(unsafe { (*thing).x }, unsafe { (*thing).y });
+    let sub_idx = r_point_in_subsector(unsafe { (*thing).x }, unsafe { (*thing).y });
     unsafe {
-        (*thing).subsector = ss as *mut std::ffi::c_void;
+        (*thing).subsector = sub_idx as *mut std::ffi::c_void;
     }
     let flags = unsafe { (*thing).flags };
     if flags & super::p_mobj::MF_NOSECTOR == 0 {
-        let sec = unsafe { (*ss).sector };
-        if !sec.is_null() {
+        if let Some(mobj_idx) = crate::player::mobjs::mobj_index_from_ptr(thing) {
+            let old_head = crate::rendering::state::with_state_mut(|s| {
+                if let Some(sub) = s.subsectors.get(sub_idx) {
+                    let sec_idx = sub.sector_idx;
+                    if sec_idx < s.sectors.len() {
+                        let sec = &mut s.sectors[sec_idx];
+                        let old = sec.thinglist;
+                        sec.thinglist = Some(mobj_idx);
+                        old
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            });
             unsafe {
                 (*thing).sprev = std::ptr::null_mut();
-                (*thing).snext = (*sec).thinglist;
-                if !(*sec).thinglist.is_null() {
-                    (*(*sec).thinglist).sprev = thing;
+                (*thing).snext = crate::player::mobjs::mobj_ptr_from_index(old_head.unwrap_or(crate::player::mobjs::MobjIndex::NULL));
+                if let Some(prev_head_idx) = old_head {
+                    let prev_head = crate::player::mobjs::mobj_ptr_from_index(prev_head_idx);
+                    if !prev_head.is_null() {
+                        (*prev_head).sprev = thing;
+                    }
                 }
-                (*sec).thinglist = thing;
             }
         }
     }
     if flags & super::p_mobj::MF_NOBLOCKMAP == 0 {
-        let (bmaporgx, bmaporgy, bmapwidth, bmapheight, blocklinks) = state::with_state(|s| {
-            (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight, s.blocklinks)
-        });
-        let blockx = (unsafe { (*thing).x } - bmaporgx) >> MAPBLOCKSHIFT;
-        let blocky = (unsafe { (*thing).y } - bmaporgy) >> MAPBLOCKSHIFT;
-        if blockx >= 0 && blockx < bmapwidth && blocky >= 0 && blocky < bmapheight {
-            let idx = (blocky * bmapwidth + blockx) as usize;
-            let link = unsafe { (blocklinks as *mut *mut Mobj).add(idx) };
-            unsafe {
-                (*thing).bprev = std::ptr::null_mut();
-                (*thing).bnext = *link;
-                if !(*link).is_null() {
-                    (*(*link)).bprev = thing;
+        state::with_state_mut(|s| {
+            let blockx = (unsafe { (*thing).x } - s.bmaporgx) >> MAPBLOCKSHIFT;
+            let blocky = (unsafe { (*thing).y } - s.bmaporgy) >> MAPBLOCKSHIFT;
+            if blockx >= 0 && blockx < s.bmapwidth && blocky >= 0 && blocky < s.bmapheight {
+                let idx = (blocky * s.bmapwidth + blockx) as usize;
+                if idx < s.blocklinks.len() {
+                    let old_head = s.blocklinks[idx] as *mut Mobj;
+                    unsafe {
+                        (*thing).bprev = std::ptr::null_mut();
+                        (*thing).bnext = old_head;
+                        if !old_head.is_null() {
+                            (*old_head).bprev = thing;
+                        }
+                    }
+                    s.blocklinks[idx] = thing as *mut std::ffi::c_void;
                 }
-                *link = thing;
+            } else {
+                unsafe {
+                    (*thing).bnext = std::ptr::null_mut();
+                    (*thing).bprev = std::ptr::null_mut();
+                }
             }
-        } else {
-            unsafe {
-                (*thing).bnext = std::ptr::null_mut();
-                (*thing).bprev = std::ptr::null_mut();
-            }
-        }
+        });
     }
 }
 
@@ -476,7 +510,7 @@ fn default_intercepts() -> [Intercept; super::MAXINTERCEPTS] {
     [Intercept {
         frac: 0,
         isaline: false,
-        line: std::ptr::null_mut(),
+        line_idx: None,
         thing: std::ptr::null_mut(),
     }; super::MAXINTERCEPTS]
 }
@@ -506,10 +540,11 @@ where
 }
 
 /// Add line intercepts from block. Original: PIT_AddLineIntercepts
-fn pit_add_line_intercepts(ld: *mut Line) -> bool {
-    if ld.is_null() {
-        return true;
-    }
+fn pit_add_line_intercepts(line_idx: usize) -> bool {
+    let line = match state::with_state(|s| s.lines.get(line_idx).cloned()) {
+        Some(l) => l,
+        None => return true,
+    };
     with_p_maputl_state(|st| {
     let (s1, s2) = {
         let (trace_dx, trace_dy) = (st.trace.dx, st.trace.dy);
@@ -518,18 +553,19 @@ fn pit_add_line_intercepts(ld: *mut Line) -> bool {
             || trace_dx < -FRACUNIT * 16
             || trace_dy < -FRACUNIT * 16
         {
-            let v1_x = unsafe { (*(*ld).v1).x };
-            let v1_y = unsafe { (*(*ld).v1).y };
-            let v2_x = unsafe { (*(*ld).v2).x };
-            let v2_y = unsafe { (*(*ld).v2).y };
+            let (v1_x, v1_y, v2_x, v2_y) = state::with_state(|s| {
+                let v1 = s.vertexes.get(line.v1_idx).copied().unwrap_or(Vertex { x: 0, y: 0 });
+                let v2 = s.vertexes.get(line.v2_idx).copied().unwrap_or(Vertex { x: 0, y: 0 });
+                (v1.x, v1.y, v2.x, v2.y)
+            });
             (
                 p_point_on_divline_side(v1_x, v1_y, &st.trace),
                 p_point_on_divline_side(v2_x, v2_y, &st.trace),
             )
         } else {
             (
-                p_point_on_line_side(st.trace.x, st.trace.y, ld),
-                p_point_on_line_side(st.trace.x + st.trace.dx, st.trace.y + st.trace.dy, ld),
+                p_point_on_line_side(st.trace.x, st.trace.y, &line),
+                p_point_on_line_side(st.trace.x + st.trace.dx, st.trace.y + st.trace.dy, &line),
             )
         }
     };
@@ -537,12 +573,12 @@ fn pit_add_line_intercepts(ld: *mut Line) -> bool {
         return true;
     }
     let mut dl = Divline { x: 0, y: 0, dx: 0, dy: 0 };
-    p_make_divline(ld, &mut dl);
+    p_make_divline_from_line(&line, &mut dl);
     let frac = p_intercept_vector(&st.trace, &dl);
     if frac < 0 {
         return true;
     }
-    if st.earlyout && frac < FRACUNIT && unsafe { (*ld).backsector.is_null() } {
+    if st.earlyout && frac < FRACUNIT && line.backsector_idx.is_none() {
         return false;
     }
     let p = st.intercept_p;
@@ -551,7 +587,7 @@ fn pit_add_line_intercepts(ld: *mut Line) -> bool {
     }
     st.intercepts[p].frac = frac;
     st.intercepts[p].isaline = true;
-    st.intercepts[p].line = ld;
+    st.intercepts[p].line_idx = Some(line_idx);
     st.intercepts[p].thing = std::ptr::null_mut();
     st.intercept_p += 1;
     true
@@ -594,7 +630,7 @@ fn pit_add_thing_intercepts(thing: *mut Mobj) -> bool {
     }
     st.intercepts[p].frac = frac;
     st.intercepts[p].isaline = false;
-    st.intercepts[p].line = std::ptr::null_mut();
+    st.intercepts[p].line_idx = None;
     st.intercepts[p].thing = thing;
     st.intercept_p += 1;
     true
@@ -641,7 +677,7 @@ pub fn p_path_traverse<F>(x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed, flags: i32
 where
     F: FnMut(&mut Intercept) -> bool,
 {
-    r_main::with_r_main_state_mut(|rm| rm.validcount += 1);
+    with_r_main_state_mut(|rm| rm.validcount += 1);
     with_p_maputl_state(|st| {
         st.intercept_p = 0;
         st.earlyout = (flags & PT_EARLYOUT) != 0;

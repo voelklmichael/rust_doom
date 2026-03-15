@@ -1,3 +1,7 @@
+// TODO: Migrate to forbid(unsafe_code). Using allow for incremental migration.
+// See docs/UNSAFE_ELIMINATION_PLAN.md
+//#![allow(unsafe_code)]
+#![forbid(unsafe_code)]
 //! Doom WAD library - WAD file handling, zone allocator, and related utilities.
 
 pub mod config;

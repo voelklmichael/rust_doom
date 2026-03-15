@@ -456,18 +456,16 @@ fn am_add_mark(s: &mut AmMapState) {
 }
 
 fn am_find_min_max_boundaries(s: &mut AmMapState) {
-    let (vertexes, numvertexes) = state::with_state(|st| (st.vertexes, st.numvertexes));
-    if vertexes.is_null() || numvertexes <= 0 {
-        return;
-    }
-    unsafe {
+    state::with_state(|st| {
+        if st.vertexes.is_empty() {
+            return;
+        }
         s.min_x = i32::MAX;
         s.min_y = i32::MAX;
         s.max_x = i32::MIN;
         s.max_y = i32::MIN;
 
-        for i in 0..numvertexes as usize {
-            let v = &*vertexes.add(i);
+        for v in &st.vertexes {
             if v.x < s.min_x {
                 s.min_x = v.x;
             }
@@ -491,7 +489,7 @@ fn am_find_min_max_boundaries(s: &mut AmMapState) {
         let b = fixed_div((s.f_h as Fixed) << FRACBITS, s.max_h);
         s.min_scale_mtof = if a < b { a } else { b };
         s.max_scale_mtof = fixed_div((s.f_h as Fixed) << FRACBITS, 2 * PLAYERRADIUS);
-    }
+    });
 }
 
 fn am_change_window_loc(s: &mut AmMapState) {
@@ -1141,73 +1139,80 @@ fn am_draw_line_character(
 fn am_draw_walls(s: &AmMapState) {
     use crate::doomdef::NUMPOWERS;
 
-    let (lines, numlines) = state::with_state(|st| (st.lines, st.numlines));
-    if lines.is_null() || numlines <= 0 {
-        return;
-    }
-    unsafe {
-        let plr_idx = plr_index();
+    let plr_idx = plr_index();
+    let (has_allmap, lines_data) = unsafe {
         let plr = &*PLAYERS.as_ptr().add(plr_idx);
         let pw_allmap = 4usize; // Powertype::Allmap
         let has_allmap = plr.powers[pw_allmap] > 0;
+        let lines_data = state::with_state(|st| {
+            st.lines
+                .iter()
+                .enumerate()
+                .map(|(i, ld)| {
+                    let v1 = st.vertexes.get(ld.v1_idx);
+                    let v2 = st.vertexes.get(ld.v2_idx);
+                    let front = st.sectors.get(ld.frontsector_idx);
+                    let back = ld.backsector_idx.and_then(|idx| st.sectors.get(idx));
+                    (i, ld, v1, v2, front, back)
+                })
+                .collect::<Vec<_>>()
+        });
+        (has_allmap, lines_data)
+    };
 
-        for i in 0..numlines as usize {
-            let ld = &*lines.add(i);
-            if ld.v1.is_null() || ld.v2.is_null() {
+    for (_i, ld, v1, v2, front, back) in lines_data {
+        let (v1, v2) = match (v1, v2) {
+            (Some(v1), Some(v2)) => (v1, v2),
+            _ => continue,
+        };
+        let ml = Mline {
+            a: Mpoint { x: v1.x, y: v1.y },
+            b: Mpoint { x: v2.x, y: v2.y },
+        };
+
+        let draw = if s.cheating != 0 || (ld.flags & ML_MAPPED) != 0 {
+            if (ld.flags & LINE_NEVERSEE) != 0_i16 && s.cheating == 0 {
                 continue;
             }
-            let v1 = &*ld.v1;
-            let v2 = &*ld.v2;
-            let mut ml = Mline {
-                a: Mpoint { x: v1.x, y: v1.y },
-                b: Mpoint { x: v2.x, y: v2.y },
-            };
+            true
+        } else if has_allmap {
+            (ld.flags & LINE_NEVERSEE) == 0_i16
+        } else {
+            false
+        };
 
-            let draw = if s.cheating != 0 || (ld.flags & ML_MAPPED) != 0 {
-                if (ld.flags & LINE_NEVERSEE) != 0_i16 && s.cheating == 0 {
-                    continue;
-                }
-                true
-            } else if has_allmap {
-                (ld.flags & LINE_NEVERSEE) == 0_i16
-            } else {
-                false
-            };
-
-            if !draw {
-                continue;
-            }
-
-            let color = if ld.backsector.is_null() {
-                WALLCOLORS + s.lightlev
-            } else {
-                let back = &*ld.backsector;
-                let front = if ld.frontsector.is_null() {
-                    continue;
-                } else {
-                    &*ld.frontsector
-                };
-                if ld.special == 39 {
-                    WALLCOLORS + WALLRANGE / 2
-                } else if (ld.flags & ML_SECRET) != 0 {
-                    if s.cheating != 0 {
-                        SECRETWALLCOLORS + s.lightlev
-                    } else {
-                        WALLCOLORS + s.lightlev
-                    }
-                } else if back.floorheight != front.floorheight {
-                    FDWALLCOLORS + s.lightlev
-                } else if back.ceilingheight != front.ceilingheight {
-                    CDWALLCOLORS + s.lightlev
-                } else if s.cheating != 0 {
-                    TSWALLCOLORS + s.lightlev
-                } else {
-                    continue;
-                }
-            };
-
-            am_draw_mline(s, &ml, color);
+        if !draw {
+            continue;
         }
+
+        let color = if back.is_none() {
+            WALLCOLORS + s.lightlev
+        } else {
+            let back = back.unwrap();
+            let front = match front {
+                Some(f) => f,
+                None => continue,
+            };
+            if ld.special == 39 {
+                WALLCOLORS + WALLRANGE / 2
+            } else if (ld.flags & ML_SECRET) != 0 {
+                if s.cheating != 0 {
+                    SECRETWALLCOLORS + s.lightlev
+                } else {
+                    WALLCOLORS + s.lightlev
+                }
+            } else if back.floorheight != front.floorheight {
+                FDWALLCOLORS + s.lightlev
+            } else if back.ceilingheight != front.ceilingheight {
+                CDWALLCOLORS + s.lightlev
+            } else if s.cheating != 0 {
+                TSWALLCOLORS + s.lightlev
+            } else {
+                continue;
+            }
+        };
+
+        am_draw_mline(s, &ml, color);
     }
 }
 
@@ -1272,30 +1277,32 @@ fn am_draw_players(s: &AmMapState) {
 }
 
 fn am_draw_things(s: &AmMapState, colors: i32, _colorrange: i32) {
-    let (sectors, numsectors) = state::with_state(|st| (st.sectors, st.numsectors));
-    if sectors.is_null() || numsectors <= 0 {
-        return;
-    }
-    unsafe {
-        let tri = thintriangle_guy();
-        for i in 0..numsectors as usize {
-            let sec = &*sectors.add(i);
-            let mut t = sec.thinglist as *const Mobj;
-            while !t.is_null() {
-                let mobj = &*t;
-                am_draw_line_character(
-                    s,
-                    &tri,
-                    16 << FRACBITS,
-                    mobj.angle,
-                    colors + s.lightlev,
-                    mobj.x,
-                    mobj.y,
-                );
-                t = mobj.snext as *const Mobj;
+    use crate::player::mobjs::{mobj_index_from_ptr, with_mobj_ref};
+
+    let tri = thintriangle_guy();
+    state::with_state(|st| {
+        for sec in &st.sectors {
+            let mut mo_idx = sec.thinglist;
+            while let Some(idx) = mo_idx {
+                if idx.is_null() {
+                    break;
+                }
+                let next_idx = with_mobj_ref(idx, |mobj| {
+                    am_draw_line_character(
+                        s,
+                        &tri,
+                        16 << FRACBITS,
+                        mobj.angle,
+                        colors + s.lightlev,
+                        mobj.x,
+                        mobj.y,
+                    );
+                    mobj_index_from_ptr(mobj.snext)
+                });
+                mo_idx = next_idx.flatten();
             }
         }
-    }
+    });
 }
 
 fn am_draw_marks(s: &AmMapState) {

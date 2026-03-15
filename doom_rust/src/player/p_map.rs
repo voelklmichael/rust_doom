@@ -45,8 +45,8 @@ pub struct PMapState {
     pub tmy: Fixed,
     pub bestslidefrac: Fixed,
     pub secondslidefrac: Fixed,
-    pub bestslideline: *mut Line,
-    pub secondslideline: *mut Line,
+    pub bestslideline_idx: Option<usize>,
+    pub secondslideline_idx: Option<usize>,
     pub slidemo: *mut Mobj,
     pub tmxmove: Fixed,
     pub tmymove: Fixed,
@@ -55,8 +55,8 @@ pub struct PMapState {
     pub tmfloorz: Fixed,
     pub tmceilingz: Fixed,
     pub tmdropoffz: Fixed,
-    pub ceilingline: *mut Line,
-    pub spechit: [*mut Line; MAXSPECIALCROSS],
+    pub ceilingline_idx: Option<usize>,
+    pub spechit: [Option<usize>; MAXSPECIALCROSS],
     pub numspechit: i32,
     pub linetarget: *mut Mobj,
 }
@@ -71,8 +71,8 @@ fn get_p_map_state() -> &'static Mutex<PMapState> {
             tmy: 0,
             bestslidefrac: 0,
             secondslidefrac: 0,
-            bestslideline: std::ptr::null_mut(),
-            secondslideline: std::ptr::null_mut(),
+            bestslideline_idx: None,
+            secondslideline_idx: None,
             slidemo: std::ptr::null_mut(),
             tmxmove: 0,
             tmymove: 0,
@@ -80,8 +80,8 @@ fn get_p_map_state() -> &'static Mutex<PMapState> {
             tmfloorz: 0,
             tmceilingz: 0,
             tmdropoffz: 0,
-            ceilingline: std::ptr::null_mut(),
-            spechit: [std::ptr::null_mut(); MAXSPECIALCROSS],
+            ceilingline_idx: None,
+            spechit: [None; MAXSPECIALCROSS],
             numspechit: 0,
             linetarget: std::ptr::null_mut(),
         })
@@ -97,42 +97,41 @@ where
     f(&mut guard)
 }
 
-fn pit_check_line(ld: *mut Line) -> bool {
-    if ld.is_null() {
-        return true;
-    }
+fn pit_check_line(line_idx: usize) -> bool {
+    let line = match crate::rendering::state::with_state(|s| s.lines.get(line_idx).cloned()) {
+        Some(l) => l,
+        None => return true,
+    };
     let (tmbbox, tmthing, tmflags) = with_p_map_state(|st| (st.tmbbox, st.tmthing, st.tmflags));
-    let ld_ref = unsafe { &*ld };
-    if tmbbox[BOXRIGHT] <= ld_ref.bbox[BOXLEFT]
-        || tmbbox[BOXLEFT] >= ld_ref.bbox[BOXRIGHT]
-        || tmbbox[BOXTOP] <= ld_ref.bbox[BOXBOTTOM]
-        || tmbbox[BOXBOTTOM] >= ld_ref.bbox[BOXTOP]
+    if tmbbox[BOXRIGHT] <= line.bbox[BOXLEFT]
+        || tmbbox[BOXLEFT] >= line.bbox[BOXRIGHT]
+        || tmbbox[BOXTOP] <= line.bbox[BOXBOTTOM]
+        || tmbbox[BOXBOTTOM] >= line.bbox[BOXTOP]
     {
         return true;
     }
-    if super::p_maputl::p_box_on_line_side(&tmbbox, ld) != -1 {
+    if super::p_maputl::p_box_on_line_side(&tmbbox, &line) != -1 {
         return true;
     }
-    if ld_ref.backsector.is_null() {
+    if line.backsector_idx.is_none() {
         return false;
     }
     if (tmflags & super::p_mobj::MF_MISSILE) == 0 {
-        if (ld_ref.flags & ML_BLOCKING) != 0 {
+        if (line.flags & ML_BLOCKING) != 0 {
             return false;
         }
-        // Block monsters on ML_BLOCKMONSTERS lines (assume non-player for now)
-        if (ld_ref.flags & ML_BLOCKMONSTERS) != 0 {
+        if (line.flags & ML_BLOCKMONSTERS) != 0 {
             return false;
         }
     }
-    p_line_opening(ld);
+    p_line_opening(line_idx);
     let (opentop, openbottom, lowfloor) = super::p_maputl::with_p_maputl_state(|st| {
         (st.opentop, st.openbottom, st.lowfloor)
     });
     with_p_map_state(|st| {
         if opentop < st.tmceilingz {
             st.tmceilingz = opentop;
-            st.ceilingline = ld;
+            st.ceilingline_idx = Some(line_idx);
         }
         if openbottom > st.tmfloorz {
             st.tmfloorz = openbottom;
@@ -140,10 +139,10 @@ fn pit_check_line(ld: *mut Line) -> bool {
         if lowfloor < st.tmdropoffz {
             st.tmdropoffz = lowfloor;
         }
-        if ld_ref.special != 0 {
+        if line.special != 0 {
             let n = st.numspechit as usize;
             if n < MAXSPECIALCROSS {
-                st.spechit[n] = ld;
+                st.spechit[n] = Some(line_idx);
                 st.numspechit += 1;
             }
         }
@@ -195,13 +194,18 @@ pub fn p_check_position(thing: *mut Mobj, x: Fixed, y: Fixed) -> bool {
         st.tmbbox[BOXTOP as usize] = y + unsafe { (*thing).radius };
         st.tmbbox[BOXLEFT as usize] = x - unsafe { (*thing).radius };
     });
-    let newsubsec = r_point_in_subsector(x, y);
-    let sec = unsafe { (*newsubsec).sector };
+    let sub_idx = r_point_in_subsector(x, y);
+    let (tmfloorz, tmceilingz) = crate::rendering::state::with_state(|s| {
+        let sec_idx = s.subsectors.get(sub_idx).map(|sub| sub.sector_idx).unwrap_or(0);
+        let floor = s.sectors.get(sec_idx).map(|sec| sec.floorheight).unwrap_or(0);
+        let ceiling = s.sectors.get(sec_idx).map(|sec| sec.ceilingheight).unwrap_or(0);
+        (floor, ceiling)
+    });
     with_p_map_state(|st| {
-        st.ceilingline = std::ptr::null_mut();
-        st.tmfloorz = if sec.is_null() { 0 } else { unsafe { (*sec).floorheight } };
+        st.ceilingline_idx = None;
+        st.tmfloorz = tmfloorz;
         st.tmdropoffz = st.tmfloorz;
-        st.tmceilingz = if sec.is_null() { 0 } else { unsafe { (*sec).ceilingheight } };
+        st.tmceilingz = tmceilingz;
         st.numspechit = 0;
     });
     r_main::with_r_main_state_mut(|rm| rm.validcount += 1);
@@ -280,18 +284,18 @@ pub fn p_try_move(thing: *mut Mobj, x: Fixed, y: Fixed) -> bool {
     }
     p_set_thing_position(thing);
     if (unsafe { (*thing).flags } & (MF_TELEPORT | MF_NOCLIP)) == 0 {
-        let lines = state::with_state(|s| s.lines);
         with_p_map_state(|st| {
             while st.numspechit > 0 {
                 st.numspechit -= 1;
                 let idx = st.numspechit as usize;
-                let ld = st.spechit[idx];
-                if !ld.is_null() && !lines.is_null() {
-                    let line_index = ld.offset_from(lines) as i32;
-                    let side = p_point_on_line_side(unsafe { (*thing).x }, unsafe { (*thing).y }, ld);
-                    let oldside = p_point_on_line_side(oldx, oldy, ld);
-                    if side != oldside && unsafe { (*ld).special } != 0 {
-                        p_cross_special_line(line_index, oldside, thing);
+                if let Some(line_idx) = st.spechit[idx] {
+                    let line = state::with_state(|s| s.lines.get(line_idx).cloned());
+                    if let Some(ref ld) = line {
+                        let side = p_point_on_line_side(unsafe { (*thing).x }, unsafe { (*thing).y }, ld);
+                        let oldside = p_point_on_line_side(oldx, oldy, ld);
+                        if side != oldside && ld.special != 0 {
+                            p_cross_special_line(line_idx as i32, oldside, thing);
+                        }
                     }
                 }
             }
@@ -307,11 +311,16 @@ pub fn p_teleport_move(thing: *mut Mobj, x: Fixed, y: Fixed) -> bool {
     }
     // Simplified: no PIT_StompThing - just move
     p_unset_thing_position(thing);
-    let newsubsec = r_point_in_subsector(x, y);
-    let sec = unsafe { (*newsubsec).sector };
+    let sub_idx = r_point_in_subsector(x, y);
+    let (floorz, ceilingz) = crate::rendering::state::with_state(|s| {
+        let sec_idx = s.subsectors.get(sub_idx).map(|sub| sub.sector_idx).unwrap_or(0);
+        let floor = s.sectors.get(sec_idx).map(|sec| sec.floorheight).unwrap_or(0);
+        let ceiling = s.sectors.get(sec_idx).map(|sec| sec.ceilingheight).unwrap_or(0);
+        (floor, ceiling)
+    });
     unsafe {
-        (*thing).floorz = if sec.is_null() { 0 } else { (*sec).floorheight };
-        (*thing).ceilingz = if sec.is_null() { 0 } else { (*sec).ceilingheight };
+        (*thing).floorz = floorz;
+        (*thing).ceilingz = ceilingz;
         (*thing).x = x;
         (*thing).y = y;
     }
@@ -323,23 +332,26 @@ fn ptr_slide_traverse(in_: &mut super::Intercept) -> bool {
     if !in_.isaline {
         return true;
     }
-    let li = in_.line;
-    if li.is_null() {
-        return true;
-    }
-    let ld = unsafe { &*li };
+    let line_idx = match in_.line_idx {
+        Some(idx) => idx,
+        None => return true,
+    };
+    let ld = match crate::rendering::state::with_state(|s| s.lines.get(line_idx).cloned()) {
+        Some(l) => l,
+        None => return true,
+    };
     let slidemo = with_p_map_state(|st| st.slidemo);
     if slidemo.is_null() {
         return true;
     }
     let mut is_blocking = false;
     if (ld.flags & ML_TWOSIDED) == 0 {
-        if p_point_on_line_side(unsafe { (*slidemo).x }, unsafe { (*slidemo).y }, li) != 0 {
+        if p_point_on_line_side(unsafe { (*slidemo).x }, unsafe { (*slidemo).y }, &ld) != 0 {
             return true; // don't hit back side of one-sided
         }
         is_blocking = true;
     } else {
-        p_line_opening(li);
+        p_line_opening(line_idx);
         let (opentop, openbottom, openrange) = super::p_maputl::with_p_maputl_state(|st| {
             (st.opentop, st.openbottom, st.openrange)
         });
@@ -355,9 +367,9 @@ fn ptr_slide_traverse(in_: &mut super::Intercept) -> bool {
         with_p_map_state(|st| {
             if in_.frac < st.bestslidefrac {
                 st.secondslidefrac = st.bestslidefrac;
-                st.secondslideline = st.bestslideline;
+                st.secondslideline_idx = st.bestslideline_idx;
                 st.bestslidefrac = in_.frac;
-                st.bestslideline = li;
+                st.bestslideline_idx = Some(line_idx);
             }
         });
         return false;
@@ -450,10 +462,10 @@ pub fn p_slide_move(mo: *mut Mobj) {
         }
         let mut tmxmove = fixed_mul(unsafe { (*mo).momx }, bestslidefrac);
         let mut tmymove = fixed_mul(unsafe { (*mo).momy }, bestslidefrac);
-        let (bestlideline, tmxmove_after, tmymove_after) =
-            with_p_map_state(|st| (st.bestslideline, st.tmxmove, st.tmymove));
-        if !bestlideline.is_null() {
-            p_hit_slide_line(bestlideline);
+        let (bestlideline_idx, tmxmove_after, tmymove_after) =
+            with_p_map_state(|st| (st.bestslideline_idx, st.tmxmove, st.tmymove));
+        if let Some(idx) = bestlideline_idx {
+            p_hit_slide_line(idx);
             tmxmove = tmxmove_after;
             tmymove = tmymove_after;
         }
@@ -468,13 +480,13 @@ pub fn p_slide_move(mo: *mut Mobj) {
     }
 }
 
-fn p_hit_slide_line(ld: *mut Line) {
-    if ld.is_null() {
-        return;
-    }
+fn p_hit_slide_line(line_idx: usize) {
+    let ld = match crate::rendering::state::with_state(|s| s.lines.get(line_idx).cloned()) {
+        Some(l) => l,
+        None => return,
+    };
     use crate::geometry::{finecosine, finesine, ANG180, ANGLETOFINESHIFT};
-    let ld_ref = unsafe { &*ld };
-    match ld_ref.slopetype {
+    match ld.slopetype {
         crate::rendering::defs::SlopeType::Horizontal => {
             with_p_map_state(|st| st.tmymove = 0);
             return;
@@ -486,8 +498,8 @@ fn p_hit_slide_line(ld: *mut Line) {
         _ => {}
     }
     let slidemo = with_p_map_state(|st| st.slidemo);
-    let side = p_point_on_line_side(unsafe { (*slidemo).x }, unsafe { (*slidemo).y }, ld);
-    let lineangle = r_point_to_angle2(0, 0, ld_ref.dx, ld_ref.dy);
+    let side = p_point_on_line_side(unsafe { (*slidemo).x }, unsafe { (*slidemo).y }, &ld);
+    let lineangle = r_point_to_angle2(0, 0, ld.dx, ld.dy);
     let lineangle = if side == 1 {
         lineangle.wrapping_add(ANG180)
     } else {
