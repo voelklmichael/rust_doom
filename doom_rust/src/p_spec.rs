@@ -269,7 +269,10 @@ pub const MAXBUTTONS: usize = 16;
 /// C #define: BUTTONTIME
 pub const BUTTONTIME: i32 = 35;
 
-pub static mut buttonlist: [ButtonT; MAXBUTTONS] = [ButtonT::new(); MAXBUTTONS];
+pub static BUTTONLIST: once_cell::sync::Lazy<std::sync::Mutex<[ButtonT; MAXBUTTONS]>> =
+    once_cell::sync::Lazy::new(|| {
+        std::sync::Mutex::new(std::array::from_fn(|_| ButtonT::new()))
+    });
 
 /// C function: P_ChangeSwitchTexture
 pub fn p_change_switch_texture(line: &mut LineT, use_again: i32) {

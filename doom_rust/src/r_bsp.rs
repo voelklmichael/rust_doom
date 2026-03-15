@@ -3,6 +3,8 @@
 
 use crate::doomtype::*;
 use crate::r_defs::*;
+use once_cell::sync::Lazy;
+use std::sync::Mutex;
 
 pub static mut curline: *mut SegT = std::ptr::null_mut();
 pub static mut sidedef: *mut SideT = std::ptr::null_mut();
@@ -17,7 +19,9 @@ pub static mut markfloor: boolean = crate::doomtype::Boolean::False;
 pub static mut markceiling: boolean = crate::doomtype::Boolean::False;
 pub static mut skymap: boolean = crate::doomtype::Boolean::False;
 
-pub static mut drawsegs: [DrawsegT; MAXDRAWSEGS] = [DrawsegT::new(); MAXDRAWSEGS];
+pub static DRAWSEGS: Lazy<Mutex<[DrawsegT; MAXDRAWSEGS]>> = Lazy::new(|| {
+    Mutex::new(std::array::from_fn(|_| DrawsegT::new()))
+});
 pub static mut ds_p: *mut DrawsegT = std::ptr::null_mut();
 
 pub static mut hscalelight: *mut *mut LighttableT = std::ptr::null_mut();

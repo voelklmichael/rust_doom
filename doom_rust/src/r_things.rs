@@ -4,28 +4,31 @@
 use crate::i_video::*;
 use crate::r_defs::*;
 use crate::v_patch::*;
+use once_cell::sync::Lazy;
 use std::sync::Mutex;
 
 /// C #define: MAXVISSPRITES
 pub const MAXVISSPRITES: usize = 128;
 
-pub static mut vissprites: [VisspriteT; MAXVISSPRITES] = [VisspriteT {
-    prev: None,
-    next: None,
-    x1: 0,
-    x2: 0,
-    gx: 0,
-    gy: 0,
-    gz: 0,
-    gzt: 0,
-    startfrac: 0,
-    scale: 0,
-    xiscale: 0,
-    texturemid: 0,
-    patch: 0,
-    colormap: None,
-    mobjflags: 0,
-}; MAXVISSPRITES];
+pub static VISSPRITES: Lazy<Mutex<[VisspriteT; MAXVISSPRITES]>> = Lazy::new(|| {
+    Mutex::new(std::array::from_fn(|_| VisspriteT {
+        prev: None,
+        next: None,
+        x1: 0,
+        x2: 0,
+        gx: 0,
+        gy: 0,
+        gz: 0,
+        gzt: 0,
+        startfrac: 0,
+        scale: 0,
+        xiscale: 0,
+        texturemid: 0,
+        patch: 0,
+        colormap: None,
+        mobjflags: 0,
+    }))
+});
 pub static mut vissprite_p: *mut VisspriteT = std::ptr::null_mut();
 pub static mut vsprsortedhead: VisspriteT = VisspriteT {
     prev: None,

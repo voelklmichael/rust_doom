@@ -11,6 +11,7 @@ use crate::m_fixed::*;
 use crate::p_mobj::*;
 use crate::p_spec::*;
 use crate::r_defs::*;
+use once_cell::sync::Lazy;
 use std::sync::{Arc, Mutex};
 
 /// C #define: FLOATSPEED
@@ -118,12 +119,14 @@ pub struct InterceptT {
     pub d_line: Option<Arc<Mutex<LineT>>>,  // use when isaline
 }
 
-pub static mut intercepts: [InterceptT; MAXINTERCEPTS] = [InterceptT {
-    frac: 0,
-    isaline: Boolean::False,
-    d_thing: None,
-    d_line: None,
-}; MAXINTERCEPTS];
+pub static INTERCEPTS: Lazy<Mutex<[InterceptT; MAXINTERCEPTS]>> = Lazy::new(|| {
+    Mutex::new(std::array::from_fn(|_| InterceptT {
+        frac: 0,
+        isaline: Boolean::False,
+        d_thing: None,
+        d_line: None,
+    }))
+});
 pub static mut intercept_p: *mut InterceptT = std::ptr::null_mut();
 
 /// C typedef: traverser_t
