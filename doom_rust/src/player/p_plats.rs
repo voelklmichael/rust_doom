@@ -10,6 +10,7 @@
 use crate::game::d_think::Thinker;
 use crate::m_fixed::Fixed;
 use crate::rendering::defs::{Line, Sector};
+use std::sync::{Mutex, OnceLock};
 
 pub const MAXPLATS: usize = 30;
 
@@ -30,21 +31,47 @@ pub struct Plat {
     pub plattype: i32,
 }
 
-static mut ACTIVEPLATS: [*mut Plat; MAXPLATS] = [std::ptr::null_mut(); MAXPLATS];
+// =============================================================================
+// PPlatsState - thread-safe via OnceLock + Mutex
+// =============================================================================
+
+static P_PLATS_STATE: OnceLock<Mutex<PPlatsState>> = OnceLock::new();
+
+/// Safety: Raw pointers in PPlatsState are only used while holding the Mutex lock.
+unsafe impl Send for PPlatsState {}
+
+pub struct PPlatsState {
+    pub activeplats: [*mut Plat; MAXPLATS],
+}
+
+fn get_p_plats_state() -> &'static Mutex<PPlatsState> {
+    P_PLATS_STATE.get_or_init(|| Mutex::new(PPlatsState {
+        activeplats: [std::ptr::null_mut(); MAXPLATS],
+    }))
+}
+
+/// Access PPlatsState.
+pub fn with_p_plats_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut PPlatsState) -> R,
+{
+    let mut guard = get_p_plats_state().lock().unwrap();
+    f(&mut guard)
+}
 
 /// Original: P_AddActivePlat
 pub fn p_add_active_plat(plat: *mut Plat) {
     if plat.is_null() {
         return;
     }
-    unsafe {
-        for slot in &mut ACTIVEPLATS {
-            if (*slot).is_null() {
+    with_p_plats_state(|st| {
+        for slot in &mut st.activeplats {
+            if slot.is_null() {
                 *slot = plat;
                 return;
             }
         }
-    }
+    });
 }
 
 /// Platform thinker. Original: T_PlatRaise (stub - no-op for savegame compatibility)

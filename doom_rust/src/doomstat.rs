@@ -8,6 +8,7 @@
 // Original: doomstat.h + doomstat.c + d_player.h (player_t, wbplayerstruct_t, wbstartstruct_t)
 
 use std::sync::atomic::AtomicI32;
+use std::sync::{Mutex, OnceLock};
 
 use crate::game::d_mode::{GameMission, GameMode, GameVersion, Skill};
 use crate::doomdata::MapThing;
@@ -237,73 +238,175 @@ pub static RESPAWNPARM: AtomicI32 = AtomicI32::new(0);
 pub static FASTPARM: AtomicI32 = AtomicI32::new(0);
 pub static DEVPARM: AtomicI32 = AtomicI32::new(0);
 
-// Game Mode - identify IWAD as shareware, retail etc.
-pub static mut GAMEMODE: GameMode = GameMode::Indetermined;
-pub static mut GAMEMISSION: GameMission = GameMission::Doom;
-pub static mut GAMEVERSION: GameVersion = GameVersion::ExeFinal2;
-pub static mut GAMEDESCRIPTION: Option<String> = None;
-
-// If true, we're using one of the mangled BFG edition IWADs.
-pub static mut BFGEDITION: Boolean = false;
-
-// Set if homebrew PWAD stuff has been added.
-pub static mut MODIFIEDGAME: Boolean = false;
-
-// Selected skill type, map etc.
-pub static mut STARTSKILL: Skill = Skill::Medium;
-pub static mut STARTEPISODE: i32 = 1;
-pub static mut STARTMAP: i32 = 1;
-pub static mut STARTLOADGAME: i32 = -1;
-pub static mut AUTOSTART: Boolean = false;
-pub static mut GAMESKILL: Skill = Skill::Medium;
-pub static mut GAMEEPISODE: i32 = 1;
-pub static mut GAMEMAP: i32 = 1;
-pub static mut TIMELIMIT: i32 = 0;
-pub static mut RESPAWNMONSTERS: Boolean = false;
-pub static mut NETGAME: Boolean = false;
-pub static mut DEATHMATCH: i32 = 0;
-
-// Sound
-pub static mut SFXVOLUME: i32 = 8;
-pub static mut MUSICVOLUME: i32 = 8;
-pub static mut SND_MUSICDEVICE: i32 = 0;
-pub static mut SND_SFXDEVICE: i32 = 0;
-pub static mut SND_DESIREDMUSICDEVICE: i32 = 0;
-pub static mut SND_DESIREDSFXDEVICE: i32 = 0;
-
-// Status flags for refresh
-pub static mut STATUSBARACTIVE: Boolean = true;
-pub static mut AUTOMAPACTIVE: Boolean = false;
-pub static mut MENUACTIVE: Boolean = false;
-pub static mut PAUSED: Boolean = false;
-pub static mut VIEWACTIVE: Boolean = true;
-pub static mut NODRAWERS: Boolean = false;
-pub static mut TESTCONTROLS: Boolean = false;
-pub static mut TESTCONTROLS_MOUSESPEED: i32 = 0;
-pub static mut VIEWANGLEOFFSET: i32 = 0;
-pub static mut CONSOLEPLAYER: i32 = 0;
-pub static mut DISPLAYPLAYER: i32 = 0;
-
-// Scores, rating
-pub static mut TOTALKILLS: i32 = 0;
-pub static mut TOTALITEMS: i32 = 0;
-pub static mut TOTALSECRET: i32 = 0;
-pub static mut LEVELSTARTTIC: i32 = 0;
-pub static mut LEVELTIME: i32 = 0;
-
-// Level exit: true if secret exit taken. Set by G_SecretExitLevel.
-pub static mut SECRETEXIT: Boolean = false;
-
-// Demo playback/recording
-pub static mut USERGAME: Boolean = true;
-pub static mut DEMOPLAYBACK: Boolean = false;
-pub static mut DEMORECORDING: Boolean = false;
-pub static mut LOWRES_TURN: Boolean = false;
-pub static mut SINGLEDEMO: Boolean = false;
-pub static mut GAMESTATE: Gamestate = Gamestate::Level;
-
 // Internal parameters
 pub const MAX_DM_STARTS: usize = 10;
+
+// =============================================================================
+// DoomstatState - thread-safe via OnceLock + Mutex
+// =============================================================================
+
+static DOOMSTAT_STATE: OnceLock<Mutex<DoomstatState>> = OnceLock::new();
+
+/// Safety: Raw pointers in DoomstatState are only used while holding the Mutex lock.
+unsafe impl Send for DoomstatState {}
+
+pub struct DoomstatState {
+    // Game mode - identify IWAD as shareware, retail etc.
+    pub gamemode: GameMode,
+    pub gamemission: GameMission,
+    pub gameversion: GameVersion,
+    pub gamedescription: Option<String>,
+    pub bfgedition: Boolean,
+    pub modifiedgame: Boolean,
+
+    // Selected skill type, map etc.
+    pub startskill: Skill,
+    pub startepisode: i32,
+    pub startmap: i32,
+    pub startloadgame: i32,
+    pub autostart: Boolean,
+    pub gameskill: Skill,
+    pub gameepisode: i32,
+    pub gamemap: i32,
+    pub timelimit: i32,
+    pub respawnmonsters: Boolean,
+    pub netgame: Boolean,
+    pub deathmatch: i32,
+
+    // Sound
+    pub sfxvolume: i32,
+    pub musicvolume: i32,
+    pub snd_musicdevice: i32,
+    pub snd_sfxdevice: i32,
+    pub snd_desiredmusicdevice: i32,
+    pub snd_desiredsfxdevice: i32,
+
+    // Status flags for refresh
+    pub statusbaractive: Boolean,
+    pub automapactive: Boolean,
+    pub menuactive: Boolean,
+    pub paused: Boolean,
+    pub viewactive: Boolean,
+    pub nodrawers: Boolean,
+    pub testcontrols: Boolean,
+    pub testcontrols_mousespeed: i32,
+    pub viewangleoffset: i32,
+    pub consoleplayer: i32,
+    pub displayplayer: i32,
+
+    // Scores, rating
+    pub totalkills: i32,
+    pub totalitems: i32,
+    pub totalsecret: i32,
+    pub levelstarttic: i32,
+    pub leveltime: i32,
+    pub secretexit: Boolean,
+
+    // Demo playback/recording
+    pub usergame: Boolean,
+    pub demoplayback: Boolean,
+    pub demorecording: Boolean,
+    pub lowres_turn: Boolean,
+    pub singledemo: Boolean,
+    pub gamestate: Gamestate,
+
+    // Players and level setup
+    pub players: [Player; MAXPLAYERS],
+    pub playeringame: [Boolean; MAXPLAYERS],
+    pub deathmatchstarts: [MapThing; MAX_DM_STARTS],
+    pub deathmatch_p: *const MapThing,
+    pub playerstarts: [MapThing; MAXPLAYERS],
+
+    // Intermission
+    pub wminfo: WbStartStruct,
+
+    // Misc
+    pub savegamedir: Option<String>,
+    pub basedefault: [u8; 1024],
+    pub precache: Boolean,
+    pub wipegamestate: Gamestate,
+    pub mousesensitivity: i32,
+    pub bodyqueslot: i32,
+    pub skyflatnum: i32,
+    pub netcmds: *mut Ticcmd,
+}
+
+fn get_doomstat_state() -> &'static Mutex<DoomstatState> {
+    DOOMSTAT_STATE.get_or_init(|| {
+        Mutex::new(DoomstatState {
+            gamemode: GameMode::Indetermined,
+            gamemission: GameMission::Doom,
+            gameversion: GameVersion::ExeFinal2,
+            gamedescription: None,
+            bfgedition: false,
+            modifiedgame: false,
+            startskill: Skill::Medium,
+            startepisode: 1,
+            startmap: 1,
+            startloadgame: -1,
+            autostart: false,
+            gameskill: Skill::Medium,
+            gameepisode: 1,
+            gamemap: 1,
+            timelimit: 0,
+            respawnmonsters: false,
+            netgame: false,
+            deathmatch: 0,
+            sfxvolume: 8,
+            musicvolume: 8,
+            snd_musicdevice: 0,
+            snd_sfxdevice: 0,
+            snd_desiredmusicdevice: 0,
+            snd_desiredsfxdevice: 0,
+            statusbaractive: true,
+            automapactive: false,
+            menuactive: false,
+            paused: false,
+            viewactive: true,
+            nodrawers: false,
+            testcontrols: false,
+            testcontrols_mousespeed: 0,
+            viewangleoffset: 0,
+            consoleplayer: 0,
+            displayplayer: 0,
+            totalkills: 0,
+            totalitems: 0,
+            totalsecret: 0,
+            levelstarttic: 0,
+            leveltime: 0,
+            secretexit: false,
+            usergame: true,
+            demoplayback: false,
+            demorecording: false,
+            lowres_turn: false,
+            singledemo: false,
+            gamestate: Gamestate::Level,
+            players: std::array::from_fn(|_| Player::default()),
+            playeringame: [false; MAXPLAYERS],
+            deathmatchstarts: [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAX_DM_STARTS],
+            deathmatch_p: std::ptr::null(),
+            playerstarts: [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAXPLAYERS],
+            wminfo: WbStartStruct::default(),
+            savegamedir: None,
+            basedefault: [0; 1024],
+            precache: false,
+            wipegamestate: Gamestate::Level,
+            mousesensitivity: 5,
+            bodyqueslot: 0,
+            skyflatnum: 0,
+            netcmds: std::ptr::null_mut(),
+        })
+    })
+}
+
+/// Access DoomstatState.
+pub fn with_doomstat_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut DoomstatState) -> R,
+{
+    let mut guard = get_doomstat_state().lock().unwrap();
+    f(&mut guard)
+}
 
 const DEFAULT_PLAYER: Player = Player {
     mo: std::ptr::null_mut(),
@@ -356,13 +459,6 @@ const DEFAULT_PLAYER: Player = Player {
     didsecret: false,
 };
 
-pub static mut PLAYERS: [Player; MAXPLAYERS] = [DEFAULT_PLAYER; MAXPLAYERS];
-pub static mut PLAYERINGAME: [Boolean; MAXPLAYERS] = [false; MAXPLAYERS];
-pub static mut DEATHMATCHSTARTS: [MapThing; MAX_DM_STARTS] =
-    [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAX_DM_STARTS];
-pub static mut DEATHMATCH_P: *const MapThing = std::ptr::null();
-pub static mut PLAYERSTARTS: [MapThing; MAXPLAYERS] =
-    [MapThing { x: 0, y: 0, angle: 0, type_: 0, options: 0 }; MAXPLAYERS];
 const DEFAULT_WBPLAYER: WbPlayerStruct = WbPlayerStruct {
     in_game: 0,
     kills: 0,
@@ -373,38 +469,22 @@ const DEFAULT_WBPLAYER: WbPlayerStruct = WbPlayerStruct {
     score: 0,
 };
 
-pub static mut WMINFO: WbStartStruct = WbStartStruct {
-    epsd: 0,
-    didsecret: false,
-    last: 0,
-    next: 0,
-    maxkills: 0,
-    maxitems: 0,
-    maxsecret: 0,
-    maxfrags: 0,
-    partime: 0,
-    pnum: 0,
-    plyr: [DEFAULT_WBPLAYER; crate::doomdef::MAXPLAYERS],
-};
-
-pub static mut SAVEGAMEDIR: Option<String> = None;
-pub static mut BASEDEFAULT: [u8; 1024] = [0; 1024];
-pub static mut PRECACHE: Boolean = false;
-pub static mut WIPEGAMESTATE: Gamestate = Gamestate::Level;
-pub static mut MOUSESENSITIVITY: i32 = 5;
-pub static mut BODYQUESLOT: i32 = 0;
-pub static mut SKYFLATNUM: i32 = 0;
-// rndindex defined in m_random
-pub static mut NETCMDS: *mut Ticcmd = std::ptr::null_mut();
+/// Run closure with (gamemode, deathmatch, netgame, wminfo) for intermission screen.
+pub fn with_doomstat_wi<F, R>(f: F) -> R
+where
+    F: FnOnce(crate::game::d_mode::GameMode, i32, bool, &WbStartStruct) -> R,
+{
+    with_doomstat_state(|st| f(st.gamemode, st.deathmatch, st.netgame, &st.wminfo))
+}
 
 /// logical_gamemission: pack_chex -> doom, pack_hacx -> doom2, else gamemission
 #[inline]
 pub fn logical_gamemission() -> GameMission {
-    unsafe {
-        match GAMEMISSION {
+    with_doomstat_state(|st| {
+        match st.gamemission {
             GameMission::PackChex => GameMission::Doom,
             GameMission::PackHacx => GameMission::Doom2,
             m => m,
         }
-    }
+    })
 }

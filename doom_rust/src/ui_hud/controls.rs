@@ -8,313 +8,541 @@
 
 use crate::doomkeys;
 use crate::ui_hud::config::m_get_int_variable;
+use std::sync::{Mutex, OnceLock};
 
 // =============================================================================
-// Public API (from m_controls.h) — key globals
+// ControlsState - thread-safe via OnceLock + Mutex
 // =============================================================================
 
-// Movement
-pub static mut KEY_RIGHT: i32 = doomkeys::KEY_RIGHTARROW;
-pub static mut KEY_LEFT: i32 = doomkeys::KEY_LEFTARROW;
-pub static mut KEY_UP: i32 = doomkeys::KEY_UPARROW;
-pub static mut KEY_DOWN: i32 = doomkeys::KEY_DOWNARROW;
-pub static mut KEY_STRAFELEFT: i32 = doomkeys::KEY_STRAFE_L;
-pub static mut KEY_STRAFERIGHT: i32 = doomkeys::KEY_STRAFE_R;
-pub static mut KEY_FIRE: i32 = doomkeys::KEY_FIRE;
-pub static mut KEY_USE: i32 = doomkeys::KEY_USE;
-pub static mut KEY_STRAFE: i32 = doomkeys::KEY_RALT;
-pub static mut KEY_SPEED: i32 = doomkeys::KEY_RSHIFT;
+static CONTROLS_STATE: OnceLock<Mutex<ControlsState>> = OnceLock::new();
 
-pub static mut KEY_JUMP: i32 = b'/' as i32;
+pub struct ControlsState {
+    // Movement
+    pub key_right: i32,
+    pub key_left: i32,
+    pub key_up: i32,
+    pub key_down: i32,
+    pub key_strafeleft: i32,
+    pub key_straferight: i32,
+    pub key_fire: i32,
+    pub key_use: i32,
+    pub key_strafe: i32,
+    pub key_speed: i32,
+    pub key_jump: i32,
+    // Heretic
+    pub key_flyup: i32,
+    pub key_flydown: i32,
+    pub key_flycenter: i32,
+    pub key_lookup: i32,
+    pub key_lookdown: i32,
+    pub key_lookcenter: i32,
+    pub key_invleft: i32,
+    pub key_invright: i32,
+    pub key_useartifact: i32,
+    // Hexen artifacts
+    pub key_arti_all: i32,
+    pub key_arti_health: i32,
+    pub key_arti_poisonbag: i32,
+    pub key_arti_blastradius: i32,
+    pub key_arti_teleport: i32,
+    pub key_arti_teleportother: i32,
+    pub key_arti_egg: i32,
+    pub key_arti_invulnerability: i32,
+    // Strife
+    pub key_usehealth: i32,
+    pub key_invquery: i32,
+    pub key_mission: i32,
+    pub key_invpop: i32,
+    pub key_invkey: i32,
+    pub key_invhome: i32,
+    pub key_invend: i32,
+    pub key_invuse: i32,
+    pub key_invdrop: i32,
+    pub key_multi_msgplayer: [i32; 8],
+    pub key_message_refresh: i32,
+    pub key_pause: i32,
+    pub key_demo_quit: i32,
+    pub key_spy: i32,
+    pub key_multi_msg: i32,
+    // Weapon selection
+    pub key_weapon1: i32,
+    pub key_weapon2: i32,
+    pub key_weapon3: i32,
+    pub key_weapon4: i32,
+    pub key_weapon5: i32,
+    pub key_weapon6: i32,
+    pub key_weapon7: i32,
+    pub key_weapon8: i32,
+    pub key_prevweapon: i32,
+    pub key_nextweapon: i32,
+    // Automap
+    pub key_map_north: i32,
+    pub key_map_south: i32,
+    pub key_map_east: i32,
+    pub key_map_west: i32,
+    pub key_map_zoomin: i32,
+    pub key_map_zoomout: i32,
+    pub key_map_toggle: i32,
+    pub key_map_maxzoom: i32,
+    pub key_map_follow: i32,
+    pub key_map_grid: i32,
+    pub key_map_mark: i32,
+    pub key_map_clearmark: i32,
+    // Menu
+    pub key_menu_activate: i32,
+    pub key_menu_up: i32,
+    pub key_menu_down: i32,
+    pub key_menu_left: i32,
+    pub key_menu_right: i32,
+    pub key_menu_back: i32,
+    pub key_menu_forward: i32,
+    pub key_menu_confirm: i32,
+    pub key_menu_abort: i32,
+    pub key_menu_help: i32,
+    pub key_menu_save: i32,
+    pub key_menu_load: i32,
+    pub key_menu_volume: i32,
+    pub key_menu_detail: i32,
+    pub key_menu_qsave: i32,
+    pub key_menu_endgame: i32,
+    pub key_menu_messages: i32,
+    pub key_menu_qload: i32,
+    pub key_menu_quit: i32,
+    pub key_menu_gamma: i32,
+    pub key_menu_incscreen: i32,
+    pub key_menu_decscreen: i32,
+    pub key_menu_screenshot: i32,
+    // Mouse
+    pub mousebfire: i32,
+    pub mousebstrafe: i32,
+    pub mousebforward: i32,
+    pub mousebuse: i32,
+    pub mousebjump: i32,
+    pub mousebstrafeleft: i32,
+    pub mousebstraferight: i32,
+    pub mousebbackward: i32,
+    pub mousebprevweapon: i32,
+    pub mousebnextweapon: i32,
+    // Joystick
+    pub joybfire: i32,
+    pub joybstrafe: i32,
+    pub joybuse: i32,
+    pub joybspeed: i32,
+    pub joybjump: i32,
+    pub joybstrafeleft: i32,
+    pub joybstraferight: i32,
+    pub joybprevweapon: i32,
+    pub joybnextweapon: i32,
+    pub joybmenu: i32,
+    pub dclick_use: i32,
+}
 
-// Heretic
-pub static mut KEY_FLYUP: i32 = doomkeys::KEY_PGUP;
-pub static mut KEY_FLYDOWN: i32 = doomkeys::KEY_INS;
-pub static mut KEY_FLYCENTER: i32 = doomkeys::KEY_HOME;
-pub static mut KEY_LOOKUP: i32 = doomkeys::KEY_PGDN;
-pub static mut KEY_LOOKDOWN: i32 = doomkeys::KEY_DEL;
-pub static mut KEY_LOOKCENTER: i32 = doomkeys::KEY_END;
-pub static mut KEY_INVLEFT: i32 = b'[' as i32;
-pub static mut KEY_INVRIGHT: i32 = b']' as i32;
-pub static mut KEY_USEARTIFACT: i32 = doomkeys::KEY_ENTER;
+impl Default for ControlsState {
+    fn default() -> Self {
+        Self {
+            key_right: doomkeys::KEY_RIGHTARROW,
+            key_left: doomkeys::KEY_LEFTARROW,
+            key_up: doomkeys::KEY_UPARROW,
+            key_down: doomkeys::KEY_DOWNARROW,
+            key_strafeleft: doomkeys::KEY_STRAFE_L,
+            key_straferight: doomkeys::KEY_STRAFE_R,
+            key_fire: doomkeys::KEY_FIRE,
+            key_use: doomkeys::KEY_USE,
+            key_strafe: doomkeys::KEY_RALT,
+            key_speed: doomkeys::KEY_RSHIFT,
+            key_jump: b'/' as i32,
+            key_flyup: doomkeys::KEY_PGUP,
+            key_flydown: doomkeys::KEY_INS,
+            key_flycenter: doomkeys::KEY_HOME,
+            key_lookup: doomkeys::KEY_PGDN,
+            key_lookdown: doomkeys::KEY_DEL,
+            key_lookcenter: doomkeys::KEY_END,
+            key_invleft: b'[' as i32,
+            key_invright: b']' as i32,
+            key_useartifact: doomkeys::KEY_ENTER,
+            key_arti_all: doomkeys::KEY_BACKSPACE,
+            key_arti_health: b'\\' as i32,
+            key_arti_poisonbag: b'0' as i32,
+            key_arti_blastradius: b'9' as i32,
+            key_arti_teleport: b'8' as i32,
+            key_arti_teleportother: b'7' as i32,
+            key_arti_egg: b'6' as i32,
+            key_arti_invulnerability: b'5' as i32,
+            key_usehealth: b'h' as i32,
+            key_invquery: b'q' as i32,
+            key_mission: b'w' as i32,
+            key_invpop: b'z' as i32,
+            key_invkey: b'k' as i32,
+            key_invhome: doomkeys::KEY_HOME,
+            key_invend: doomkeys::KEY_END,
+            key_invuse: doomkeys::KEY_ENTER,
+            key_invdrop: doomkeys::KEY_BACKSPACE,
+            key_multi_msgplayer: [0; 8],
+            key_message_refresh: doomkeys::KEY_ENTER,
+            key_pause: doomkeys::KEY_PAUSE,
+            key_demo_quit: b'q' as i32,
+            key_spy: doomkeys::KEY_F12,
+            key_multi_msg: b't' as i32,
+            key_weapon1: b'1' as i32,
+            key_weapon2: b'2' as i32,
+            key_weapon3: b'3' as i32,
+            key_weapon4: b'4' as i32,
+            key_weapon5: b'5' as i32,
+            key_weapon6: b'6' as i32,
+            key_weapon7: b'7' as i32,
+            key_weapon8: b'8' as i32,
+            key_prevweapon: 0,
+            key_nextweapon: 0,
+            key_map_north: doomkeys::KEY_UPARROW,
+            key_map_south: doomkeys::KEY_DOWNARROW,
+            key_map_east: doomkeys::KEY_RIGHTARROW,
+            key_map_west: doomkeys::KEY_LEFTARROW,
+            key_map_zoomin: doomkeys::KEY_EQUALS,
+            key_map_zoomout: doomkeys::KEY_MINUS,
+            key_map_toggle: doomkeys::KEY_TAB,
+            key_map_maxzoom: b'0' as i32,
+            key_map_follow: b'f' as i32,
+            key_map_grid: b'g' as i32,
+            key_map_mark: b'm' as i32,
+            key_map_clearmark: b'c' as i32,
+            key_menu_activate: doomkeys::KEY_ESCAPE,
+            key_menu_up: doomkeys::KEY_UPARROW,
+            key_menu_down: doomkeys::KEY_DOWNARROW,
+            key_menu_left: doomkeys::KEY_LEFTARROW,
+            key_menu_right: doomkeys::KEY_RIGHTARROW,
+            key_menu_back: doomkeys::KEY_BACKSPACE,
+            key_menu_forward: doomkeys::KEY_ENTER,
+            key_menu_confirm: b'y' as i32,
+            key_menu_abort: b'n' as i32,
+            key_menu_help: doomkeys::KEY_F1,
+            key_menu_save: doomkeys::KEY_F2,
+            key_menu_load: doomkeys::KEY_F3,
+            key_menu_volume: doomkeys::KEY_F4,
+            key_menu_detail: doomkeys::KEY_F5,
+            key_menu_qsave: doomkeys::KEY_F6,
+            key_menu_endgame: doomkeys::KEY_F7,
+            key_menu_messages: doomkeys::KEY_F8,
+            key_menu_qload: doomkeys::KEY_F9,
+            key_menu_quit: doomkeys::KEY_F10,
+            key_menu_gamma: doomkeys::KEY_F11,
+            key_menu_incscreen: doomkeys::KEY_EQUALS,
+            key_menu_decscreen: doomkeys::KEY_MINUS,
+            key_menu_screenshot: 0,
+            mousebfire: 0,
+            mousebstrafe: 1,
+            mousebforward: 2,
+            mousebuse: -1,
+            mousebjump: -1,
+            mousebstrafeleft: -1,
+            mousebstraferight: -1,
+            mousebbackward: -1,
+            mousebprevweapon: -1,
+            mousebnextweapon: -1,
+            joybfire: 0,
+            joybstrafe: 1,
+            joybuse: 3,
+            joybspeed: 2,
+            joybjump: -1,
+            joybstrafeleft: -1,
+            joybstraferight: -1,
+            joybprevweapon: -1,
+            joybnextweapon: -1,
+            joybmenu: -1,
+            dclick_use: 1,
+        }
+    }
+}
 
-// Hexen artifacts
-pub static mut KEY_ARTI_ALL: i32 = doomkeys::KEY_BACKSPACE;
-pub static mut KEY_ARTI_HEALTH: i32 = b'\\' as i32;
-pub static mut KEY_ARTI_POISONBAG: i32 = b'0' as i32;
-pub static mut KEY_ARTI_BLASTRADIUS: i32 = b'9' as i32;
-pub static mut KEY_ARTI_TELEPORT: i32 = b'8' as i32;
-pub static mut KEY_ARTI_TELEPORTOTHER: i32 = b'7' as i32;
-pub static mut KEY_ARTI_EGG: i32 = b'6' as i32;
-pub static mut KEY_ARTI_INVULNERABILITY: i32 = b'5' as i32;
+fn get_controls_state() -> &'static Mutex<ControlsState> {
+    CONTROLS_STATE.get_or_init(|| Mutex::new(ControlsState::default()))
+}
 
-// Strife
-pub static mut KEY_USEHEALTH: i32 = b'h' as i32;
-pub static mut KEY_INVQUERY: i32 = b'q' as i32;
-pub static mut KEY_MISSION: i32 = b'w' as i32;
-pub static mut KEY_INVPOP: i32 = b'z' as i32;
-pub static mut KEY_INVKEY: i32 = b'k' as i32;
-pub static mut KEY_INVHOME: i32 = doomkeys::KEY_HOME;
-pub static mut KEY_INVEND: i32 = doomkeys::KEY_END;
-pub static mut KEY_INVUSE: i32 = doomkeys::KEY_ENTER;
-pub static mut KEY_INVDROP: i32 = doomkeys::KEY_BACKSPACE;
+/// Access ControlsState.
+pub fn with_controls_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&ControlsState) -> R,
+{
+    let guard = get_controls_state().lock().unwrap();
+    f(&guard)
+}
 
-pub static mut KEY_MULTI_MSGPLAYER: [i32; 8] = [0; 8];
+/// Mutably access ControlsState.
+pub fn with_controls_state_mut<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut ControlsState) -> R,
+{
+    let mut guard = get_controls_state().lock().unwrap();
+    f(&mut guard)
+}
 
-pub static mut KEY_MESSAGE_REFRESH: i32 = doomkeys::KEY_ENTER;
-pub static mut KEY_PAUSE: i32 = doomkeys::KEY_PAUSE;
-pub static mut KEY_DEMO_QUIT: i32 = b'q' as i32;
-pub static mut KEY_SPY: i32 = doomkeys::KEY_F12;
+// =============================================================================
+// Public API (from m_controls.h) — getters for external use
+// =============================================================================
 
-pub static mut KEY_MULTI_MSG: i32 = b't' as i32;
-
-// Weapon selection
-pub static mut KEY_WEAPON1: i32 = b'1' as i32;
-pub static mut KEY_WEAPON2: i32 = b'2' as i32;
-pub static mut KEY_WEAPON3: i32 = b'3' as i32;
-pub static mut KEY_WEAPON4: i32 = b'4' as i32;
-pub static mut KEY_WEAPON5: i32 = b'5' as i32;
-pub static mut KEY_WEAPON6: i32 = b'6' as i32;
-pub static mut KEY_WEAPON7: i32 = b'7' as i32;
-pub static mut KEY_WEAPON8: i32 = b'8' as i32;
-
-pub static mut KEY_PREVWEAPON: i32 = 0;
-pub static mut KEY_NEXTWEAPON: i32 = 0;
-
-// Automap
-pub static mut KEY_MAP_NORTH: i32 = doomkeys::KEY_UPARROW;
-pub static mut KEY_MAP_SOUTH: i32 = doomkeys::KEY_DOWNARROW;
-pub static mut KEY_MAP_EAST: i32 = doomkeys::KEY_RIGHTARROW;
-pub static mut KEY_MAP_WEST: i32 = doomkeys::KEY_LEFTARROW;
-pub static mut KEY_MAP_ZOOMIN: i32 = doomkeys::KEY_EQUALS;
-pub static mut KEY_MAP_ZOOMOUT: i32 = doomkeys::KEY_MINUS;
-pub static mut KEY_MAP_TOGGLE: i32 = doomkeys::KEY_TAB;
-pub static mut KEY_MAP_MAXZOOM: i32 = b'0' as i32;
-pub static mut KEY_MAP_FOLLOW: i32 = b'f' as i32;
-pub static mut KEY_MAP_GRID: i32 = b'g' as i32;
-pub static mut KEY_MAP_MARK: i32 = b'm' as i32;
-pub static mut KEY_MAP_CLEARMARK: i32 = b'c' as i32;
-
-// Menu
-pub static mut KEY_MENU_ACTIVATE: i32 = doomkeys::KEY_ESCAPE;
-pub static mut KEY_MENU_UP: i32 = doomkeys::KEY_UPARROW;
-pub static mut KEY_MENU_DOWN: i32 = doomkeys::KEY_DOWNARROW;
-pub static mut KEY_MENU_LEFT: i32 = doomkeys::KEY_LEFTARROW;
-pub static mut KEY_MENU_RIGHT: i32 = doomkeys::KEY_RIGHTARROW;
-pub static mut KEY_MENU_BACK: i32 = doomkeys::KEY_BACKSPACE;
-pub static mut KEY_MENU_FORWARD: i32 = doomkeys::KEY_ENTER;
-pub static mut KEY_MENU_CONFIRM: i32 = b'y' as i32;
-pub static mut KEY_MENU_ABORT: i32 = b'n' as i32;
-pub static mut KEY_MENU_HELP: i32 = doomkeys::KEY_F1;
-pub static mut KEY_MENU_SAVE: i32 = doomkeys::KEY_F2;
-pub static mut KEY_MENU_LOAD: i32 = doomkeys::KEY_F3;
-pub static mut KEY_MENU_VOLUME: i32 = doomkeys::KEY_F4;
-pub static mut KEY_MENU_DETAIL: i32 = doomkeys::KEY_F5;
-pub static mut KEY_MENU_QSAVE: i32 = doomkeys::KEY_F6;
-pub static mut KEY_MENU_ENDGAME: i32 = doomkeys::KEY_F7;
-pub static mut KEY_MENU_MESSAGES: i32 = doomkeys::KEY_F8;
-pub static mut KEY_MENU_QLOAD: i32 = doomkeys::KEY_F9;
-pub static mut KEY_MENU_QUIT: i32 = doomkeys::KEY_F10;
-pub static mut KEY_MENU_GAMMA: i32 = doomkeys::KEY_F11;
-pub static mut KEY_MENU_INCSCREEN: i32 = doomkeys::KEY_EQUALS;
-pub static mut KEY_MENU_DECSCREEN: i32 = doomkeys::KEY_MINUS;
-pub static mut KEY_MENU_SCREENSHOT: i32 = 0;
-
-// Mouse (C: mousebfire=0, mousebstrafe=1, mousebforward=2, mousebuse=-1)
-pub static mut MOUSEBFIRE: i32 = 0;
-pub static mut MOUSEBSTRAFE: i32 = 1;
-pub static mut MOUSEBFORWARD: i32 = 2;
-pub static mut MOUSEBUSE: i32 = -1;
-pub static mut MOUSEBJUMP: i32 = -1;
-pub static mut MOUSEBSTRAFELEFT: i32 = -1;
-pub static mut MOUSEBSTRAFERIGHT: i32 = -1;
-pub static mut MOUSEBBACKWARD: i32 = -1;
-pub static mut MOUSEBPREVWEAPON: i32 = -1;
-pub static mut MOUSEBNEXTWEAPON: i32 = -1;
-
-// Joystick (C: joybfire=0, joybstrafe=1, joybuse=3, joybspeed=2)
-pub static mut JOYBFIRE: i32 = 0;
-pub static mut JOYBSTRAFE: i32 = 1;
-pub static mut JOYBUSE: i32 = 3;
-pub static mut JOYBSPEED: i32 = 2;
-pub static mut JOYBJUMP: i32 = -1;
-pub static mut JOYBSTRAFELEFT: i32 = -1;
-pub static mut JOYBSTRAFERIGHT: i32 = -1;
-pub static mut JOYBPREVWEAPON: i32 = -1;
-pub static mut JOYBNEXTWEAPON: i32 = -1;
-pub static mut JOYBMENU: i32 = -1;
-
-pub static mut DCLICK_USE: i32 = 1;
+pub fn key_right() -> i32 {
+    with_controls_state(|s| s.key_right)
+}
+pub fn key_left() -> i32 {
+    with_controls_state(|s| s.key_left)
+}
+pub fn key_up() -> i32 {
+    with_controls_state(|s| s.key_up)
+}
+pub fn key_down() -> i32 {
+    with_controls_state(|s| s.key_down)
+}
+pub fn key_strafeleft() -> i32 {
+    with_controls_state(|s| s.key_strafeleft)
+}
+pub fn key_straferight() -> i32 {
+    with_controls_state(|s| s.key_straferight)
+}
+pub fn key_fire() -> i32 {
+    with_controls_state(|s| s.key_fire)
+}
+pub fn key_use() -> i32 {
+    with_controls_state(|s| s.key_use)
+}
+pub fn key_strafe() -> i32 {
+    with_controls_state(|s| s.key_strafe)
+}
+pub fn key_speed() -> i32 {
+    with_controls_state(|s| s.key_speed)
+}
+pub fn key_pause() -> i32 {
+    with_controls_state(|s| s.key_pause)
+}
+pub fn key_menu_activate() -> i32 {
+    with_controls_state(|s| s.key_menu_activate)
+}
+pub fn key_menu_up() -> i32 {
+    with_controls_state(|s| s.key_menu_up)
+}
+pub fn key_menu_down() -> i32 {
+    with_controls_state(|s| s.key_menu_down)
+}
+pub fn key_menu_left() -> i32 {
+    with_controls_state(|s| s.key_menu_left)
+}
+pub fn key_menu_right() -> i32 {
+    with_controls_state(|s| s.key_menu_right)
+}
+pub fn key_menu_back() -> i32 {
+    with_controls_state(|s| s.key_menu_back)
+}
+pub fn key_menu_forward() -> i32 {
+    with_controls_state(|s| s.key_menu_forward)
+}
+pub fn key_menu_confirm() -> i32 {
+    with_controls_state(|s| s.key_menu_confirm)
+}
+pub fn key_menu_abort() -> i32 {
+    with_controls_state(|s| s.key_menu_abort)
+}
+pub fn key_map_north() -> i32 {
+    with_controls_state(|s| s.key_map_north)
+}
+pub fn key_map_south() -> i32 {
+    with_controls_state(|s| s.key_map_south)
+}
+pub fn key_map_east() -> i32 {
+    with_controls_state(|s| s.key_map_east)
+}
+pub fn key_map_west() -> i32 {
+    with_controls_state(|s| s.key_map_west)
+}
+pub fn key_map_zoomin() -> i32 {
+    with_controls_state(|s| s.key_map_zoomin)
+}
+pub fn key_map_zoomout() -> i32 {
+    with_controls_state(|s| s.key_map_zoomout)
+}
+pub fn key_map_toggle() -> i32 {
+    with_controls_state(|s| s.key_map_toggle)
+}
+pub fn key_map_maxzoom() -> i32 {
+    with_controls_state(|s| s.key_map_maxzoom)
+}
+pub fn key_map_follow() -> i32 {
+    with_controls_state(|s| s.key_map_follow)
+}
+pub fn key_map_grid() -> i32 {
+    with_controls_state(|s| s.key_map_grid)
+}
+pub fn key_map_mark() -> i32 {
+    with_controls_state(|s| s.key_map_mark)
+}
+pub fn key_map_clearmark() -> i32 {
+    with_controls_state(|s| s.key_map_clearmark)
+}
 
 // =============================================================================
 // Implementation (from m_controls.c) — M_Bind* read config -> globals
 // =============================================================================
 
 pub fn m_bind_base_controls() {
-    unsafe {
-        KEY_RIGHT = m_get_int_variable("key_right");
-        KEY_LEFT = m_get_int_variable("key_left");
-        KEY_UP = m_get_int_variable("key_up");
-        KEY_DOWN = m_get_int_variable("key_down");
-        KEY_STRAFELEFT = m_get_int_variable("key_strafeleft");
-        KEY_STRAFERIGHT = m_get_int_variable("key_straferight");
-        KEY_FIRE = m_get_int_variable("key_fire");
-        KEY_USE = m_get_int_variable("key_use");
-        KEY_STRAFE = m_get_int_variable("key_strafe");
-        KEY_SPEED = m_get_int_variable("key_speed");
-        KEY_PAUSE = m_get_int_variable("key_pause");
-        KEY_MESSAGE_REFRESH = m_get_int_variable("key_message_refresh");
-        MOUSEBFIRE = m_get_int_variable("mouseb_fire");
-        MOUSEBSTRAFE = m_get_int_variable("mouseb_strafe");
-        MOUSEBFORWARD = m_get_int_variable("mouseb_forward");
-        JOYBFIRE = m_get_int_variable("joyb_fire");
-        JOYBSTRAFE = m_get_int_variable("joyb_strafe");
-        JOYBUSE = m_get_int_variable("joyb_use");
-        JOYBSPEED = m_get_int_variable("joyb_speed");
-        JOYBMENU = m_get_int_variable("joyb_menu_activate");
-        JOYBSTRAFELEFT = m_get_int_variable("joyb_strafeleft");
-        JOYBSTRAFERIGHT = m_get_int_variable("joyb_straferight");
-        MOUSEBSTRAFELEFT = m_get_int_variable("mouseb_strafeleft");
-        MOUSEBSTRAFERIGHT = m_get_int_variable("mouseb_straferight");
-        MOUSEBUSE = m_get_int_variable("mouseb_use");
-        MOUSEBBACKWARD = m_get_int_variable("mouseb_backward");
-        DCLICK_USE = m_get_int_variable("dclick_use");
-    }
+    with_controls_state_mut(|s| {
+        s.key_right = m_get_int_variable("key_right");
+        s.key_left = m_get_int_variable("key_left");
+        s.key_up = m_get_int_variable("key_up");
+        s.key_down = m_get_int_variable("key_down");
+        s.key_strafeleft = m_get_int_variable("key_strafeleft");
+        s.key_straferight = m_get_int_variable("key_straferight");
+        s.key_fire = m_get_int_variable("key_fire");
+        s.key_use = m_get_int_variable("key_use");
+        s.key_strafe = m_get_int_variable("key_strafe");
+        s.key_speed = m_get_int_variable("key_speed");
+        s.key_pause = m_get_int_variable("key_pause");
+        s.key_message_refresh = m_get_int_variable("key_message_refresh");
+        s.mousebfire = m_get_int_variable("mouseb_fire");
+        s.mousebstrafe = m_get_int_variable("mouseb_strafe");
+        s.mousebforward = m_get_int_variable("mouseb_forward");
+        s.joybfire = m_get_int_variable("joyb_fire");
+        s.joybstrafe = m_get_int_variable("joyb_strafe");
+        s.joybuse = m_get_int_variable("joyb_use");
+        s.joybspeed = m_get_int_variable("joyb_speed");
+        s.joybmenu = m_get_int_variable("joyb_menu_activate");
+        s.joybstrafeleft = m_get_int_variable("joyb_strafeleft");
+        s.joybstraferight = m_get_int_variable("joyb_straferight");
+        s.mousebstrafeleft = m_get_int_variable("mouseb_strafeleft");
+        s.mousebstraferight = m_get_int_variable("mouseb_straferight");
+        s.mousebuse = m_get_int_variable("mouseb_use");
+        s.mousebbackward = m_get_int_variable("mouseb_backward");
+        s.dclick_use = m_get_int_variable("dclick_use");
+    });
 }
 
 pub fn m_bind_heretic_controls() {
-    unsafe {
-        KEY_FLYUP = m_get_int_variable("key_flyup");
-        KEY_FLYDOWN = m_get_int_variable("key_flydown");
-        KEY_FLYCENTER = m_get_int_variable("key_flycenter");
-        KEY_LOOKUP = m_get_int_variable("key_lookup");
-        KEY_LOOKDOWN = m_get_int_variable("key_lookdown");
-        KEY_LOOKCENTER = m_get_int_variable("key_lookcenter");
-        KEY_INVLEFT = m_get_int_variable("key_invleft");
-        KEY_INVRIGHT = m_get_int_variable("key_invright");
-        KEY_USEARTIFACT = m_get_int_variable("key_useartifact");
-    }
+    with_controls_state_mut(|s| {
+        s.key_flyup = m_get_int_variable("key_flyup");
+        s.key_flydown = m_get_int_variable("key_flydown");
+        s.key_flycenter = m_get_int_variable("key_flycenter");
+        s.key_lookup = m_get_int_variable("key_lookup");
+        s.key_lookdown = m_get_int_variable("key_lookdown");
+        s.key_lookcenter = m_get_int_variable("key_lookcenter");
+        s.key_invleft = m_get_int_variable("key_invleft");
+        s.key_invright = m_get_int_variable("key_invright");
+        s.key_useartifact = m_get_int_variable("key_useartifact");
+    });
 }
 
 pub fn m_bind_hexen_controls() {
-    unsafe {
-        KEY_JUMP = m_get_int_variable("key_jump");
-        MOUSEBJUMP = m_get_int_variable("mouseb_jump");
-        JOYBJUMP = m_get_int_variable("joyb_jump");
-        KEY_ARTI_ALL = m_get_int_variable("key_arti_all");
-        KEY_ARTI_HEALTH = m_get_int_variable("key_arti_health");
-        KEY_ARTI_POISONBAG = m_get_int_variable("key_arti_poisonbag");
-        KEY_ARTI_BLASTRADIUS = m_get_int_variable("key_arti_blastradius");
-        KEY_ARTI_TELEPORT = m_get_int_variable("key_arti_teleport");
-        KEY_ARTI_TELEPORTOTHER = m_get_int_variable("key_arti_teleportother");
-        KEY_ARTI_EGG = m_get_int_variable("key_arti_egg");
-        KEY_ARTI_INVULNERABILITY = m_get_int_variable("key_arti_invulnerability");
-    }
+    with_controls_state_mut(|s| {
+        s.key_jump = m_get_int_variable("key_jump");
+        s.mousebjump = m_get_int_variable("mouseb_jump");
+        s.joybjump = m_get_int_variable("joyb_jump");
+        s.key_arti_all = m_get_int_variable("key_arti_all");
+        s.key_arti_health = m_get_int_variable("key_arti_health");
+        s.key_arti_poisonbag = m_get_int_variable("key_arti_poisonbag");
+        s.key_arti_blastradius = m_get_int_variable("key_arti_blastradius");
+        s.key_arti_teleport = m_get_int_variable("key_arti_teleport");
+        s.key_arti_teleportother = m_get_int_variable("key_arti_teleportother");
+        s.key_arti_egg = m_get_int_variable("key_arti_egg");
+        s.key_arti_invulnerability = m_get_int_variable("key_arti_invulnerability");
+    });
 }
 
 pub fn m_bind_strife_controls() {
-    unsafe {
-        // Strife-specific defaults before binding (C: M_BindStrifeControls)
-        KEY_MESSAGE_REFRESH = b'/' as i32;
-        KEY_JUMP = b'a' as i32;
-        KEY_LOOKUP = doomkeys::KEY_PGUP;
-        KEY_LOOKDOWN = doomkeys::KEY_PGDN;
-        KEY_INVLEFT = doomkeys::KEY_INS;
-        KEY_INVRIGHT = doomkeys::KEY_DEL;
-        // Then read from config (overwrites defaults)
-        KEY_JUMP = m_get_int_variable("key_jump");
-        KEY_LOOKUP = m_get_int_variable("key_lookup");
-        KEY_LOOKDOWN = m_get_int_variable("key_lookdown");
-        KEY_INVLEFT = m_get_int_variable("key_invleft");
-        KEY_INVRIGHT = m_get_int_variable("key_invright");
-        KEY_USEHEALTH = m_get_int_variable("key_usehealth");
-        KEY_INVQUERY = m_get_int_variable("key_invquery");
-        KEY_MISSION = m_get_int_variable("key_mission");
-        KEY_INVPOP = m_get_int_variable("key_invpop");
-        KEY_INVKEY = m_get_int_variable("key_invkey");
-        KEY_INVHOME = m_get_int_variable("key_invhome");
-        KEY_INVEND = m_get_int_variable("key_invend");
-        KEY_INVUSE = m_get_int_variable("key_invuse");
-        KEY_INVDROP = m_get_int_variable("key_invdrop");
-        MOUSEBJUMP = m_get_int_variable("mouseb_jump");
-        JOYBJUMP = m_get_int_variable("joyb_jump");
-    }
+    with_controls_state_mut(|s| {
+        s.key_message_refresh = b'/' as i32;
+        s.key_jump = b'a' as i32;
+        s.key_lookup = doomkeys::KEY_PGUP;
+        s.key_lookdown = doomkeys::KEY_PGDN;
+        s.key_invleft = doomkeys::KEY_INS;
+        s.key_invright = doomkeys::KEY_DEL;
+        s.key_jump = m_get_int_variable("key_jump");
+        s.key_lookup = m_get_int_variable("key_lookup");
+        s.key_lookdown = m_get_int_variable("key_lookdown");
+        s.key_invleft = m_get_int_variable("key_invleft");
+        s.key_invright = m_get_int_variable("key_invright");
+        s.key_usehealth = m_get_int_variable("key_usehealth");
+        s.key_invquery = m_get_int_variable("key_invquery");
+        s.key_mission = m_get_int_variable("key_mission");
+        s.key_invpop = m_get_int_variable("key_invpop");
+        s.key_invkey = m_get_int_variable("key_invkey");
+        s.key_invhome = m_get_int_variable("key_invhome");
+        s.key_invend = m_get_int_variable("key_invend");
+        s.key_invuse = m_get_int_variable("key_invuse");
+        s.key_invdrop = m_get_int_variable("key_invdrop");
+        s.mousebjump = m_get_int_variable("mouseb_jump");
+        s.joybjump = m_get_int_variable("joyb_jump");
+    });
 }
 
 pub fn m_bind_weapon_controls() {
-    unsafe {
-        KEY_WEAPON1 = m_get_int_variable("key_weapon1");
-        KEY_WEAPON2 = m_get_int_variable("key_weapon2");
-        KEY_WEAPON3 = m_get_int_variable("key_weapon3");
-        KEY_WEAPON4 = m_get_int_variable("key_weapon4");
-        KEY_WEAPON5 = m_get_int_variable("key_weapon5");
-        KEY_WEAPON6 = m_get_int_variable("key_weapon6");
-        KEY_WEAPON7 = m_get_int_variable("key_weapon7");
-        KEY_WEAPON8 = m_get_int_variable("key_weapon8");
-        KEY_PREVWEAPON = m_get_int_variable("key_prevweapon");
-        KEY_NEXTWEAPON = m_get_int_variable("key_nextweapon");
-        MOUSEBPREVWEAPON = m_get_int_variable("mouseb_prevweapon");
-        MOUSEBNEXTWEAPON = m_get_int_variable("mouseb_nextweapon");
-        JOYBPREVWEAPON = m_get_int_variable("joyb_prevweapon");
-        JOYBNEXTWEAPON = m_get_int_variable("joyb_nextweapon");
-    }
+    with_controls_state_mut(|s| {
+        s.key_weapon1 = m_get_int_variable("key_weapon1");
+        s.key_weapon2 = m_get_int_variable("key_weapon2");
+        s.key_weapon3 = m_get_int_variable("key_weapon3");
+        s.key_weapon4 = m_get_int_variable("key_weapon4");
+        s.key_weapon5 = m_get_int_variable("key_weapon5");
+        s.key_weapon6 = m_get_int_variable("key_weapon6");
+        s.key_weapon7 = m_get_int_variable("key_weapon7");
+        s.key_weapon8 = m_get_int_variable("key_weapon8");
+        s.key_prevweapon = m_get_int_variable("key_prevweapon");
+        s.key_nextweapon = m_get_int_variable("key_nextweapon");
+        s.mousebprevweapon = m_get_int_variable("mouseb_prevweapon");
+        s.mousebnextweapon = m_get_int_variable("mouseb_nextweapon");
+        s.joybprevweapon = m_get_int_variable("joyb_prevweapon");
+        s.joybnextweapon = m_get_int_variable("joyb_nextweapon");
+    });
 }
 
 pub fn m_bind_map_controls() {
-    unsafe {
-        KEY_MAP_NORTH = m_get_int_variable("key_map_north");
-        KEY_MAP_SOUTH = m_get_int_variable("key_map_south");
-        KEY_MAP_EAST = m_get_int_variable("key_map_east");
-        KEY_MAP_WEST = m_get_int_variable("key_map_west");
-        KEY_MAP_ZOOMIN = m_get_int_variable("key_map_zoomin");
-        KEY_MAP_ZOOMOUT = m_get_int_variable("key_map_zoomout");
-        KEY_MAP_TOGGLE = m_get_int_variable("key_map_toggle");
-        KEY_MAP_MAXZOOM = m_get_int_variable("key_map_maxzoom");
-        KEY_MAP_FOLLOW = m_get_int_variable("key_map_follow");
-        KEY_MAP_GRID = m_get_int_variable("key_map_grid");
-        KEY_MAP_MARK = m_get_int_variable("key_map_mark");
-        KEY_MAP_CLEARMARK = m_get_int_variable("key_map_clearmark");
-    }
+    with_controls_state_mut(|s| {
+        s.key_map_north = m_get_int_variable("key_map_north");
+        s.key_map_south = m_get_int_variable("key_map_south");
+        s.key_map_east = m_get_int_variable("key_map_east");
+        s.key_map_west = m_get_int_variable("key_map_west");
+        s.key_map_zoomin = m_get_int_variable("key_map_zoomin");
+        s.key_map_zoomout = m_get_int_variable("key_map_zoomout");
+        s.key_map_toggle = m_get_int_variable("key_map_toggle");
+        s.key_map_maxzoom = m_get_int_variable("key_map_maxzoom");
+        s.key_map_follow = m_get_int_variable("key_map_follow");
+        s.key_map_grid = m_get_int_variable("key_map_grid");
+        s.key_map_mark = m_get_int_variable("key_map_mark");
+        s.key_map_clearmark = m_get_int_variable("key_map_clearmark");
+    });
 }
 
 pub fn m_bind_menu_controls() {
-    unsafe {
-        KEY_MENU_ACTIVATE = m_get_int_variable("key_menu_activate");
-        KEY_MENU_UP = m_get_int_variable("key_menu_up");
-        KEY_MENU_DOWN = m_get_int_variable("key_menu_down");
-        KEY_MENU_LEFT = m_get_int_variable("key_menu_left");
-        KEY_MENU_RIGHT = m_get_int_variable("key_menu_right");
-        KEY_MENU_BACK = m_get_int_variable("key_menu_back");
-        KEY_MENU_FORWARD = m_get_int_variable("key_menu_forward");
-        KEY_MENU_CONFIRM = m_get_int_variable("key_menu_confirm");
-        KEY_MENU_ABORT = m_get_int_variable("key_menu_abort");
-        KEY_MENU_HELP = m_get_int_variable("key_menu_help");
-        KEY_MENU_SAVE = m_get_int_variable("key_menu_save");
-        KEY_MENU_LOAD = m_get_int_variable("key_menu_load");
-        KEY_MENU_VOLUME = m_get_int_variable("key_menu_volume");
-        KEY_MENU_DETAIL = m_get_int_variable("key_menu_detail");
-        KEY_MENU_QSAVE = m_get_int_variable("key_menu_qsave");
-        KEY_MENU_ENDGAME = m_get_int_variable("key_menu_endgame");
-        KEY_MENU_MESSAGES = m_get_int_variable("key_menu_messages");
-        KEY_MENU_QLOAD = m_get_int_variable("key_menu_qload");
-        KEY_MENU_QUIT = m_get_int_variable("key_menu_quit");
-        KEY_MENU_GAMMA = m_get_int_variable("key_menu_gamma");
-        KEY_MENU_INCSCREEN = m_get_int_variable("key_menu_incscreen");
-        KEY_MENU_DECSCREEN = m_get_int_variable("key_menu_decscreen");
-        KEY_MENU_SCREENSHOT = m_get_int_variable("key_menu_screenshot");
-        KEY_DEMO_QUIT = m_get_int_variable("key_demo_quit");
-        KEY_SPY = m_get_int_variable("key_spy");
-    }
+    with_controls_state_mut(|s| {
+        s.key_menu_activate = m_get_int_variable("key_menu_activate");
+        s.key_menu_up = m_get_int_variable("key_menu_up");
+        s.key_menu_down = m_get_int_variable("key_menu_down");
+        s.key_menu_left = m_get_int_variable("key_menu_left");
+        s.key_menu_right = m_get_int_variable("key_menu_right");
+        s.key_menu_back = m_get_int_variable("key_menu_back");
+        s.key_menu_forward = m_get_int_variable("key_menu_forward");
+        s.key_menu_confirm = m_get_int_variable("key_menu_confirm");
+        s.key_menu_abort = m_get_int_variable("key_menu_abort");
+        s.key_menu_help = m_get_int_variable("key_menu_help");
+        s.key_menu_save = m_get_int_variable("key_menu_save");
+        s.key_menu_load = m_get_int_variable("key_menu_load");
+        s.key_menu_volume = m_get_int_variable("key_menu_volume");
+        s.key_menu_detail = m_get_int_variable("key_menu_detail");
+        s.key_menu_qsave = m_get_int_variable("key_menu_qsave");
+        s.key_menu_endgame = m_get_int_variable("key_menu_endgame");
+        s.key_menu_messages = m_get_int_variable("key_menu_messages");
+        s.key_menu_qload = m_get_int_variable("key_menu_qload");
+        s.key_menu_quit = m_get_int_variable("key_menu_quit");
+        s.key_menu_gamma = m_get_int_variable("key_menu_gamma");
+        s.key_menu_incscreen = m_get_int_variable("key_menu_incscreen");
+        s.key_menu_decscreen = m_get_int_variable("key_menu_decscreen");
+        s.key_menu_screenshot = m_get_int_variable("key_menu_screenshot");
+        s.key_demo_quit = m_get_int_variable("key_demo_quit");
+        s.key_spy = m_get_int_variable("key_spy");
+    });
 }
 
 pub fn m_bind_chat_controls(num_players: u32) {
-    unsafe {
-        KEY_MULTI_MSG = m_get_int_variable("key_multi_msg");
+    with_controls_state_mut(|s| {
+        s.key_multi_msg = m_get_int_variable("key_multi_msg");
         for i in 0..num_players.min(8) {
-            KEY_MULTI_MSGPLAYER[i as usize] =
+            s.key_multi_msgplayer[i as usize] =
                 m_get_int_variable(&format!("key_multi_msgplayer{}", i + 1));
         }
-    }
+    });
 }
 
 pub fn m_apply_platform_defaults() {
@@ -325,238 +553,238 @@ pub fn m_apply_platform_defaults() {
 /// Implements M_BindVariable-style pointer binding: config changes propagate to controls.
 pub fn m_update_control_from_config(name: &str, value: i32) {
     let name = name.to_lowercase();
-    unsafe {
+    with_controls_state_mut(|s| {
         match name.as_str() {
-            "key_right" => KEY_RIGHT = value,
-            "key_left" => KEY_LEFT = value,
-            "key_up" => KEY_UP = value,
-            "key_down" => KEY_DOWN = value,
-            "key_strafeleft" => KEY_STRAFELEFT = value,
-            "key_straferight" => KEY_STRAFERIGHT = value,
-            "key_fire" => KEY_FIRE = value,
-            "key_use" => KEY_USE = value,
-            "key_strafe" => KEY_STRAFE = value,
-            "key_speed" => KEY_SPEED = value,
-            "key_pause" => KEY_PAUSE = value,
-            "key_message_refresh" => KEY_MESSAGE_REFRESH = value,
-            "key_demo_quit" => KEY_DEMO_QUIT = value,
-            "key_spy" => KEY_SPY = value,
-            "key_multi_msg" => KEY_MULTI_MSG = value,
-            "key_weapon1" => KEY_WEAPON1 = value,
-            "key_weapon2" => KEY_WEAPON2 = value,
-            "key_weapon3" => KEY_WEAPON3 = value,
-            "key_weapon4" => KEY_WEAPON4 = value,
-            "key_weapon5" => KEY_WEAPON5 = value,
-            "key_weapon6" => KEY_WEAPON6 = value,
-            "key_weapon7" => KEY_WEAPON7 = value,
-            "key_weapon8" => KEY_WEAPON8 = value,
-            "key_prevweapon" => KEY_PREVWEAPON = value,
-            "key_nextweapon" => KEY_NEXTWEAPON = value,
-            "key_menu_activate" => KEY_MENU_ACTIVATE = value,
-            "key_menu_up" => KEY_MENU_UP = value,
-            "key_menu_down" => KEY_MENU_DOWN = value,
-            "key_menu_left" => KEY_MENU_LEFT = value,
-            "key_menu_right" => KEY_MENU_RIGHT = value,
-            "key_menu_back" => KEY_MENU_BACK = value,
-            "key_menu_forward" => KEY_MENU_FORWARD = value,
-            "key_menu_confirm" => KEY_MENU_CONFIRM = value,
-            "key_menu_abort" => KEY_MENU_ABORT = value,
-            "mouseb_fire" => MOUSEBFIRE = value,
-            "mouseb_strafe" => MOUSEBSTRAFE = value,
-            "mouseb_forward" => MOUSEBFORWARD = value,
-            "joyb_fire" => JOYBFIRE = value,
-            "joyb_strafe" => JOYBSTRAFE = value,
-            "joyb_use" => JOYBUSE = value,
-            "joyb_speed" => JOYBSPEED = value,
-            "key_map_north" => KEY_MAP_NORTH = value,
-            "key_map_south" => KEY_MAP_SOUTH = value,
-            "key_map_east" => KEY_MAP_EAST = value,
-            "key_map_west" => KEY_MAP_WEST = value,
-            "key_map_zoomin" => KEY_MAP_ZOOMIN = value,
-            "key_map_zoomout" => KEY_MAP_ZOOMOUT = value,
-            "key_map_toggle" => KEY_MAP_TOGGLE = value,
-            "key_map_maxzoom" => KEY_MAP_MAXZOOM = value,
-            "key_map_follow" => KEY_MAP_FOLLOW = value,
-            "key_map_grid" => KEY_MAP_GRID = value,
-            "key_map_mark" => KEY_MAP_MARK = value,
-            "key_map_clearmark" => KEY_MAP_CLEARMARK = value,
-            "mouseb_prevweapon" => MOUSEBPREVWEAPON = value,
-            "mouseb_nextweapon" => MOUSEBNEXTWEAPON = value,
-            "joyb_prevweapon" => JOYBPREVWEAPON = value,
-            "joyb_nextweapon" => JOYBNEXTWEAPON = value,
-            "joyb_menu_activate" => JOYBMENU = value,
-            "joyb_strafeleft" => JOYBSTRAFELEFT = value,
-            "joyb_straferight" => JOYBSTRAFERIGHT = value,
-            "mouseb_strafeleft" => MOUSEBSTRAFELEFT = value,
-            "mouseb_straferight" => MOUSEBSTRAFERIGHT = value,
-            "mouseb_use" => MOUSEBUSE = value,
-            "mouseb_backward" => MOUSEBBACKWARD = value,
-            "mouseb_jump" => MOUSEBJUMP = value,
-            "joyb_jump" => JOYBJUMP = value,
-            "dclick_use" => DCLICK_USE = value,
-            "key_flyup" => KEY_FLYUP = value,
-            "key_flydown" => KEY_FLYDOWN = value,
-            "key_flycenter" => KEY_FLYCENTER = value,
-            "key_lookup" => KEY_LOOKUP = value,
-            "key_lookdown" => KEY_LOOKDOWN = value,
-            "key_lookcenter" => KEY_LOOKCENTER = value,
-            "key_invleft" => KEY_INVLEFT = value,
-            "key_invright" => KEY_INVRIGHT = value,
-            "key_useartifact" => KEY_USEARTIFACT = value,
-            "key_arti_all" => KEY_ARTI_ALL = value,
-            "key_arti_health" => KEY_ARTI_HEALTH = value,
-            "key_arti_poisonbag" => KEY_ARTI_POISONBAG = value,
-            "key_arti_blastradius" => KEY_ARTI_BLASTRADIUS = value,
-            "key_arti_teleport" => KEY_ARTI_TELEPORT = value,
-            "key_arti_teleportother" => KEY_ARTI_TELEPORTOTHER = value,
-            "key_arti_egg" => KEY_ARTI_EGG = value,
-            "key_arti_invulnerability" => KEY_ARTI_INVULNERABILITY = value,
-            "key_usehealth" => KEY_USEHEALTH = value,
-            "key_invquery" => KEY_INVQUERY = value,
-            "key_mission" => KEY_MISSION = value,
-            "key_invpop" => KEY_INVPOP = value,
-            "key_invkey" => KEY_INVKEY = value,
-            "key_invhome" => KEY_INVHOME = value,
-            "key_invend" => KEY_INVEND = value,
-            "key_invuse" => KEY_INVUSE = value,
-            "key_invdrop" => KEY_INVDROP = value,
-            "key_menu_help" => KEY_MENU_HELP = value,
-            "key_menu_save" => KEY_MENU_SAVE = value,
-            "key_menu_load" => KEY_MENU_LOAD = value,
-            "key_menu_volume" => KEY_MENU_VOLUME = value,
-            "key_menu_detail" => KEY_MENU_DETAIL = value,
-            "key_menu_qsave" => KEY_MENU_QSAVE = value,
-            "key_menu_endgame" => KEY_MENU_ENDGAME = value,
-            "key_menu_messages" => KEY_MENU_MESSAGES = value,
-            "key_menu_qload" => KEY_MENU_QLOAD = value,
-            "key_menu_quit" => KEY_MENU_QUIT = value,
-            "key_menu_gamma" => KEY_MENU_GAMMA = value,
-            "key_menu_incscreen" => KEY_MENU_INCSCREEN = value,
-            "key_menu_decscreen" => KEY_MENU_DECSCREEN = value,
-            "key_menu_screenshot" => KEY_MENU_SCREENSHOT = value,
+            "key_right" => s.key_right = value,
+            "key_left" => s.key_left = value,
+            "key_up" => s.key_up = value,
+            "key_down" => s.key_down = value,
+            "key_strafeleft" => s.key_strafeleft = value,
+            "key_straferight" => s.key_straferight = value,
+            "key_fire" => s.key_fire = value,
+            "key_use" => s.key_use = value,
+            "key_strafe" => s.key_strafe = value,
+            "key_speed" => s.key_speed = value,
+            "key_pause" => s.key_pause = value,
+            "key_message_refresh" => s.key_message_refresh = value,
+            "key_demo_quit" => s.key_demo_quit = value,
+            "key_spy" => s.key_spy = value,
+            "key_multi_msg" => s.key_multi_msg = value,
+            "key_weapon1" => s.key_weapon1 = value,
+            "key_weapon2" => s.key_weapon2 = value,
+            "key_weapon3" => s.key_weapon3 = value,
+            "key_weapon4" => s.key_weapon4 = value,
+            "key_weapon5" => s.key_weapon5 = value,
+            "key_weapon6" => s.key_weapon6 = value,
+            "key_weapon7" => s.key_weapon7 = value,
+            "key_weapon8" => s.key_weapon8 = value,
+            "key_prevweapon" => s.key_prevweapon = value,
+            "key_nextweapon" => s.key_nextweapon = value,
+            "key_menu_activate" => s.key_menu_activate = value,
+            "key_menu_up" => s.key_menu_up = value,
+            "key_menu_down" => s.key_menu_down = value,
+            "key_menu_left" => s.key_menu_left = value,
+            "key_menu_right" => s.key_menu_right = value,
+            "key_menu_back" => s.key_menu_back = value,
+            "key_menu_forward" => s.key_menu_forward = value,
+            "key_menu_confirm" => s.key_menu_confirm = value,
+            "key_menu_abort" => s.key_menu_abort = value,
+            "mouseb_fire" => s.mousebfire = value,
+            "mouseb_strafe" => s.mousebstrafe = value,
+            "mouseb_forward" => s.mousebforward = value,
+            "joyb_fire" => s.joybfire = value,
+            "joyb_strafe" => s.joybstrafe = value,
+            "joyb_use" => s.joybuse = value,
+            "joyb_speed" => s.joybspeed = value,
+            "key_map_north" => s.key_map_north = value,
+            "key_map_south" => s.key_map_south = value,
+            "key_map_east" => s.key_map_east = value,
+            "key_map_west" => s.key_map_west = value,
+            "key_map_zoomin" => s.key_map_zoomin = value,
+            "key_map_zoomout" => s.key_map_zoomout = value,
+            "key_map_toggle" => s.key_map_toggle = value,
+            "key_map_maxzoom" => s.key_map_maxzoom = value,
+            "key_map_follow" => s.key_map_follow = value,
+            "key_map_grid" => s.key_map_grid = value,
+            "key_map_mark" => s.key_map_mark = value,
+            "key_map_clearmark" => s.key_map_clearmark = value,
+            "mouseb_prevweapon" => s.mousebprevweapon = value,
+            "mouseb_nextweapon" => s.mousebnextweapon = value,
+            "joyb_prevweapon" => s.joybprevweapon = value,
+            "joyb_nextweapon" => s.joybnextweapon = value,
+            "joyb_menu_activate" => s.joybmenu = value,
+            "joyb_strafeleft" => s.joybstrafeleft = value,
+            "joyb_straferight" => s.joybstraferight = value,
+            "mouseb_strafeleft" => s.mousebstrafeleft = value,
+            "mouseb_straferight" => s.mousebstraferight = value,
+            "mouseb_use" => s.mousebuse = value,
+            "mouseb_backward" => s.mousebbackward = value,
+            "mouseb_jump" => s.mousebjump = value,
+            "joyb_jump" => s.joybjump = value,
+            "dclick_use" => s.dclick_use = value,
+            "key_flyup" => s.key_flyup = value,
+            "key_flydown" => s.key_flydown = value,
+            "key_flycenter" => s.key_flycenter = value,
+            "key_lookup" => s.key_lookup = value,
+            "key_lookdown" => s.key_lookdown = value,
+            "key_lookcenter" => s.key_lookcenter = value,
+            "key_invleft" => s.key_invleft = value,
+            "key_invright" => s.key_invright = value,
+            "key_useartifact" => s.key_useartifact = value,
+            "key_arti_all" => s.key_arti_all = value,
+            "key_arti_health" => s.key_arti_health = value,
+            "key_arti_poisonbag" => s.key_arti_poisonbag = value,
+            "key_arti_blastradius" => s.key_arti_blastradius = value,
+            "key_arti_teleport" => s.key_arti_teleport = value,
+            "key_arti_teleportother" => s.key_arti_teleportother = value,
+            "key_arti_egg" => s.key_arti_egg = value,
+            "key_arti_invulnerability" => s.key_arti_invulnerability = value,
+            "key_usehealth" => s.key_usehealth = value,
+            "key_invquery" => s.key_invquery = value,
+            "key_mission" => s.key_mission = value,
+            "key_invpop" => s.key_invpop = value,
+            "key_invkey" => s.key_invkey = value,
+            "key_invhome" => s.key_invhome = value,
+            "key_invend" => s.key_invend = value,
+            "key_invuse" => s.key_invuse = value,
+            "key_invdrop" => s.key_invdrop = value,
+            "key_menu_help" => s.key_menu_help = value,
+            "key_menu_save" => s.key_menu_save = value,
+            "key_menu_load" => s.key_menu_load = value,
+            "key_menu_volume" => s.key_menu_volume = value,
+            "key_menu_detail" => s.key_menu_detail = value,
+            "key_menu_qsave" => s.key_menu_qsave = value,
+            "key_menu_endgame" => s.key_menu_endgame = value,
+            "key_menu_messages" => s.key_menu_messages = value,
+            "key_menu_qload" => s.key_menu_qload = value,
+            "key_menu_quit" => s.key_menu_quit = value,
+            "key_menu_gamma" => s.key_menu_gamma = value,
+            "key_menu_incscreen" => s.key_menu_incscreen = value,
+            "key_menu_decscreen" => s.key_menu_decscreen = value,
+            "key_menu_screenshot" => s.key_menu_screenshot = value,
             n => {
                 if n.starts_with("key_multi_msgplayer") {
                     if let Ok(idx) = n["key_multi_msgplayer".len()..].parse::<usize>() {
                         if (1..=8).contains(&idx) {
-                            KEY_MULTI_MSGPLAYER[idx - 1] = value;
+                            s.key_multi_msgplayer[idx - 1] = value;
                         }
                     }
                 }
             }
         }
-    }
+    });
 }
 
 /// Sync current key/mouse/joy values to config. Call before M_SaveDefaults.
 pub fn m_sync_controls_to_config() {
     use crate::ui_hud::config::m_set_variable;
-    unsafe {
-        m_set_variable("key_right", &KEY_RIGHT.to_string());
-        m_set_variable("key_left", &KEY_LEFT.to_string());
-        m_set_variable("key_up", &KEY_UP.to_string());
-        m_set_variable("key_down", &KEY_DOWN.to_string());
-        m_set_variable("key_strafeleft", &KEY_STRAFELEFT.to_string());
-        m_set_variable("key_straferight", &KEY_STRAFERIGHT.to_string());
-        m_set_variable("key_fire", &KEY_FIRE.to_string());
-        m_set_variable("key_use", &KEY_USE.to_string());
-        m_set_variable("key_strafe", &KEY_STRAFE.to_string());
-        m_set_variable("key_speed", &KEY_SPEED.to_string());
-        m_set_variable("key_pause", &KEY_PAUSE.to_string());
-        m_set_variable("key_message_refresh", &KEY_MESSAGE_REFRESH.to_string());
-        m_set_variable("key_demo_quit", &KEY_DEMO_QUIT.to_string());
-        m_set_variable("key_spy", &KEY_SPY.to_string());
-        m_set_variable("key_multi_msg", &KEY_MULTI_MSG.to_string());
-        m_set_variable("key_weapon1", &KEY_WEAPON1.to_string());
-        m_set_variable("key_weapon2", &KEY_WEAPON2.to_string());
-        m_set_variable("key_weapon3", &KEY_WEAPON3.to_string());
-        m_set_variable("key_weapon4", &KEY_WEAPON4.to_string());
-        m_set_variable("key_weapon5", &KEY_WEAPON5.to_string());
-        m_set_variable("key_weapon6", &KEY_WEAPON6.to_string());
-        m_set_variable("key_weapon7", &KEY_WEAPON7.to_string());
-        m_set_variable("key_weapon8", &KEY_WEAPON8.to_string());
-        m_set_variable("key_prevweapon", &KEY_PREVWEAPON.to_string());
-        m_set_variable("key_nextweapon", &KEY_NEXTWEAPON.to_string());
-        m_set_variable("key_menu_activate", &KEY_MENU_ACTIVATE.to_string());
-        m_set_variable("key_menu_up", &KEY_MENU_UP.to_string());
-        m_set_variable("key_menu_down", &KEY_MENU_DOWN.to_string());
-        m_set_variable("key_menu_left", &KEY_MENU_LEFT.to_string());
-        m_set_variable("key_menu_right", &KEY_MENU_RIGHT.to_string());
-        m_set_variable("key_menu_back", &KEY_MENU_BACK.to_string());
-        m_set_variable("key_menu_forward", &KEY_MENU_FORWARD.to_string());
-        m_set_variable("key_menu_confirm", &KEY_MENU_CONFIRM.to_string());
-        m_set_variable("key_menu_abort", &KEY_MENU_ABORT.to_string());
-        m_set_variable("mouseb_fire", &MOUSEBFIRE.to_string());
-        m_set_variable("mouseb_strafe", &MOUSEBSTRAFE.to_string());
-        m_set_variable("mouseb_forward", &MOUSEBFORWARD.to_string());
-        m_set_variable("joyb_fire", &JOYBFIRE.to_string());
-        m_set_variable("joyb_strafe", &JOYBSTRAFE.to_string());
-        m_set_variable("joyb_use", &JOYBUSE.to_string());
-        m_set_variable("joyb_speed", &JOYBSPEED.to_string());
-        m_set_variable("key_map_north", &KEY_MAP_NORTH.to_string());
-        m_set_variable("key_map_south", &KEY_MAP_SOUTH.to_string());
-        m_set_variable("key_map_east", &KEY_MAP_EAST.to_string());
-        m_set_variable("key_map_west", &KEY_MAP_WEST.to_string());
-        m_set_variable("key_map_zoomin", &KEY_MAP_ZOOMIN.to_string());
-        m_set_variable("key_map_zoomout", &KEY_MAP_ZOOMOUT.to_string());
-        m_set_variable("key_map_toggle", &KEY_MAP_TOGGLE.to_string());
-        m_set_variable("key_map_maxzoom", &KEY_MAP_MAXZOOM.to_string());
-        m_set_variable("key_map_follow", &KEY_MAP_FOLLOW.to_string());
-        m_set_variable("key_map_grid", &KEY_MAP_GRID.to_string());
-        m_set_variable("key_map_mark", &KEY_MAP_MARK.to_string());
-        m_set_variable("key_map_clearmark", &KEY_MAP_CLEARMARK.to_string());
-        m_set_variable("joyb_menu_activate", &JOYBMENU.to_string());
-        m_set_variable("joyb_strafeleft", &JOYBSTRAFELEFT.to_string());
-        m_set_variable("joyb_straferight", &JOYBSTRAFERIGHT.to_string());
-        m_set_variable("mouseb_strafeleft", &MOUSEBSTRAFELEFT.to_string());
-        m_set_variable("mouseb_straferight", &MOUSEBSTRAFERIGHT.to_string());
-        m_set_variable("mouseb_use", &MOUSEBUSE.to_string());
-        m_set_variable("mouseb_backward", &MOUSEBBACKWARD.to_string());
-        m_set_variable("mouseb_jump", &MOUSEBJUMP.to_string());
-        m_set_variable("joyb_jump", &JOYBJUMP.to_string());
-        m_set_variable("dclick_use", &DCLICK_USE.to_string());
-        m_set_variable("key_flyup", &KEY_FLYUP.to_string());
-        m_set_variable("key_flydown", &KEY_FLYDOWN.to_string());
-        m_set_variable("key_flycenter", &KEY_FLYCENTER.to_string());
-        m_set_variable("key_lookup", &KEY_LOOKUP.to_string());
-        m_set_variable("key_lookdown", &KEY_LOOKDOWN.to_string());
-        m_set_variable("key_lookcenter", &KEY_LOOKCENTER.to_string());
-        m_set_variable("key_invleft", &KEY_INVLEFT.to_string());
-        m_set_variable("key_invright", &KEY_INVRIGHT.to_string());
-        m_set_variable("key_useartifact", &KEY_USEARTIFACT.to_string());
-        m_set_variable("key_jump", &KEY_JUMP.to_string());
-        m_set_variable("key_arti_all", &KEY_ARTI_ALL.to_string());
-        m_set_variable("key_arti_health", &KEY_ARTI_HEALTH.to_string());
-        m_set_variable("key_arti_poisonbag", &KEY_ARTI_POISONBAG.to_string());
-        m_set_variable("key_arti_blastradius", &KEY_ARTI_BLASTRADIUS.to_string());
-        m_set_variable("key_arti_teleport", &KEY_ARTI_TELEPORT.to_string());
-        m_set_variable("key_arti_teleportother", &KEY_ARTI_TELEPORTOTHER.to_string());
-        m_set_variable("key_arti_egg", &KEY_ARTI_EGG.to_string());
-        m_set_variable("key_arti_invulnerability", &KEY_ARTI_INVULNERABILITY.to_string());
-        m_set_variable("key_usehealth", &KEY_USEHEALTH.to_string());
-        m_set_variable("key_invquery", &KEY_INVQUERY.to_string());
-        m_set_variable("key_mission", &KEY_MISSION.to_string());
-        m_set_variable("key_invpop", &KEY_INVPOP.to_string());
-        m_set_variable("key_invkey", &KEY_INVKEY.to_string());
-        m_set_variable("key_invhome", &KEY_INVHOME.to_string());
-        m_set_variable("key_invend", &KEY_INVEND.to_string());
-        m_set_variable("key_invuse", &KEY_INVUSE.to_string());
-        m_set_variable("key_invdrop", &KEY_INVDROP.to_string());
-        m_set_variable("key_menu_help", &KEY_MENU_HELP.to_string());
-        m_set_variable("key_menu_save", &KEY_MENU_SAVE.to_string());
-        m_set_variable("key_menu_load", &KEY_MENU_LOAD.to_string());
-        m_set_variable("key_menu_volume", &KEY_MENU_VOLUME.to_string());
-        m_set_variable("key_menu_detail", &KEY_MENU_DETAIL.to_string());
-        m_set_variable("key_menu_qsave", &KEY_MENU_QSAVE.to_string());
-        m_set_variable("key_menu_endgame", &KEY_MENU_ENDGAME.to_string());
-        m_set_variable("key_menu_messages", &KEY_MENU_MESSAGES.to_string());
-        m_set_variable("key_menu_qload", &KEY_MENU_QLOAD.to_string());
-        m_set_variable("key_menu_quit", &KEY_MENU_QUIT.to_string());
-        m_set_variable("key_menu_gamma", &KEY_MENU_GAMMA.to_string());
-        m_set_variable("key_menu_incscreen", &KEY_MENU_INCSCREEN.to_string());
-        m_set_variable("key_menu_decscreen", &KEY_MENU_DECSCREEN.to_string());
-        m_set_variable("key_menu_screenshot", &KEY_MENU_SCREENSHOT.to_string());
-        for (i, v) in KEY_MULTI_MSGPLAYER.iter().enumerate() {
+    with_controls_state(|s| {
+        m_set_variable("key_right", &s.key_right.to_string());
+        m_set_variable("key_left", &s.key_left.to_string());
+        m_set_variable("key_up", &s.key_up.to_string());
+        m_set_variable("key_down", &s.key_down.to_string());
+        m_set_variable("key_strafeleft", &s.key_strafeleft.to_string());
+        m_set_variable("key_straferight", &s.key_straferight.to_string());
+        m_set_variable("key_fire", &s.key_fire.to_string());
+        m_set_variable("key_use", &s.key_use.to_string());
+        m_set_variable("key_strafe", &s.key_strafe.to_string());
+        m_set_variable("key_speed", &s.key_speed.to_string());
+        m_set_variable("key_pause", &s.key_pause.to_string());
+        m_set_variable("key_message_refresh", &s.key_message_refresh.to_string());
+        m_set_variable("key_demo_quit", &s.key_demo_quit.to_string());
+        m_set_variable("key_spy", &s.key_spy.to_string());
+        m_set_variable("key_multi_msg", &s.key_multi_msg.to_string());
+        m_set_variable("key_weapon1", &s.key_weapon1.to_string());
+        m_set_variable("key_weapon2", &s.key_weapon2.to_string());
+        m_set_variable("key_weapon3", &s.key_weapon3.to_string());
+        m_set_variable("key_weapon4", &s.key_weapon4.to_string());
+        m_set_variable("key_weapon5", &s.key_weapon5.to_string());
+        m_set_variable("key_weapon6", &s.key_weapon6.to_string());
+        m_set_variable("key_weapon7", &s.key_weapon7.to_string());
+        m_set_variable("key_weapon8", &s.key_weapon8.to_string());
+        m_set_variable("key_prevweapon", &s.key_prevweapon.to_string());
+        m_set_variable("key_nextweapon", &s.key_nextweapon.to_string());
+        m_set_variable("key_menu_activate", &s.key_menu_activate.to_string());
+        m_set_variable("key_menu_up", &s.key_menu_up.to_string());
+        m_set_variable("key_menu_down", &s.key_menu_down.to_string());
+        m_set_variable("key_menu_left", &s.key_menu_left.to_string());
+        m_set_variable("key_menu_right", &s.key_menu_right.to_string());
+        m_set_variable("key_menu_back", &s.key_menu_back.to_string());
+        m_set_variable("key_menu_forward", &s.key_menu_forward.to_string());
+        m_set_variable("key_menu_confirm", &s.key_menu_confirm.to_string());
+        m_set_variable("key_menu_abort", &s.key_menu_abort.to_string());
+        m_set_variable("mouseb_fire", &s.mousebfire.to_string());
+        m_set_variable("mouseb_strafe", &s.mousebstrafe.to_string());
+        m_set_variable("mouseb_forward", &s.mousebforward.to_string());
+        m_set_variable("joyb_fire", &s.joybfire.to_string());
+        m_set_variable("joyb_strafe", &s.joybstrafe.to_string());
+        m_set_variable("joyb_use", &s.joybuse.to_string());
+        m_set_variable("joyb_speed", &s.joybspeed.to_string());
+        m_set_variable("key_map_north", &s.key_map_north.to_string());
+        m_set_variable("key_map_south", &s.key_map_south.to_string());
+        m_set_variable("key_map_east", &s.key_map_east.to_string());
+        m_set_variable("key_map_west", &s.key_map_west.to_string());
+        m_set_variable("key_map_zoomin", &s.key_map_zoomin.to_string());
+        m_set_variable("key_map_zoomout", &s.key_map_zoomout.to_string());
+        m_set_variable("key_map_toggle", &s.key_map_toggle.to_string());
+        m_set_variable("key_map_maxzoom", &s.key_map_maxzoom.to_string());
+        m_set_variable("key_map_follow", &s.key_map_follow.to_string());
+        m_set_variable("key_map_grid", &s.key_map_grid.to_string());
+        m_set_variable("key_map_mark", &s.key_map_mark.to_string());
+        m_set_variable("key_map_clearmark", &s.key_map_clearmark.to_string());
+        m_set_variable("joyb_menu_activate", &s.joybmenu.to_string());
+        m_set_variable("joyb_strafeleft", &s.joybstrafeleft.to_string());
+        m_set_variable("joyb_straferight", &s.joybstraferight.to_string());
+        m_set_variable("mouseb_strafeleft", &s.mousebstrafeleft.to_string());
+        m_set_variable("mouseb_straferight", &s.mousebstraferight.to_string());
+        m_set_variable("mouseb_use", &s.mousebuse.to_string());
+        m_set_variable("mouseb_backward", &s.mousebbackward.to_string());
+        m_set_variable("mouseb_jump", &s.mousebjump.to_string());
+        m_set_variable("joyb_jump", &s.joybjump.to_string());
+        m_set_variable("dclick_use", &s.dclick_use.to_string());
+        m_set_variable("key_flyup", &s.key_flyup.to_string());
+        m_set_variable("key_flydown", &s.key_flydown.to_string());
+        m_set_variable("key_flycenter", &s.key_flycenter.to_string());
+        m_set_variable("key_lookup", &s.key_lookup.to_string());
+        m_set_variable("key_lookdown", &s.key_lookdown.to_string());
+        m_set_variable("key_lookcenter", &s.key_lookcenter.to_string());
+        m_set_variable("key_invleft", &s.key_invleft.to_string());
+        m_set_variable("key_invright", &s.key_invright.to_string());
+        m_set_variable("key_useartifact", &s.key_useartifact.to_string());
+        m_set_variable("key_jump", &s.key_jump.to_string());
+        m_set_variable("key_arti_all", &s.key_arti_all.to_string());
+        m_set_variable("key_arti_health", &s.key_arti_health.to_string());
+        m_set_variable("key_arti_poisonbag", &s.key_arti_poisonbag.to_string());
+        m_set_variable("key_arti_blastradius", &s.key_arti_blastradius.to_string());
+        m_set_variable("key_arti_teleport", &s.key_arti_teleport.to_string());
+        m_set_variable("key_arti_teleportother", &s.key_arti_teleportother.to_string());
+        m_set_variable("key_arti_egg", &s.key_arti_egg.to_string());
+        m_set_variable("key_arti_invulnerability", &s.key_arti_invulnerability.to_string());
+        m_set_variable("key_usehealth", &s.key_usehealth.to_string());
+        m_set_variable("key_invquery", &s.key_invquery.to_string());
+        m_set_variable("key_mission", &s.key_mission.to_string());
+        m_set_variable("key_invpop", &s.key_invpop.to_string());
+        m_set_variable("key_invkey", &s.key_invkey.to_string());
+        m_set_variable("key_invhome", &s.key_invhome.to_string());
+        m_set_variable("key_invend", &s.key_invend.to_string());
+        m_set_variable("key_invuse", &s.key_invuse.to_string());
+        m_set_variable("key_invdrop", &s.key_invdrop.to_string());
+        m_set_variable("key_menu_help", &s.key_menu_help.to_string());
+        m_set_variable("key_menu_save", &s.key_menu_save.to_string());
+        m_set_variable("key_menu_load", &s.key_menu_load.to_string());
+        m_set_variable("key_menu_volume", &s.key_menu_volume.to_string());
+        m_set_variable("key_menu_detail", &s.key_menu_detail.to_string());
+        m_set_variable("key_menu_qsave", &s.key_menu_qsave.to_string());
+        m_set_variable("key_menu_endgame", &s.key_menu_endgame.to_string());
+        m_set_variable("key_menu_messages", &s.key_menu_messages.to_string());
+        m_set_variable("key_menu_qload", &s.key_menu_qload.to_string());
+        m_set_variable("key_menu_quit", &s.key_menu_quit.to_string());
+        m_set_variable("key_menu_gamma", &s.key_menu_gamma.to_string());
+        m_set_variable("key_menu_incscreen", &s.key_menu_incscreen.to_string());
+        m_set_variable("key_menu_decscreen", &s.key_menu_decscreen.to_string());
+        m_set_variable("key_menu_screenshot", &s.key_menu_screenshot.to_string());
+        for (i, v) in s.key_multi_msgplayer.iter().enumerate() {
             m_set_variable(&format!("key_multi_msgplayer{}", i + 1), &v.to_string());
         }
-    }
+    });
 }

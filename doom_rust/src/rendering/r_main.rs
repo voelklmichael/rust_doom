@@ -18,6 +18,93 @@ use crate::rendering::m_bbox::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 use crate::rendering::r_draw;
 use crate::rendering::state;
 use std::ptr;
+use std::sync::{Mutex, OnceLock};
+
+// =============================================================================
+// RMainState - thread-safe via OnceLock + Mutex
+// =============================================================================
+
+static R_MAIN_STATE: OnceLock<Mutex<RMainState>> = OnceLock::new();
+
+/// Safety: Raw pointers in RMainState point to zone-allocated data that outlives the state.
+unsafe impl Send for RMainState {}
+
+pub struct RMainState {
+    pub setsizeneeded: bool,
+    pub setblocks: i32,
+    pub setdetail: i32,
+    pub linecount: i32,
+    pub loopcount: i32,
+
+    pub validcount: i32,
+    pub fixedcolormap: *mut u8,
+    pub centerx: i32,
+    pub centery: i32,
+    pub centerxfrac: Fixed,
+    pub centeryfrac: Fixed,
+    pub projection: Fixed,
+    pub framecount: i32,
+    pub viewcos: Fixed,
+    pub viewsin: Fixed,
+    pub viewwindowx: i32,
+    pub viewwindowy: i32,
+    pub extralight: i32,
+    pub detailshift: i32,
+    pub scalelight: [[*mut u8; MAXLIGHTSCALE]; LIGHTLEVELS],
+    pub scalelightfixed: [*mut u8; MAXLIGHTSCALE],
+    pub zlight: [[*mut u8; MAXLIGHTZ]; LIGHTLEVELS],
+}
+
+impl Default for RMainState {
+    fn default() -> Self {
+        Self {
+            setsizeneeded: false,
+            setblocks: 10,
+            setdetail: 0,
+            linecount: 0,
+            loopcount: 0,
+            validcount: 1,
+            fixedcolormap: ptr::null_mut(),
+            centerx: 0,
+            centery: 0,
+            centerxfrac: 0,
+            centeryfrac: 0,
+            projection: 0,
+            framecount: 0,
+            viewcos: 0,
+            viewsin: 0,
+            viewwindowx: 0,
+            viewwindowy: 0,
+            extralight: 0,
+            detailshift: 0,
+            scalelight: [[ptr::null_mut(); MAXLIGHTSCALE]; LIGHTLEVELS],
+            scalelightfixed: [ptr::null_mut(); MAXLIGHTSCALE],
+            zlight: [[ptr::null_mut(); MAXLIGHTZ]; LIGHTLEVELS],
+        }
+    }
+}
+
+fn get_r_main_state() -> &'static Mutex<RMainState> {
+    R_MAIN_STATE.get_or_init(|| Mutex::new(RMainState::default()))
+}
+
+/// Access RMainState.
+pub fn with_r_main_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&RMainState) -> R,
+{
+    let guard = get_r_main_state().lock().unwrap();
+    f(&guard)
+}
+
+/// Mutably access RMainState.
+pub fn with_r_main_state_mut<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut RMainState) -> R,
+{
+    let mut guard = get_r_main_state().lock().unwrap();
+    f(&mut guard)
+}
 
 // =============================================================================
 // Constants
@@ -40,44 +127,6 @@ pub const NF_SUBSECTOR: u16 = 0x8000;
 const SIGN_MASK: i32 = (1u32 << 31) as i32;
 
 // =============================================================================
-// State (from r_main.c)
-// =============================================================================
-
-pub static mut VALIDCOUNT: i32 = 1;
-pub static mut FIXEDCOLORMAP: *mut u8 = ptr::null_mut();
-
-pub static mut CENTERX: i32 = 0;
-pub static mut CENTERY: i32 = 0;
-pub static mut CENTERXFRAC: Fixed = 0;
-pub static mut CENTERYFRAC: Fixed = 0;
-pub static mut PROJECTION: Fixed = 0;
-
-pub static mut FRAMECOUNT: i32 = 0;
-pub static mut LINECOUNT: i32 = 0;
-pub static mut LOOPCOUNT: i32 = 0;
-
-pub static mut VIEWCOS: Fixed = 0;
-pub static mut VIEWSIN: Fixed = 0;
-pub static mut VIEWWINDOWX: i32 = 0;
-pub static mut VIEWWINDOWY: i32 = 0;
-
-pub static mut EXTRALIGHT: i32 = 0;
-
-pub static mut DETAILSHIFT: i32 = 0;
-
-// Scalelight/zlight - allocated in R_InitLightTables / R_ExecuteSetViewSize
-pub static mut SCALELIGHT: [[*mut u8; MAXLIGHTSCALE]; LIGHTLEVELS] =
-    [[ptr::null_mut(); MAXLIGHTSCALE]; LIGHTLEVELS];
-pub static mut SCALELIGHTFIXED: [*mut u8; MAXLIGHTSCALE] = [ptr::null_mut(); MAXLIGHTSCALE];
-pub static mut ZLIGHT: [[*mut u8; MAXLIGHTZ]; LIGHTLEVELS] =
-    [[ptr::null_mut(); MAXLIGHTZ]; LIGHTLEVELS];
-
-// View size change deferred
-static mut SETSIZENEEDED: bool = false;
-static mut SETBLOCKS: i32 = 10;
-static mut SETDETAIL: i32 = 0;
-
-// =============================================================================
 // Public API - Utility functions
 // =============================================================================
 
@@ -98,67 +147,65 @@ pub fn r_add_point_to_box(x: i32, y: i32, box_: &mut [Fixed; 4]) {
 }
 
 /// BSP point-on-side test. Returns 0 (front) or 1 (back).
-pub fn r_point_on_side(x: Fixed, y: Fixed, node: *const Node) -> i32 {
-    unsafe {
-        let dx = x - (*node).x;
-        let dy = y - (*node).y;
+pub fn r_point_on_side(x: Fixed, y: Fixed, node: &Node) -> i32 {
+    let dx = x - node.x;
+    let dy = y - node.y;
 
-        if (*node).dx == 0 {
-            return if x <= (*node).x {
-                if (*node).dy > 0 {
-                    1
-                } else {
-                    0
-                }
+    if node.dx == 0 {
+        return if x <= node.x {
+            if node.dy > 0 {
+                1
             } else {
-                if (*node).dy < 0 {
-                    1
-                } else {
-                    0
-                }
-            };
-        }
-        if (*node).dy == 0 {
-            return if y <= (*node).y {
-                if (*node).dx < 0 {
-                    1
-                } else {
-                    0
-                }
-            } else {
-                if (*node).dx > 0 {
-                    1
-                } else {
-                    0
-                }
-            };
-        }
-
-        if ((*node).dy ^ (*node).dx ^ dx ^ dy) & SIGN_MASK != 0 {
-            if ((*node).dy ^ dx) & SIGN_MASK != 0 {
-                return 1;
+                0
             }
-            return 0;
-        }
-
-        let left = fixed_mul((*node).dy >> FRACBITS, dx);
-        let right = fixed_mul(dy, (*node).dx >> FRACBITS);
-
-        if right < left {
-            0
         } else {
-            1
+            if node.dy < 0 {
+                1
+            } else {
+                0
+            }
+        };
+    }
+    if node.dy == 0 {
+        return if y <= node.y {
+            if node.dx < 0 {
+                1
+            } else {
+                0
+            }
+        } else {
+            if node.dx > 0 {
+                1
+            } else {
+                0
+            }
+        };
+    }
+
+    if (node.dy ^ node.dx ^ dx ^ dy) & SIGN_MASK != 0 {
+        if (node.dy ^ dx) & SIGN_MASK != 0 {
+            return 1;
         }
+        return 0;
+    }
+
+    let left = fixed_mul(node.dy >> FRACBITS, dx);
+    let right = fixed_mul(dy, node.dx >> FRACBITS);
+
+    if right < left {
+        0
+    } else {
+        1
     }
 }
 
 /// Point-on-seg-side test. Returns 0 (front) or 1 (back).
-pub fn r_point_on_seg_side(x: Fixed, y: Fixed, line: *const Seg) -> i32 {
+pub fn r_point_on_seg_side(x: Fixed, y: Fixed, line: &Seg) -> i32 {
     unsafe {
-        let lx = (*(*line).v1).x;
-        let ly = (*(*line).v1).y;
-        let ldx = (*(*line).v2).x - lx;
-        let ldy = (*(*line).v2).y - ly;
+        let lx = (*line.v1).x;
+        let ly = (*line.v1).y;
+        let ldx = (*line.v2).x - lx;
+        let ldy = (*line.v2).y - ly;
 
         if ldx == 0 {
             return if x <= lx {
@@ -167,12 +214,10 @@ pub fn r_point_on_seg_side(x: Fixed, y: Fixed, line: *const Seg) -> i32 {
                 } else {
                     0
                 }
+            } else if ldy < 0 {
+                1
             } else {
-                if ldy < 0 {
-                    1
-                } else {
-                    0
-                }
+                0
             };
         }
         if ldy == 0 {
@@ -292,8 +337,7 @@ pub fn r_scale_from_global_angle(visangle: Angle) -> Fixed {
     let viewangle = state::with_state(|s| s.viewangle);
     let rw_distance = state::with_state(|s| s.rw_distance);
     let rw_normalangle = state::with_state(|s| s.rw_normalangle);
-    let projection = unsafe { PROJECTION };
-    let detailshift = unsafe { DETAILSHIFT };
+    let (projection, detailshift) = with_r_main_state(|s| (s.projection, s.detailshift));
 
     let anglea = ANG90 + (visangle - viewangle);
     let angleb = ANG90 + (visangle - rw_normalangle);
@@ -329,9 +373,9 @@ pub fn r_point_in_subsector(x: Fixed, y: Fixed) -> *mut Subsector {
     let mut nodenum = (numnodes - 1) as usize;
 
     while nodenum & (NF_SUBSECTOR as usize) == 0 {
-        let node = unsafe { nodes.add(nodenum) };
-        let side = r_point_on_side(x, y, node);
-        nodenum = unsafe { (*node).children[side as usize] as usize };
+        let node_ptr = unsafe { nodes.add(nodenum) };
+        let side = r_point_on_side(x, y, unsafe { &*node_ptr });
+        nodenum = unsafe { (*node_ptr).children[side as usize] as usize };
     }
 
     unsafe { subsectors.add(nodenum & !(NF_SUBSECTOR as usize)) }
@@ -343,11 +387,11 @@ pub fn r_point_in_subsector(x: Fixed, y: Fixed) -> *mut Subsector {
 
 /// Request view size change. Takes effect next refresh.
 pub fn r_set_view_size(blocks: i32, detail: i32) {
-    unsafe {
-        SETSIZENEEDED = true;
-        SETBLOCKS = blocks;
-        SETDETAIL = detail;
-    }
+    with_r_main_state_mut(|s| {
+        s.setsizeneeded = true;
+        s.setblocks = blocks;
+        s.setdetail = detail;
+    });
 }
 
 // =============================================================================
@@ -381,9 +425,9 @@ fn r_init_light_tables() {
             level = level.max(0);
             level = level.min(NUMCOLORMAPS - 1);
 
-            unsafe {
-                ZLIGHT[i][j] = colormaps.add((level as usize) * 256);
-            }
+            with_r_main_state_mut(|s| {
+                s.zlight[i][j] = unsafe { colormaps.add((level as usize) * 256) };
+            });
         }
     }
 }
@@ -391,8 +435,7 @@ fn r_init_light_tables() {
 /// Initialize texture mapping (viewangletox, xtoviewangle).
 fn r_init_texture_mapping() {
     let viewwidth = state::with_state(|s| s.viewwidth);
-    let centerxfrac = unsafe { CENTERXFRAC };
-    let _centerx = unsafe { CENTERX };
+    let (centerxfrac, _centerx) = with_r_main_state(|s| (s.centerxfrac, s.centerx));
 
     let focallength = fixed_div(
         centerxfrac,
@@ -443,11 +486,12 @@ fn r_init_texture_mapping() {
 
 /// Execute deferred view size change.
 fn r_execute_set_view_size() {
-    unsafe {
-        SETSIZENEEDED = false;
+    let (setblocks, setdetail) = with_r_main_state_mut(|s| {
+        s.setsizeneeded = false;
+        (s.setblocks, s.setdetail)
+    });
 
-        let setblocks = SETBLOCKS;
-        let setdetail = SETDETAIL;
+    unsafe {
 
         state::with_state_mut(|s| {
             if setblocks == 11 {
@@ -462,42 +506,46 @@ fn r_execute_set_view_size() {
 
         let viewheight = state::with_state(|s| s.viewheight);
         let viewwidth = state::with_state(|s| s.viewwidth);
-        CENTERY = viewheight / 2;
-        CENTERX = viewwidth / 2;
-        CENTERXFRAC = (CENTERX << FRACBITS) as Fixed;
-        CENTERYFRAC = (CENTERY << FRACBITS) as Fixed;
-        PROJECTION = CENTERXFRAC;
+        with_r_main_state_mut(|s| {
+            s.centery = viewheight / 2;
+            s.centerx = viewwidth / 2;
+            s.centerxfrac = (s.centerx << FRACBITS) as Fixed;
+            s.centeryfrac = (s.centery << FRACBITS) as Fixed;
+            s.projection = s.centerxfrac;
+        });
 
-        // Thing clipping - screenheightarray (r_clear_planes also sets per-frame)
-        for i in 0..(viewwidth as usize) {
-            r_draw::SCREENHEIGHTARRAY[i] = viewheight as i16;
-        }
+        r_draw::with_r_draw_state_mut(|rd| {
+            // Thing clipping - screenheightarray (r_clear_planes also sets per-frame)
+            for i in 0..(viewwidth as usize) {
+                rd.screenheightarray[i] = viewheight as i16;
+            }
 
-        // Plane slopes - yslope (C formula)
-        for i in 0..(viewheight as usize) {
-            let dy = ((i as i32 - viewheight / 2) << FRACBITS) + FRACUNIT / 2;
-            let dy = dy.abs().max(1);
-            r_draw::YSLOPE[i] = fixed_div(
-                ((viewwidth << setdetail) / 2 * FRACUNIT) as Fixed,
-                dy as Fixed,
-            );
-        }
+            // Plane slopes - yslope (C formula)
+            for i in 0..(viewheight as usize) {
+                let dy = ((i as i32 - viewheight / 2) << FRACBITS) + FRACUNIT / 2;
+                let dy = dy.abs().max(1);
+                rd.yslope[i] = fixed_div(
+                    ((viewwidth << setdetail) / 2 * FRACUNIT) as Fixed,
+                    dy as Fixed,
+                );
+            }
 
-        // distscale (C formula: FRACUNIT/cos)
-        for i in 0..(viewwidth as usize) {
-            let cosadj =
-                finecosine((state::with_state(|s| s.xtoviewangle[i]) >> ANGLETOFINESHIFT) as usize)
-                    .abs();
-            r_draw::DISTSCALE[i] = fixed_div(FRACUNIT, cosadj.max(1));
-        }
+            // distscale (C formula: FRACUNIT/cos)
+            for i in 0..(viewwidth as usize) {
+                let cosadj =
+                    finecosine((state::with_state(|s| s.xtoviewangle[i]) >> ANGLETOFINESHIFT) as usize)
+                        .abs();
+                rd.distscale[i] = fixed_div(FRACUNIT, cosadj.max(1));
+            }
 
-        // Psprite scales
-        r_draw::PSPRITESCALE = (FRACUNIT * viewwidth / SCREENWIDTH) as Fixed;
-        r_draw::PSPRITEISCALE = if viewwidth != 0 {
-            (FRACUNIT as u64 * SCREENWIDTH as u64 / viewwidth as u64) as u32
-        } else {
-            0
-        };
+            // Psprite scales
+            rd.pspritescale = (FRACUNIT * viewwidth / SCREENWIDTH) as Fixed;
+            rd.pspriteiscale = if viewwidth != 0 {
+                (FRACUNIT as u64 * SCREENWIDTH as u64 / viewwidth as u64) as u32
+            } else {
+                0
+            };
+        });
 
         r_draw::r_init_buffer(state::with_state(|s| s.scaledviewwidth), viewheight);
     }
@@ -509,20 +557,19 @@ fn r_execute_set_view_size() {
     if !colormaps.is_null() {
         const DISTMAP: i32 = 2;
         let viewwidth = state::with_state(|s| s.viewwidth);
-        let detailshift = unsafe { DETAILSHIFT };
+        let detailshift = with_r_main_state(|s| s.detailshift);
 
-        for i in 0..LIGHTLEVELS {
-            let startmap = ((LIGHTLEVELS - 1 - i) * 2) * (NUMCOLORMAPS as usize) / LIGHTLEVELS;
-            for j in 0..MAXLIGHTSCALE {
-                let level = startmap as i32
-                    - (j as i32 * SCREENWIDTH / (viewwidth << detailshift)) / DISTMAP;
-                let level = level.max(0).min(NUMCOLORMAPS - 1);
-
-                unsafe {
-                    SCALELIGHT[i][j] = colormaps.add((level as usize) * 256);
+        with_r_main_state_mut(|s| {
+            for i in 0..LIGHTLEVELS {
+                let startmap = ((LIGHTLEVELS - 1 - i) * 2) * (NUMCOLORMAPS as usize) / LIGHTLEVELS;
+                for j in 0..MAXLIGHTSCALE {
+                    let level = startmap as i32
+                        - (j as i32 * SCREENWIDTH / (viewwidth << detailshift)) / DISTMAP;
+                    let level = level.max(0).min(NUMCOLORMAPS - 1);
+                    s.scalelight[i][j] = unsafe { colormaps.add((level as usize) * 256) };
                 }
             }
-        }
+        });
     }
 }
 
@@ -539,9 +586,7 @@ pub fn r_init() {
     r_set_view_size(10, 0); // default: screenblocks=10, detail=0
     r_execute_set_view_size();
 
-    unsafe {
-        FRAMECOUNT = 0;
-    }
+    with_r_main_state_mut(|s| s.framecount = 0);
 }
 
 // =============================================================================
@@ -550,28 +595,28 @@ pub fn r_init() {
 
 /// Build ViewPlayerStub from the spawned console player. Returns None if no valid player.
 pub fn view_player_from_console() -> Option<ViewPlayerStub> {
-    use crate::doomstat::{CONSOLEPLAYER, PLAYERS};
+    use crate::doomstat::with_doomstat_state;
 
-    unsafe {
-        let idx = CONSOLEPLAYER as usize;
+    with_doomstat_state(|st| {
+        let idx = st.consoleplayer as usize;
         if idx >= MAXPLAYERS {
             return None;
         }
-        let p = &PLAYERS[idx];
+        let p = &st.players[idx];
         let mo = p.mo;
         if mo.is_null() {
             return None;
         }
         let mo = mo as *const crate::player::p_mobj::Mobj;
         Some(ViewPlayerStub {
-            mo_x: (*mo).x,
-            mo_y: (*mo).y,
-            mo_angle: (*mo).angle,
+            mo_x: unsafe { (*mo).x },
+            mo_y: unsafe { (*mo).y },
+            mo_angle: unsafe { (*mo).angle },
             viewz: p.viewz,
             extralight: p.extralight,
             fixedcolormap: p.fixedcolormap,
         })
-    }
+    })
 }
 
 // =============================================================================
@@ -591,36 +636,36 @@ pub struct ViewPlayerStub {
 
 /// Set up frame for rendering. Called before R_RenderPlayerView.
 pub fn r_setup_frame(player: &ViewPlayerStub) {
-    unsafe {
-        state::with_state_mut(|s| {
-            s.viewx = player.mo_x;
-            s.viewy = player.mo_y;
-            s.viewangle = player.mo_angle.wrapping_add(s.viewangleoffset);
-            s.viewz = player.viewz;
-        });
-        EXTRALIGHT = player.extralight;
+    state::with_state_mut(|s| {
+        s.viewx = player.mo_x;
+        s.viewy = player.mo_y;
+        s.viewangle = player.mo_angle.wrapping_add(s.viewangleoffset);
+        s.viewz = player.viewz;
+    });
 
-        let viewangle_idx = (state::with_state(|s| s.viewangle) >> ANGLETOFINESHIFT) as usize;
-        VIEWSIN = finesine(viewangle_idx);
-        VIEWCOS = finecosine(viewangle_idx);
+    with_r_main_state_mut(|s| {
+        s.extralight = player.extralight;
 
-        state::with_state_mut(|s| s.sscount = 0);
+        let viewangle_idx = (state::with_state(|st| st.viewangle) >> ANGLETOFINESHIFT) as usize;
+        s.viewsin = finesine(viewangle_idx);
+        s.viewcos = finecosine(viewangle_idx);
 
         if player.fixedcolormap != 0 {
-            let colormaps = state::with_state(|s| s.colormaps);
+            let colormaps = state::with_state(|st| st.colormaps);
             if !colormaps.is_null() {
-                FIXEDCOLORMAP = colormaps.add(player.fixedcolormap as usize * 256);
+                s.fixedcolormap = unsafe { colormaps.add(player.fixedcolormap as usize * 256) };
                 for i in 0..MAXLIGHTSCALE {
-                    SCALELIGHTFIXED[i] = FIXEDCOLORMAP;
+                    s.scalelightfixed[i] = s.fixedcolormap;
                 }
             }
         } else {
-            FIXEDCOLORMAP = ptr::null_mut();
+            s.fixedcolormap = ptr::null_mut();
         }
 
-        FRAMECOUNT += 1;
-        VALIDCOUNT += 1;
-    }
+        s.framecount += 1;
+        s.validcount += 1;
+    });
+    state::with_state_mut(|s| s.sscount = 0);
 }
 
 // =============================================================================

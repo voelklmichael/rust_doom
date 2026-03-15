@@ -7,8 +7,9 @@
 //
 // Original: d_main.h + d_main.c (stub)
 
+use std::sync::{Mutex, OnceLock};
 use crate::doomdef::{Gameaction, Gamestate, MAXPLAYERS, SCREENHEIGHT};
-use crate::doomstat::{AUTOMAPACTIVE, CONSOLEPLAYER, GAMEMISSION, GAMEMODE, GAMEVERSION, PLAYERINGAME, PLAYERS};
+use crate::doomstat::with_doomstat_state;
 use crate::game::d_iwad;
 use crate::game::d_mode::{GameMission, GameMode, GameVersion, Skill};
 use crate::input::i_endoom::i_endoom_from_wad;
@@ -23,24 +24,49 @@ use crate::wad::{w_add_file, w_check_correct_iwad, w_parse_command_line};
 use super::d_event::d_pop_event;
 use super::f_finale;
 
-/// Current game action. Original: gameaction
-pub static mut GAMEACTION: Gameaction = Gameaction::Nothing;
+// =============================================================================
+// DMainState - thread-safe via OnceLock + Mutex
+// =============================================================================
 
-/// Save/load slot when GAMEACTION is LoadGame or SaveGame. Original: savegameslot
-pub static mut SAVEGAMESLOT: i32 = 0;
+static D_MAIN_STATE: OnceLock<Mutex<DMainState>> = OnceLock::new();
 
-/// Save description for SaveGame. Original: savegamestrings[slot] or user input
-pub static mut SAVEGAMEDESCRIPTION: [u8; 24] = [0; 24];
+unsafe impl Send for DMainState {}
+
+pub struct DMainState {
+    /// Current game action. Original: gameaction
+    pub gameaction: Gameaction,
+    /// Save/load slot when GAMEACTION is LoadGame or SaveGame. Original: savegameslot
+    pub savegameslot: i32,
+    /// Save description for SaveGame. Original: savegamestrings[slot] or user input
+    pub savegamedescription: [u8; 24],
+}
+
+fn get_d_main_state() -> &'static Mutex<DMainState> {
+    D_MAIN_STATE.get_or_init(|| Mutex::new(DMainState {
+        gameaction: Gameaction::Nothing,
+        savegameslot: 0,
+        savegamedescription: [0; 24],
+    }))
+}
+
+/// Access DMainState.
+pub fn with_d_main_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut DMainState) -> R,
+{
+    let mut guard = get_d_main_state().lock().unwrap();
+    f(&mut guard)
+}
 
 /// Set save description before G_SaveGame. Called by menu.
 pub fn set_savegame_description(desc: &[u8]) {
-    unsafe {
+    with_d_main_state(|st| {
         let len = desc.len().min(24);
-        SAVEGAMEDESCRIPTION[..len].copy_from_slice(&desc[..len]);
+        st.savegamedescription[..len].copy_from_slice(&desc[..len]);
         for i in len..24 {
-            SAVEGAMEDESCRIPTION[i] = 0;
+            st.savegamedescription[i] = 0;
         }
-    }
+    });
 }
 
 /// Read events from all input devices.
@@ -85,9 +111,9 @@ pub fn d_start_title() {
 /// Set GAMEMISSION, GAMEMODE, GAMEVERSION from IWAD. Called after loading IWAD.
 /// Original: D_IdentifyVersion + InitGameVersion
 fn d_identify_version(mission: GameMission) {
-    unsafe {
-        GAMEMISSION = mission;
-        GAMEMODE = match mission {
+    with_doomstat_state(|st| {
+        st.gamemission = mission;
+        st.gamemode = match mission {
             GameMission::Doom2 | GameMission::PackTnt | GameMission::PackPlut | GameMission::PackHacx => {
                 GameMode::Commercial
             }
@@ -95,12 +121,12 @@ fn d_identify_version(mission: GameMission) {
             GameMission::PackChex => GameMode::Shareware,
             _ => GameMode::Indetermined,
         };
-        GAMEVERSION = match mission {
+        st.gameversion = match mission {
             GameMission::Doom2 | GameMission::PackTnt | GameMission::PackPlut => GameVersion::ExeFinal2,
             GameMission::Doom | GameMission::PackChex => GameVersion::ExeUltimate,
             _ => GameVersion::ExeFinal2,
         };
-    }
+    });
 }
 
 /// Full startup: config, WAD, video, rendering, menu, then start game or title.
@@ -174,15 +200,15 @@ fn d_register_default_loop() {
     use super::g_game::g_ticker;
 
     fn run_tic(cmds: *const Ticcmd, _ingame: *const bool) {
-        unsafe {
-            let cp = CONSOLEPLAYER as usize;
+        with_doomstat_state(|st| {
+            let cp = st.consoleplayer as usize;
             if cp < MAXPLAYERS && !cmds.is_null() {
-                PLAYERS[cp].cmd = *cmds;
+                st.players[cp].cmd = unsafe { *cmds };
             }
             for i in 0..MAXPLAYERS {
-                PLAYERINGAME[i] = i == cp;
+                st.playeringame[i] = i == cp;
             }
-        }
+        });
         g_ticker();
     }
 
@@ -211,13 +237,13 @@ pub fn d_shutdown() {
 /// Draw current display based on gamestate. Call from game loop after G_Ticker.
 /// Original: D_Display (simplified)
 pub fn d_display() {
-    unsafe {
-        let gamestate = crate::doomstat::GAMESTATE;
+    with_doomstat_state(|st| {
+        let gamestate = st.gamestate;
         match gamestate {
             Gamestate::Level => {
                 let fullscreen = state::with_state(|s| s.viewheight) == SCREENHEIGHT;
                 crate::ui_hud::st_drawer(fullscreen, true);
-                if !AUTOMAPACTIVE {
+                if !st.automapactive {
                     let player = crate::rendering::view_player_from_console()
                         .unwrap_or_default();
                     crate::rendering::r_render_player_view(&player);
@@ -238,5 +264,5 @@ pub fn d_display() {
         }
         crate::ui_hud::m_drawer();
         i_finish_update();
-    }
+    });
 }

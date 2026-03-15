@@ -19,22 +19,19 @@ use crate::z_zone::{z_malloc, PU_LEVEL};
 use std::ptr;
 
 use super::{MAPBLOCKSHIFT, MAXRADIUS};
-use crate::doomstat::GAMEMODE;
 use crate::game::d_mode::GameMode;
 
 /// Build map lump name from episode/map. Used by G_InitNew, G_DoLoadLevel.
 /// Original: P_SetupLevel lump name logic
-pub fn p_map_name_from_episode_map(episode: i32, map: i32) -> String {
-    unsafe {
-        if GAMEMODE == GameMode::Commercial {
+pub fn p_map_name_from_episode_map(episode: i32, map: i32, gamemode: GameMode) -> String {
+    if gamemode == GameMode::Commercial {
             if map < 10 {
                 format!("MAP0{}", map)
             } else {
                 format!("MAP{}", map)
-            }
-        } else {
-            format!("E{}M{}", episode, map)
         }
+    } else {
+        format!("E{}M{}", episode, map)
     }
 }
 
@@ -477,9 +474,7 @@ pub fn p_load_level(map_name: &str) -> Result<(), String> {
     // Initialize thinkers and spawn map things
     super::p_tick::p_init_thinkers();
     // Single player: ensure player 1 is in game
-    unsafe {
-        crate::doomstat::PLAYERINGAME[0] = true;
-    }
+    crate::doomstat::with_doomstat_state(|st| st.playeringame[0] = true);
     let things_lump = (map_lump + 1) as usize;
     p_load_things(things_lump);
 

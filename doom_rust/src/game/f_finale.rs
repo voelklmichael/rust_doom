@@ -8,6 +8,7 @@
 // Original: f_finale.h + f_finale.c
 
 use crate::deh::deh_string;
+use std::sync::{Mutex, OnceLock};
 use crate::doomdef::{Gameaction, Gamestate, SCREENHEIGHT, SCREENWIDTH};
 use crate::doomstat::{logical_gamemission, GAMEEPISODE, GAMEMAP, GAMEMODE, GAMESTATE, WIPEGAMESTATE};
 use crate::game::d_main::GAMEACTION;
@@ -21,7 +22,7 @@ use crate::game::dstrings::{
     CC_ZOMBIE,
 };
 use crate::rendering::patch_t;
-use crate::rendering::{v_draw_patch, v_mark_rect, VIEWIMAGE};
+use crate::rendering::{v_draw_patch, v_mark_rect, v_video};
 use crate::sound::{s_change_music, s_start_music, MusicEnum};
 use crate::ui_hud::hu_stuff::{hu_draw_char, hu_string_width};
 use crate::wad::w_cache_lump_name;
@@ -72,10 +73,42 @@ static TEXTSCREENS: &[TextScreen] = &[
     TextScreen { mission: GameMission::PackPlut, episode: 1, level: 31, background: "RROCK19", text: P6TEXT },
 ];
 
-static mut FINALESTAGE: FinaleStage = FinaleStage::Text;
-static mut FINALECOUNT: u32 = 0;
-static mut FINALETEXT: &'static str = "";
-static mut FINALEFLAT: &'static str = "FLOOR4_8";
+// =============================================================================
+// FFinaleState - thread-safe via OnceLock + Mutex
+// =============================================================================
+
+static F_FINALE_STATE: OnceLock<Mutex<FFinaleState>> = OnceLock::new();
+
+pub struct FFinaleState {
+    pub finalestage: FinaleStage,
+    pub finalecount: u32,
+    pub finaletext: &'static str,
+    pub finaleflat: &'static str,
+    pub castnum: usize,
+    pub castdeath: bool,
+}
+
+fn get_f_finale_state() -> &'static Mutex<FFinaleState> {
+    F_FINALE_STATE.get_or_init(|| {
+        Mutex::new(FFinaleState {
+            finalestage: FinaleStage::Text,
+            finalecount: 0,
+            finaletext: "",
+            finaleflat: "FLOOR4_8",
+            castnum: 0,
+            castdeath: false,
+        })
+    })
+}
+
+/// Access FFinaleState.
+pub fn with_f_finale_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut FFinaleState) -> R,
+{
+    let mut guard = get_f_finale_state().lock().unwrap();
+    f(&mut guard)
+}
 
 // Cast call (simplified: name only; sprite drawing stubbed)
 static CASTORDER: &[&'static str] = &[
@@ -84,26 +117,24 @@ static CASTORDER: &[&'static str] = &[
     CC_HERO,
 ];
 
-static mut CASTNUM: usize = 0;
-static mut CASTDEATH: bool = false;
-
 /// Draw a single column of a patch. Used by F_BunnyScroll.
 fn f_draw_patch_col(x: i32, patch: *const patch_t, col: i32) {
-    unsafe {
-        if patch.is_null() || VIEWIMAGE.is_null() || col < 0 {
-            return;
-        }
-        let patch_bytes = patch as *const u8;
-        let width = (*patch).width as i32;
-        if col >= width {
-            return;
-        }
-        let ofs = i32::from_le_bytes(std::ptr::read_unaligned(
-            patch_bytes.add(8 + col as usize * 4) as *const [u8; 4],
-        ));
-        let column = patch_bytes.add(ofs as usize);
-        let mut col_ptr = column;
-        let desttop = VIEWIMAGE.add(x as usize);
+    v_video::with_v_video_state(|vv| {
+        unsafe {
+            if patch.is_null() || vv.viewimage.is_null() || col < 0 {
+                return;
+            }
+            let patch_bytes = patch as *const u8;
+            let width = (*patch).width as i32;
+            if col >= width {
+                return;
+            }
+            let ofs = i32::from_le_bytes(std::ptr::read_unaligned(
+                patch_bytes.add(8 + col as usize * 4) as *const [u8; 4],
+            ));
+            let column = patch_bytes.add(ofs as usize);
+            let mut col_ptr = column;
+            let desttop = vv.viewimage.add(x as usize);
 
         loop {
             let topdelta = *col_ptr;
@@ -118,21 +149,23 @@ fn f_draw_patch_col(x: i32, patch: *const patch_t, col: i32) {
             }
             col_ptr = col_ptr.add(4 + length);
         }
-    }
+        }
+    });
 }
 
 fn f_text_write() {
+    let (finaleflat, finaletext, finalecount) = with_f_finale_state(|st| {
+        (st.finaleflat, st.finaletext, st.finalecount as i32)
+    });
+    v_video::with_v_video_state(|vv| {
+        let dest = vv.viewimage;
     unsafe {
-        let finaleflat = FINALEFLAT;
-        let finaletext = FINALETEXT;
-        let finalecount = FINALECOUNT as i32;
 
         let src = w_cache_lump_name(deh_string(finaleflat), PU_CACHE);
         if src.is_null() {
             return;
         }
         let src = src.as_ptr();
-        let dest = VIEWIMAGE;
         if dest.is_null() {
             return;
         }
@@ -181,15 +214,20 @@ fn f_text_write() {
             cx += w;
         }
     }
+    });
 }
 
 fn f_bunny_scroll() {
+    let finalecount = with_f_finale_state(|st| st.finalecount as i32);
+    v_video::with_v_video_state(|vv| {
+        if vv.viewimage.is_null() {
+            return;
+        }
     unsafe {
-        let finalecount = FINALECOUNT as i32;
         let p1 = w_cache_lump_name(deh_string("PFUB2"), PU_LEVEL).as_ptr() as *const patch_t;
         let p2 = w_cache_lump_name(deh_string("PFUB1"), PU_LEVEL).as_ptr() as *const patch_t;
 
-        if p1.is_null() || p2.is_null() || VIEWIMAGE.is_null() {
+        if p1.is_null() || p2.is_null() {
             return;
         }
 
@@ -224,14 +262,13 @@ fn f_bunny_scroll() {
             v_draw_patch((SCREENWIDTH - 13 * 8) / 2, (SCREENHEIGHT - 8 * 8) / 2, lump);
         }
     }
+    });
 }
 
 fn f_art_screen_drawer() {
-    unsafe {
-        let episode = GAMEEPISODE;
-        let gamemode = GAMEMODE;
+    let (episode, gamemode) = with_doomstat_state(|st| (st.gameepisode, st.gamemode));
 
-        if episode == 3 {
+    if episode == 3 {
             f_bunny_scroll();
         } else {
             let lumpname = match episode {
@@ -252,7 +289,6 @@ fn f_art_screen_drawer() {
                 v_draw_patch(0, 0, lump);
             }
         }
-    }
 }
 
 fn f_cast_print(text: &str) {
@@ -267,137 +303,121 @@ fn f_cast_print(text: &str) {
 }
 
 fn f_cast_drawer() {
+    let castnum = with_f_finale_state(|st| st.castnum);
     unsafe {
         let lump = w_cache_lump_name(deh_string("BOSSBACK"), PU_CACHE).as_ptr() as *const patch_t;
         if !lump.is_null() {
             v_draw_patch(0, 0, lump);
         }
-        if CASTNUM < CASTORDER.len() {
-            f_cast_print(deh_string(CASTORDER[CASTNUM]));
+        if castnum < CASTORDER.len() {
+            f_cast_print(deh_string(CASTORDER[castnum]));
         }
         // Sprite drawing stubbed: would need states, mobjinfo, sprites
     }
 }
 
 fn f_start_cast() {
-    unsafe {
-        WIPEGAMESTATE = Gamestate::Level;
-        CASTNUM = 0;
-        CASTDEATH = false;
-        FINALESTAGE = FinaleStage::Cast;
-        s_change_music(MusicEnum::Evil as usize, true);
-    }
-}
-
-fn f_cast_ticker() {
-    // Stub: full implementation needs states, mobjinfo, sprites.
-    // For now, advance cast every ~3 seconds when in death state.
-    unsafe {
-        if CASTDEATH {
-            FINALECOUNT += 1;
-            if FINALECOUNT % 70 == 0 {
-                CASTNUM = (CASTNUM + 1) % CASTORDER.len();
-                CASTDEATH = false;
-            }
-        }
-    }
+    with_f_finale_state(|st| {
+        st.castnum = 0;
+        st.castdeath = false;
+        st.finalestage = FinaleStage::Cast;
+    });
+    with_doomstat_state(|st| st.wipegamestate = Gamestate::Level);
+    s_change_music(MusicEnum::Evil as usize, true);
 }
 
 /// Handle input during finale. Returns true if event consumed.
 /// Original: F_Responder
 pub fn f_responder(ev: &crate::game::d_event::Event) -> bool {
     use crate::game::d_event::EvType;
-    unsafe {
-        if FINALESTAGE != FinaleStage::Cast {
+    if ev.ev_type != EvType::KeyDown {
+        return false;
+    }
+    with_f_finale_state(|st| {
+        if st.finalestage != FinaleStage::Cast {
             return false;
         }
-        if ev.ev_type != EvType::KeyDown {
-            return false;
-        }
-        if CASTDEATH {
+        if st.castdeath {
             return true;
         }
-        CASTDEATH = true;
-        // Death state/sound stubbed
+        st.castdeath = true;
         true
-    }
+    })
 }
 
 /// Start the finale sequence. Called when level 30 (Doom 2) or episode end.
 /// Original: F_StartFinale
 pub fn f_start_finale() {
-    unsafe {
-        GAMEACTION = Gameaction::Nothing;
-        GAMESTATE = Gamestate::Finale;
-        crate::doomstat::VIEWACTIVE = false;
-        crate::doomstat::AUTOMAPACTIVE = false;
-
-        if logical_gamemission() == GameMission::Doom {
-            s_change_music(MusicEnum::Victor as usize, true);
-        } else {
-            s_change_music(MusicEnum::ReadM as usize, true);
-        }
-
-        let mission = logical_gamemission();
-        let episode = GAMEEPISODE;
-        let map = GAMEMAP;
-
+    with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
+    with_doomstat_state(|st| {
+        st.gamestate = Gamestate::Finale;
+        st.viewactive = false;
+        st.automapactive = false;
+    });
+    if logical_gamemission() == GameMission::Doom {
+        s_change_music(MusicEnum::Victor as usize, true);
+    } else {
+        s_change_music(MusicEnum::ReadM as usize, true);
+    }
+    let mission = logical_gamemission();
+    let (episode, map) = with_doomstat_state(|st| (st.gameepisode, st.gamemap));
+    with_f_finale_state(|st| {
         for screen in TEXTSCREENS {
             let level = screen.level;
             if mission == screen.mission
                 && (mission != GameMission::Doom || episode == screen.episode)
                 && map == level
             {
-                FINALETEXT = deh_string(screen.text);
-                FINALEFLAT = deh_string(screen.background);
+                st.finaletext = deh_string(screen.text);
+                st.finaleflat = deh_string(screen.background);
                 break;
             }
         }
-
-        FINALESTAGE = FinaleStage::Text;
-        FINALECOUNT = 0;
-    }
+        st.finalestage = FinaleStage::Text;
+        st.finalecount = 0;
+    });
 }
 
 /// Advance finale animation one tic.
 /// Original: F_Ticker
 pub fn f_ticker() {
-    unsafe {
-        // Skip check (commercial): C uses players[i].cmd.buttons; we omit for now
-
-        FINALECOUNT += 1;
-
-        if FINALESTAGE == FinaleStage::Cast {
-            f_cast_ticker();
+    let (gamemode, gameepisode) = with_doomstat_state(|st| (st.gamemode, st.gameepisode));
+    with_f_finale_state(|st| {
+        st.finalecount += 1;
+        if st.finalestage == FinaleStage::Cast {
+            if st.castdeath {
+                st.finalecount += 1;
+                if st.finalecount % 70 == 0 {
+                    st.castnum = (st.castnum + 1) % CASTORDER.len();
+                    st.castdeath = false;
+                }
+            }
             return;
         }
-
-        if GAMEMODE == GameMode::Commercial {
+        if gamemode == GameMode::Commercial {
             return;
         }
-
-        if FINALESTAGE == FinaleStage::Text {
-            let len = FINALETEXT.len() as i32;
-            if (FINALECOUNT as i32) > len * TEXTSPEED + TEXTWAIT {
-                FINALECOUNT = 0;
-                FINALESTAGE = FinaleStage::ArtScreen;
-                WIPEGAMESTATE = Gamestate::Level;
-                if GAMEEPISODE == 3 {
+        if st.finalestage == FinaleStage::Text {
+            let len = st.finaletext.len() as i32;
+            if (st.finalecount as i32) > len * TEXTSPEED + TEXTWAIT {
+                st.finalecount = 0;
+                st.finalestage = FinaleStage::ArtScreen;
+                with_doomstat_state(|s| s.wipegamestate = Gamestate::Level);
+                if gameepisode == 3 {
                     s_start_music(MusicEnum::Bunny as i32);
                 }
             }
         }
-    }
+    });
 }
 
 /// Draw the current finale frame.
 /// Original: F_Drawer
 pub fn f_drawer() {
-    unsafe {
-        match FINALESTAGE {
-            FinaleStage::Cast => f_cast_drawer(),
-            FinaleStage::Text => f_text_write(),
-            FinaleStage::ArtScreen => f_art_screen_drawer(),
-        }
+    let stage = with_f_finale_state(|st| st.finalestage);
+    match stage {
+        FinaleStage::Cast => f_cast_drawer(),
+        FinaleStage::Text => f_text_write(),
+        FinaleStage::ArtScreen => f_art_screen_drawer(),
     }
 }

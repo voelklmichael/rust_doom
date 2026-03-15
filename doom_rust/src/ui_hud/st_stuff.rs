@@ -26,6 +26,7 @@ use crate::ui_hud::st_lib::{
 use crate::wad::w_cache_lump_name;
 use crate::z_zone::{z_malloc, PU_STATIC};
 use std::ptr;
+use std::sync::{Mutex, OnceLock};
 
 // =============================================================================
 // Public API (from st_stuff.h)
@@ -76,386 +77,422 @@ pub enum StChatStateEnum {
     GetChatState,
 }
 
-pub static mut ST_BACKING_SCREEN: *mut u8 = ptr::null_mut();
-
-pub static mut CHEAT_MUS: CheatSeq = CheatSeq::EMPTY;
-pub static mut CHEAT_GOD: CheatSeq = CheatSeq::EMPTY;
-pub static mut CHEAT_AMMO: CheatSeq = CheatSeq::EMPTY;
-pub static mut CHEAT_AMMONOKEY: CheatSeq = CheatSeq::EMPTY;
-pub static mut CHEAT_NOCLIP: CheatSeq = CheatSeq::EMPTY;
-pub static mut CHEAT_CLEV: CheatSeq = CheatSeq::EMPTY;
-pub static mut CHEAT_MYPOS: CheatSeq = CheatSeq::EMPTY;
-pub static mut CHEAT_CHOPPERS: CheatSeq = CheatSeq::EMPTY;
-static mut CHEAT_POWERUP: [CheatSeq; 7] = [CheatSeq::EMPTY; 7];
-
 // =============================================================================
-// Internal state (from st_stuff.c)
+// StStuffState - thread-safe via OnceLock + Mutex
 // =============================================================================
 
-static mut SBAR: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut TALLNUM: [*mut crate::rendering::patch_t; 10] = [ptr::null_mut(); 10];
-static mut TALLPERCENT: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut SHORTNUM: [*mut crate::rendering::patch_t; 10] = [ptr::null_mut(); 10];
+static ST_STUFF_STATE: OnceLock<Mutex<StStuffState>> = OnceLock::new();
 
-// Key card patches (STKEYS0..STKEYS5)
-static mut KEYS: [*mut crate::rendering::patch_t; 6] = [ptr::null_mut(); 6];
-// Arms background
-static mut ARMSBG: *mut crate::rendering::patch_t = ptr::null_mut();
-// Weapon ownership patches: arms[i][0]=gray, arms[i][1]=yellow (shortnum)
-static mut ARMS: [[*mut crate::rendering::patch_t; 2]; 6] = [[ptr::null_mut(); 2]; 6];
-// Face patches: simplified (normal, god, dead)
-const ST_NUM_FACES: usize = 3;
-static mut FACES: [*mut crate::rendering::patch_t; 3] = [ptr::null_mut(); 3];
+/// Safety: Raw pointers point to zone-allocated patches and player data.
+unsafe impl Send for StStuffState {}
 
-static mut ST_STATUSBARON: Boolean = true;
-static mut ST_ARMSON: Boolean = true;
-static mut ST_NOTDEATHMATCH: Boolean = true;
-static mut ST_FIRSTTIME: Boolean = true;
-static mut ST_GAMESTATE: StStateEnum = StStateEnum::FirstPersonState;
-static mut ST_CLOCK: u32 = 0;
-static mut ST_OLDHEALTH: i32 = -1;
-static mut ST_FACEINDEX: i32 = 0;
-static mut ST_STOPPED: bool = true;
+pub struct StStuffState {
+    pub backing_screen: *mut u8,
+    pub cheat_mus: CheatSeq,
+    pub cheat_god: CheatSeq,
+    pub cheat_ammo: CheatSeq,
+    pub cheat_ammonokey: CheatSeq,
+    pub cheat_noclip: CheatSeq,
+    pub cheat_clev: CheatSeq,
+    pub cheat_mypos: CheatSeq,
+    pub cheat_choppers: CheatSeq,
+    pub cheat_powerup: [CheatSeq; 7],
+    pub sbar: *mut crate::rendering::patch_t,
+    pub tallnum: [*mut crate::rendering::patch_t; 10],
+    pub tallpercent: *mut crate::rendering::patch_t,
+    pub shortnum: [*mut crate::rendering::patch_t; 10],
+    pub keys: [*mut crate::rendering::patch_t; 6],
+    pub armsbg: *mut crate::rendering::patch_t,
+    pub arms: [[*mut crate::rendering::patch_t; 2]; 6],
+    pub faces: [*mut crate::rendering::patch_t; 3],
+    pub statusbaron: Boolean,
+    pub armson: Boolean,
+    pub notdeathmatch: Boolean,
+    pub firsttime: Boolean,
+    pub gamestate: StStateEnum,
+    pub clock: u32,
+    pub oldhealth: i32,
+    pub faceindex: i32,
+    pub stopped: bool,
+    pub large_ammo: i32,
+    pub w_health: StPercent,
+    pub w_armor: StPercent,
+    pub w_ready: StNumber,
+    pub keyboxes: [i32; 3],
+    pub arms_display: [i32; 6],
+    pub w_arms: [StMultIcon; 6],
+    pub w_armsbg: StBinIcon,
+    pub w_faces: StMultIcon,
+    pub w_keyboxes: [StMultIcon; 3],
+    pub sttmminus: *mut crate::rendering::patch_t,
+}
 
-/// N/A display for weapons with no ammo (fist, chainsaw).
-static mut LARGE_AMMO: i32 = 1994;
+impl Default for StStuffState {
+    fn default() -> Self {
+        Self {
+            backing_screen: ptr::null_mut(),
+            cheat_mus: CheatSeq::EMPTY,
+            cheat_god: CheatSeq::EMPTY,
+            cheat_ammo: CheatSeq::EMPTY,
+            cheat_ammonokey: CheatSeq::EMPTY,
+            cheat_noclip: CheatSeq::EMPTY,
+            cheat_clev: CheatSeq::EMPTY,
+            cheat_mypos: CheatSeq::EMPTY,
+            cheat_choppers: CheatSeq::EMPTY,
+            cheat_powerup: [CheatSeq::EMPTY; 7],
+            sbar: ptr::null_mut(),
+            tallnum: [ptr::null_mut(); 10],
+            tallpercent: ptr::null_mut(),
+            shortnum: [ptr::null_mut(); 10],
+            keys: [ptr::null_mut(); 6],
+            armsbg: ptr::null_mut(),
+            arms: [[ptr::null_mut(); 2]; 6],
+            faces: [ptr::null_mut(); 3],
+            statusbaron: true,
+            armson: true,
+            notdeathmatch: true,
+            firsttime: true,
+            gamestate: StStateEnum::FirstPersonState,
+            clock: 0,
+            oldhealth: -1,
+            faceindex: 0,
+            stopped: true,
+            large_ammo: 1994,
+            w_health: StPercent {
+                n: StNumber {
+                    x: 0,
+                    y: 0,
+                    width: 0,
+                    oldnum: 0,
+                    num: ptr::null_mut(),
+                    on: ptr::null_mut(),
+                    p: ptr::null_mut(),
+                    data: 0,
+                },
+                p: ptr::null_mut(),
+            },
+            w_armor: StPercent {
+                n: StNumber {
+                    x: 0,
+                    y: 0,
+                    width: 0,
+                    oldnum: 0,
+                    num: ptr::null_mut(),
+                    on: ptr::null_mut(),
+                    p: ptr::null_mut(),
+                    data: 0,
+                },
+                p: ptr::null_mut(),
+            },
+            w_ready: StNumber {
+                x: 0,
+                y: 0,
+                width: 0,
+                oldnum: 0,
+                num: ptr::null_mut(),
+                on: ptr::null_mut(),
+                p: ptr::null_mut(),
+                data: 0,
+            },
+            keyboxes: [-1, -1, -1],
+            arms_display: [0, 0, 0, 0, 0, 0],
+            w_arms: [
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+            ],
+            w_armsbg: StBinIcon {
+                x: 0,
+                y: 0,
+                oldval: false,
+                val: ptr::null_mut(),
+                on: ptr::null_mut(),
+                p: ptr::null_mut(),
+                data: 0,
+            },
+            w_faces: StMultIcon {
+                x: 0,
+                y: 0,
+                oldinum: -1,
+                inum: ptr::null_mut(),
+                on: ptr::null_mut(),
+                p: ptr::null_mut(),
+                data: 0,
+            },
+            w_keyboxes: [
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+                StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
+            ],
+            sttmminus: ptr::null_mut(),
+        }
+    }
+}
 
-static mut W_HEALTH: StPercent = StPercent {
-    n: StNumber {
-        x: 0,
-        y: 0,
-        width: 0,
-        oldnum: 0,
-        num: ptr::null_mut(),
-        on: ptr::null_mut(),
-        p: ptr::null_mut(),
-        data: 0,
-    },
-    p: ptr::null_mut(),
-};
+fn get_st_stuff_state() -> &'static Mutex<StStuffState> {
+    ST_STUFF_STATE.get_or_init(|| Mutex::new(StStuffState::default()))
+}
 
-static mut W_ARMOR: StPercent = StPercent {
-    n: StNumber {
-        x: 0,
-        y: 0,
-        width: 0,
-        oldnum: 0,
-        num: ptr::null_mut(),
-        on: ptr::null_mut(),
-        p: ptr::null_mut(),
-        data: 0,
-    },
-    p: ptr::null_mut(),
-};
+/// Access StStuffState.
+pub fn with_st_stuff_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&StStuffState) -> R,
+{
+    let guard = get_st_stuff_state().lock().unwrap();
+    f(&guard)
+}
 
-/// Ready weapon ammo display.
-static mut W_READY: StNumber = StNumber {
-    x: 0,
-    y: 0,
-    width: 0,
-    oldnum: 0,
-    num: ptr::null_mut(),
-    on: ptr::null_mut(),
-    p: ptr::null_mut(),
-    data: 0,
-};
+/// Mutably access StStuffState.
+pub fn with_st_stuff_state_mut<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut StStuffState) -> R,
+{
+    let mut guard = get_st_stuff_state().lock().unwrap();
+    f(&mut guard)
+}
 
-/// Which key icon to show per slot (0-5 or -1 for none). Updated in st_update_widgets.
-static mut KEYBOXES: [i32; 3] = [-1, -1, -1];
-
-/// Weapon owned display (0=gray, 1=yellow) for arms 1-6. Updated in st_update_widgets.
-static mut ARMS_DISPLAY: [i32; 6] = [0, 0, 0, 0, 0, 0];
-
-static mut W_ARMS: [StMultIcon; 6] = [
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-];
-static mut W_ARMSBG: StBinIcon = StBinIcon {
-    x: 0,
-    y: 0,
-    oldval: false,
-    val: ptr::null_mut(),
-    on: ptr::null_mut(),
-    p: ptr::null_mut(),
-    data: 0,
-};
-static mut W_FACES: StMultIcon = StMultIcon {
-    x: 0,
-    y: 0,
-    oldinum: -1,
-    inum: ptr::null_mut(),
-    on: ptr::null_mut(),
-    p: ptr::null_mut(),
-    data: 0,
-};
-static mut W_KEYBOXES: [StMultIcon; 3] = [
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-    StMultIcon { x: 0, y: 0, oldinum: -1, inum: ptr::null_mut(), on: ptr::null_mut(), p: ptr::null_mut(), data: 0 },
-];
+/// Backing screen for status bar. Use with_st_stuff_state to access.
+pub fn st_backing_screen() -> *mut u8 {
+    with_st_stuff_state(|s| s.backing_screen)
+}
 
 // =============================================================================
 // Implementation (from st_stuff.c)
 // =============================================================================
 
-fn st_load_graphics() {
-    unsafe {
-        for i in 0..10 {
-            let name = format!("STTNUM{}", i);
-            TALLNUM[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-            let name = format!("STYSNUM{}", i);
-            SHORTNUM[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        }
-        TALLPERCENT = w_cache_lump_name(deh_string("STTPRCNT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        SBAR = w_cache_lump_name(deh_string("STBAR"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-
-        // Key card patches
-        for i in 0..6 {
-            let name = format!("STKEYS{}", i);
-            KEYS[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        }
-        ARMSBG = w_cache_lump_name(deh_string("STARMS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-
-        // Weapon ownership: gray (STGNUM2..7), yellow = shortnum[2..8]
-        for i in 0..6 {
-            let name = format!("STGNUM{}", i + 2);
-            ARMS[i][0] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-            ARMS[i][1] = SHORTNUM[i + 2];
-        }
-
-        // Face patches: normal, god, dead
-        FACES[0] = w_cache_lump_name(deh_string("STFST00"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        FACES[1] = w_cache_lump_name(deh_string("STFGOD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        FACES[2] = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+fn st_load_graphics(s: &mut StStuffState) {
+    for i in 0..10 {
+        let name = format!("STTNUM{}", i);
+        s.tallnum[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        let name = format!("STYSNUM{}", i);
+        s.shortnum[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
     }
+    s.tallpercent = w_cache_lump_name(deh_string("STTPRCNT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.sbar = w_cache_lump_name(deh_string("STBAR"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+
+    for i in 0..6 {
+        let name = format!("STKEYS{}", i);
+        s.keys[i] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    }
+    s.armsbg = w_cache_lump_name(deh_string("STARMS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+
+    for i in 0..6 {
+        let name = format!("STGNUM{}", i + 2);
+        s.arms[i][0] = w_cache_lump_name(deh_string(&name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+        s.arms[i][1] = s.shortnum[i + 2];
+    }
+
+    s.faces[0] = w_cache_lump_name(deh_string("STFST00"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.faces[1] = w_cache_lump_name(deh_string("STFGOD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.faces[2] = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
 }
 
-fn st_load_data() {
-    st_load_graphics();
+fn st_load_data(s: &mut StStuffState) {
+    st_load_graphics(s);
 }
 
-fn st_init_data() {
-    unsafe {
-        ST_FIRSTTIME = true;
-        ST_CLOCK = 0;
-        ST_GAMESTATE = StStateEnum::FirstPersonState;
-        ST_STATUSBARON = true;
-        ST_OLDHEALTH = -1;
-        ST_FACEINDEX = 0;
-        stlib_init();
-    }
+fn st_init_data(s: &mut StStuffState) {
+    s.firsttime = true;
+    s.clock = 0;
+    s.gamestate = StStateEnum::FirstPersonState;
+    s.statusbaron = true;
+    s.oldhealth = -1;
+    s.faceindex = 0;
+    stlib_init(&mut s.sttmminus);
 }
 
-fn st_create_widgets() {
-    unsafe {
-        let idx = CONSOLEPLAYER as usize;
-        let plyr = &mut PLAYERS[idx];
-        let health_ptr = &mut plyr.health as *mut i32;
-        let armor_ptr = &mut plyr.armorpoints as *mut i32;
+fn st_create_widgets(s: &mut StStuffState) {
+    let idx = CONSOLEPLAYER as usize;
+    let plyr = unsafe { &mut PLAYERS[idx] };
+    let health_ptr = &mut plyr.health as *mut i32;
+    let armor_ptr = &mut plyr.armorpoints as *mut i32;
 
-        // Ready weapon ammo (pointer updated each tick in st_update_widgets)
-        stlib_init_num(
-            &mut W_READY,
-            ST_AMMOX,
-            ST_AMMOY,
-            TALLNUM.as_mut_ptr(),
-            &mut plyr.ammo[0] as *mut i32,
-            &mut ST_STATUSBARON,
-            ST_AMMOWIDTH,
-        );
+    stlib_init_num(
+        &mut s.w_ready,
+        ST_AMMOX,
+        ST_AMMOY,
+        s.tallnum.as_mut_ptr(),
+        &mut plyr.ammo[0] as *mut i32,
+        &mut s.statusbaron,
+        ST_AMMOWIDTH,
+    );
 
-        stlib_init_percent(
-            &mut W_HEALTH,
-            ST_HEALTHX,
-            ST_HEALTHY,
-            TALLNUM.as_mut_ptr(),
-            health_ptr,
-            &mut ST_STATUSBARON,
-            TALLPERCENT,
-        );
+    stlib_init_percent(
+        &mut s.w_health,
+        ST_HEALTHX,
+        ST_HEALTHY,
+        s.tallnum.as_mut_ptr(),
+        health_ptr,
+        &mut s.statusbaron,
+        s.tallpercent,
+    );
 
-        stlib_init_percent(
-            &mut W_ARMOR,
-            ST_ARMORX,
-            ST_ARMORY,
-            TALLNUM.as_mut_ptr(),
-            armor_ptr,
-            &mut ST_STATUSBARON,
-            TALLPERCENT,
-        );
+    stlib_init_percent(
+        &mut s.w_armor,
+        ST_ARMORX,
+        ST_ARMORY,
+        s.tallnum.as_mut_ptr(),
+        armor_ptr,
+        &mut s.statusbaron,
+        s.tallpercent,
+    );
 
-        // Arms background (shown when !deathmatch)
-        stlib_init_bin_icon(
-            &mut W_ARMSBG,
-            ST_ARMSBGX,
-            ST_ARMSBGY,
-            ARMSBG,
-            &mut ST_NOTDEATHMATCH,
-            &mut ST_STATUSBARON,
-        );
+    stlib_init_bin_icon(
+        &mut s.w_armsbg,
+        ST_ARMSBGX,
+        ST_ARMSBGY,
+        s.armsbg,
+        &mut s.notdeathmatch,
+        &mut s.statusbaron,
+    );
 
-        // Weapon ownership (6 weapons: pistol..bfg)
-        for i in 0..6 {
-            stlib_init_mult_icon(
-                &mut W_ARMS[i],
-                ST_ARMSX + ((i % 3) as i32) * ST_ARMSXSPACE,
-                ST_ARMSY + ((i / 3) as i32) * ST_ARMSYSPACE,
-                ARMS[i].as_mut_ptr(),
-                &mut ARMS_DISPLAY[i] as *mut i32,
-                &mut ST_ARMSON,
-            );
-        }
-
-        // Face (simplified: 0=normal, 1=god, 2=dead)
+    for i in 0..6 {
         stlib_init_mult_icon(
-            &mut W_FACES,
-            ST_FACESX,
-            ST_FACESY,
-            FACES.as_mut_ptr(),
-            &mut ST_FACEINDEX as *mut i32,
-            &mut ST_STATUSBARON,
-        );
-
-        // Key boxes (3 slots)
-        stlib_init_mult_icon(
-            &mut W_KEYBOXES[0],
-            ST_KEY0X,
-            ST_KEY0Y,
-            KEYS.as_mut_ptr(),
-            &mut KEYBOXES[0] as *mut i32,
-            &mut ST_STATUSBARON,
-        );
-        stlib_init_mult_icon(
-            &mut W_KEYBOXES[1],
-            ST_KEY1X,
-            ST_KEY1Y,
-            KEYS.as_mut_ptr(),
-            &mut KEYBOXES[1] as *mut i32,
-            &mut ST_STATUSBARON,
-        );
-        stlib_init_mult_icon(
-            &mut W_KEYBOXES[2],
-            ST_KEY2X,
-            ST_KEY2Y,
-            KEYS.as_mut_ptr(),
-            &mut KEYBOXES[2] as *mut i32,
-            &mut ST_STATUSBARON,
+            &mut s.w_arms[i],
+            ST_ARMSX + ((i % 3) as i32) * ST_ARMSXSPACE,
+            ST_ARMSY + ((i / 3) as i32) * ST_ARMSYSPACE,
+            s.arms[i].as_mut_ptr(),
+            &mut s.arms_display[i] as *mut i32,
+            &mut s.armson,
         );
     }
+
+    stlib_init_mult_icon(
+        &mut s.w_faces,
+        ST_FACESX,
+        ST_FACESY,
+        s.faces.as_mut_ptr(),
+        &mut s.faceindex as *mut i32,
+        &mut s.statusbaron,
+    );
+
+    stlib_init_mult_icon(
+        &mut s.w_keyboxes[0],
+        ST_KEY0X,
+        ST_KEY0Y,
+        s.keys.as_mut_ptr(),
+        &mut s.keyboxes[0] as *mut i32,
+        &mut s.statusbaron,
+    );
+    stlib_init_mult_icon(
+        &mut s.w_keyboxes[1],
+        ST_KEY1X,
+        ST_KEY1Y,
+        s.keys.as_mut_ptr(),
+        &mut s.keyboxes[1] as *mut i32,
+        &mut s.statusbaron,
+    );
+    stlib_init_mult_icon(
+        &mut s.w_keyboxes[2],
+        ST_KEY2X,
+        ST_KEY2Y,
+        s.keys.as_mut_ptr(),
+        &mut s.keyboxes[2] as *mut i32,
+        &mut s.statusbaron,
+    );
 }
 
 /// Update widget pointers and state. Called from st_ticker.
-fn st_update_widgets() {
-    unsafe {
-        let idx = CONSOLEPLAYER as usize;
-        let plyr = &mut PLAYERS[idx];
-        let weapon = plyr.readyweapon as usize;
-        let ammo_type = WEAPONINFO[weapon].ammo;
+fn st_update_widgets(s: &mut StStuffState) {
+    let idx = CONSOLEPLAYER as usize;
+    let plyr = unsafe { &mut PLAYERS[idx] };
+    let weapon = plyr.readyweapon as usize;
+    let ammo_type = WEAPONINFO[weapon].ammo;
 
-        if ammo_type == Ammotype::Noammo {
-            W_READY.num = &mut LARGE_AMMO as *mut i32;
-        } else {
-            let ammo_idx = ammo_type as usize;
-            W_READY.num = &mut plyr.ammo[ammo_idx] as *mut i32;
-        }
-
-        // Key boxes: slot i shows card i or skull i+3 (skull overrides)
-        for i in 0..3 {
-            KEYBOXES[i] = if plyr.cards[i] { i as i32 } else { -1 };
-            if plyr.cards[i + 3] {
-                KEYBOXES[i] = (i + 3) as i32;
-            }
-        }
-
-        // Arms display: weaponowned[1..7] -> 0 or 1
-        for i in 0..6 {
-            ARMS_DISPLAY[i] = if plyr.weaponowned[i + 1] { 1 } else { 0 };
-        }
-
-        // Face: 0=normal, 1=god, 2=dead
-        if plyr.health <= 0 {
-            ST_FACEINDEX = 2;
-        } else if (plyr.cheats & CF_GODMODE) != 0 || plyr.powers[0] > 0 {
-            ST_FACEINDEX = 1;
-        } else {
-            ST_FACEINDEX = 0;
-        }
-
-        ST_NOTDEATHMATCH = DEATHMATCH == 0;
-        ST_ARMSON = ST_STATUSBARON && (DEATHMATCH == 0);
+    if ammo_type == Ammotype::Noammo {
+        s.w_ready.num = &mut s.large_ammo as *mut i32;
+    } else {
+        let ammo_idx = ammo_type as usize;
+        s.w_ready.num = &mut plyr.ammo[ammo_idx] as *mut i32;
     }
+
+    for i in 0..3 {
+        s.keyboxes[i] = if plyr.cards[i] { i as i32 } else { -1 };
+        if plyr.cards[i + 3] {
+            s.keyboxes[i] = (i + 3) as i32;
+        }
+    }
+
+    for i in 0..6 {
+        s.arms_display[i] = if plyr.weaponowned[i + 1] { 1 } else { 0 };
+    }
+
+    if plyr.health <= 0 {
+        s.faceindex = 2;
+    } else if (plyr.cheats & CF_GODMODE) != 0 || plyr.powers[0] > 0 {
+        s.faceindex = 1;
+    } else {
+        s.faceindex = 0;
+    }
+
+    s.notdeathmatch = DEATHMATCH == 0;
+    s.armson = s.statusbaron && (DEATHMATCH == 0);
 }
 
-fn st_refresh_background() {
-    unsafe {
-        if !ST_STATUSBARON || ST_BACKING_SCREEN.is_null() || SBAR.is_null() {
-            return;
-        }
-        v_use_buffer(ST_BACKING_SCREEN);
-        v_draw_patch(ST_X, 0, SBAR);
-        v_restore_buffer();
-        v_copy_rect(ST_X, 0, ST_BACKING_SCREEN, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y);
+fn st_refresh_background(s: &StStuffState) {
+    if !s.statusbaron || s.backing_screen.is_null() || s.sbar.is_null() {
+        return;
     }
+    v_use_buffer(s.backing_screen);
+    v_draw_patch(ST_X, 0, s.sbar);
+    v_restore_buffer();
+    v_copy_rect(ST_X, 0, s.backing_screen, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y);
 }
 
-fn st_draw_widgets(refresh: bool) {
-    unsafe {
-        let backing = ST_BACKING_SCREEN;
-        if backing.is_null() {
-            return;
-        }
-        stlib_update_num(&mut W_READY, refresh, backing, ST_Y);
-        stlib_update_percent(&mut W_HEALTH, refresh, backing, ST_Y);
-        stlib_update_percent(&mut W_ARMOR, refresh, backing, ST_Y);
-        stlib_update_bin_icon(&mut W_ARMSBG, refresh, backing, ST_Y);
-        for i in 0..6 {
-            stlib_update_mult_icon(&mut W_ARMS[i], refresh, backing, ST_Y);
-        }
-        stlib_update_mult_icon(&mut W_FACES, refresh, backing, ST_Y);
-        for i in 0..3 {
-            stlib_update_mult_icon(&mut W_KEYBOXES[i], refresh, backing, ST_Y);
-        }
+fn st_draw_widgets(s: &mut StStuffState, refresh: bool) {
+    let backing = s.backing_screen;
+    if backing.is_null() {
+        return;
+    }
+    stlib_update_num(&mut s.w_ready, refresh, backing, ST_Y, s.sttmminus);
+    stlib_update_percent(&mut s.w_health, refresh, backing, ST_Y, s.sttmminus);
+    stlib_update_percent(&mut s.w_armor, refresh, backing, ST_Y, s.sttmminus);
+    stlib_update_bin_icon(&mut s.w_armsbg, refresh, backing, ST_Y);
+    for i in 0..6 {
+        stlib_update_mult_icon(&mut s.w_arms[i], refresh, backing, ST_Y);
+    }
+    stlib_update_mult_icon(&mut s.w_faces, refresh, backing, ST_Y);
+    for i in 0..3 {
+        stlib_update_mult_icon(&mut s.w_keyboxes[i], refresh, backing, ST_Y);
     }
 }
 
 pub fn st_init() {
-    st_load_data();
-    stlib_init();
-    let size = (ST_WIDTH * ST_HEIGHT) as usize;
-    unsafe {
-        ST_BACKING_SCREEN = z_malloc(size, PU_STATIC, ptr::null_mut());
-        // Init cheat sequences (C: CHEAT("iddqd", 0) etc.)
-        CHEAT_GOD = CheatSeq::new("iddqd", 0);
-        CHEAT_AMMO = CheatSeq::new("idkfa", 0);
-        CHEAT_AMMONOKEY = CheatSeq::new("idfa", 0);
-        CHEAT_NOCLIP = CheatSeq::new("idspispopd", 0);
-        CHEAT_CLEV = CheatSeq::new("idclev", 2);
-        CHEAT_MYPOS = CheatSeq::new("idmypos", 0);
-        CHEAT_MUS = CheatSeq::new("idmus", 2);
-        CHEAT_CHOPPERS = CheatSeq::new("idchoppers", 0);
-        CHEAT_POWERUP[0] = CheatSeq::new("idbeholdv", 0);
-        CHEAT_POWERUP[1] = CheatSeq::new("idbeholds", 0);
-        CHEAT_POWERUP[2] = CheatSeq::new("idbeholdi", 0);
-        CHEAT_POWERUP[3] = CheatSeq::new("idbeholdr", 0);
-        CHEAT_POWERUP[4] = CheatSeq::new("idbeholda", 0);
-        CHEAT_POWERUP[5] = CheatSeq::new("idbeholdl", 0);
-        CHEAT_POWERUP[6] = CheatSeq::new("idbehold", 0);
-    }
+    with_st_stuff_state_mut(|s| {
+        st_load_data(s);
+        stlib_init(&mut s.sttmminus);
+        let size = (ST_WIDTH * ST_HEIGHT) as usize;
+        s.backing_screen = z_malloc(size, PU_STATIC, ptr::null_mut());
+        s.cheat_god = CheatSeq::new("iddqd", 0);
+        s.cheat_ammo = CheatSeq::new("idkfa", 0);
+        s.cheat_ammonokey = CheatSeq::new("idfa", 0);
+        s.cheat_noclip = CheatSeq::new("idspispopd", 0);
+        s.cheat_clev = CheatSeq::new("idclev", 2);
+        s.cheat_mypos = CheatSeq::new("idmypos", 0);
+        s.cheat_mus = CheatSeq::new("idmus", 2);
+        s.cheat_choppers = CheatSeq::new("idchoppers", 0);
+        s.cheat_powerup[0] = CheatSeq::new("idbeholdv", 0);
+        s.cheat_powerup[1] = CheatSeq::new("idbeholds", 0);
+        s.cheat_powerup[2] = CheatSeq::new("idbeholdi", 0);
+        s.cheat_powerup[3] = CheatSeq::new("idbeholdr", 0);
+        s.cheat_powerup[4] = CheatSeq::new("idbeholda", 0);
+        s.cheat_powerup[5] = CheatSeq::new("idbeholdl", 0);
+        s.cheat_powerup[6] = CheatSeq::new("idbehold", 0);
+    });
 }
 
 pub fn st_start() {
-    unsafe {
-        if !ST_STOPPED {
-            ST_STOPPED = true;
+    with_st_stuff_state_mut(|s| {
+        if !s.stopped {
+            s.stopped = true;
         }
-        st_init_data();
-        st_create_widgets();
-        ST_STOPPED = false;
-    }
+        st_init_data(s);
+        st_create_widgets(s);
+        s.stopped = false;
+    });
 }
 
 const TICRATE: i32 = 35;
@@ -478,16 +515,16 @@ pub fn st_responder(ev: &Event) -> Boolean {
     use crate::game::d_mode::GameMode;
     use crate::game::g_game::g_defered_init_new;
     use crate::sound::{s_change_music, MusicEnum};
-    unsafe {
-        // Filter automap on/off (from am_map AM_MSGENTERED/AM_MSGEXITED)
+
+    with_st_stuff_state_mut(|s| {
         if ev.ev_type == EvType::KeyUp && (ev.data1 as u32 & 0xffff0000) == AM_MSGHEADER as u32 {
             match ev.data1 {
                 AM_MSGENTERED => {
-                    ST_GAMESTATE = StStateEnum::AutomapState;
-                    ST_FIRSTTIME = true;
+                    s.gamestate = StStateEnum::AutomapState;
+                    s.firsttime = true;
                 }
                 AM_MSGEXITED => {
-                    ST_GAMESTATE = StStateEnum::FirstPersonState;
+                    s.gamestate = StStateEnum::FirstPersonState;
                 }
                 _ => {}
             }
@@ -495,19 +532,19 @@ pub fn st_responder(ev: &Event) -> Boolean {
 
         if ev.ev_type == EvType::KeyDown {
             let idx = CONSOLEPLAYER as usize;
-            let plyr = &mut PLAYERS[idx];
+            let plyr = unsafe { &mut PLAYERS[idx] };
             let netgame = NETGAME;
             let skill_nightmare = GAMESKILL == crate::game::d_mode::Skill::Nightmare;
 
             if !netgame && !skill_nightmare {
-                if cht_check_cheat(&mut CHEAT_GOD, ev.data2 as u8) {
+                if cht_check_cheat(&mut s.cheat_god, ev.data2 as u8) {
                     plyr.cheats ^= CF_GODMODE;
                     if (plyr.cheats & CF_GODMODE) != 0 {
                         plyr.health = DEH_DEFAULT_GOD_MODE_HEALTH;
                     }
                     return true;
                 }
-                if cht_check_cheat(&mut CHEAT_AMMONOKEY, ev.data2 as u8) {
+                if cht_check_cheat(&mut s.cheat_ammonokey, ev.data2 as u8) {
                     plyr.armorpoints = DEH_DEFAULT_IDFA_ARMOR;
                     plyr.armortype = DEH_DEFAULT_IDFA_ARMOR_CLASS;
                     for i in 0..NUMWEAPONS {
@@ -518,7 +555,7 @@ pub fn st_responder(ev: &Event) -> Boolean {
                     }
                     return true;
                 }
-                if cht_check_cheat(&mut CHEAT_AMMO, ev.data2 as u8) {
+                if cht_check_cheat(&mut s.cheat_ammo, ev.data2 as u8) {
                     plyr.armorpoints = DEH_DEFAULT_IDKFA_ARMOR;
                     plyr.armortype = DEH_DEFAULT_IDKFA_ARMOR_CLASS;
                     for i in 0..NUMWEAPONS {
@@ -532,14 +569,14 @@ pub fn st_responder(ev: &Event) -> Boolean {
                     }
                     return true;
                 }
-                if cht_check_cheat(&mut CHEAT_NOCLIP, ev.data2 as u8) {
+                if cht_check_cheat(&mut s.cheat_noclip, ev.data2 as u8) {
                     plyr.cheats ^= CF_NOCLIP;
                     return true;
                 }
                 // idmus: change music (2-digit param)
-                if cht_check_cheat(&mut CHEAT_MUS, ev.data2 as u8) {
+                if cht_check_cheat(&mut s.cheat_mus, ev.data2 as u8) {
                     let mut buf = [0u8; 3];
-                    cht_get_param(&CHEAT_MUS, &mut buf);
+                    cht_get_param(&s.cheat_mus, &mut buf);
                     let musnum = if GAMEMODE == GameMode::Commercial
                         || GAMEMODE == GameMode::Indetermined
                     {
@@ -562,7 +599,7 @@ pub fn st_responder(ev: &Event) -> Boolean {
                 }
                 // idbehold? power-up cheats
                 for i in 0..6 {
-                    if cht_check_cheat(&mut CHEAT_POWERUP[i], ev.data2 as u8) {
+                    if cht_check_cheat(&mut s.cheat_powerup[i], ev.data2 as u8) {
                         if plyr.powers[i] == 0 {
                             match i as i32 {
                                 x if x == Powertype::Invulnerability as i32 => {
@@ -591,11 +628,11 @@ pub fn st_responder(ev: &Event) -> Boolean {
                         return true;
                     }
                 }
-                if cht_check_cheat(&mut CHEAT_POWERUP[6], ev.data2 as u8) {
+                if cht_check_cheat(&mut s.cheat_powerup[6], ev.data2 as u8) {
                     plyr.message = Some("BEHOLD!".to_string());
                     return true;
                 }
-                if cht_check_cheat(&mut CHEAT_CHOPPERS, ev.data2 as u8) {
+                if cht_check_cheat(&mut s.cheat_choppers, ev.data2 as u8) {
                     plyr.weaponowned[Weapontype::Chainsaw as usize] = true;
                     plyr.powers[Powertype::Invulnerability as usize] = INVULNTICS;
                     plyr.message = Some("CHOPPERS!".to_string());
@@ -604,9 +641,9 @@ pub fn st_responder(ev: &Event) -> Boolean {
             }
 
             // idclev: change level (outside netgame check, but still !netgame)
-            if !netgame && cht_check_cheat(&mut CHEAT_CLEV, ev.data2 as u8) {
+            if !netgame && cht_check_cheat(&mut s.cheat_clev, ev.data2 as u8) {
                 let mut buf = [0u8; 3];
-                cht_get_param(&CHEAT_CLEV, &mut buf);
+                cht_get_param(&s.cheat_clev, &mut buf);
                 let (epsd, map) = if GAMEMODE == GameMode::Commercial {
                     (1, (buf[0].saturating_sub(b'0')) as i32 * 10
                         + (buf[1].saturating_sub(b'0')) as i32)
@@ -632,18 +669,18 @@ pub fn st_responder(ev: &Event) -> Boolean {
                 return true;
             }
         }
-    }
-    false
+        false
+    })
 }
 
 pub fn st_ticker() {
-    st_update_widgets();
-    st_update_palette_effects();
-    unsafe {
-        ST_CLOCK = ST_CLOCK.wrapping_add(1);
+    with_st_stuff_state_mut(|s| {
+        st_update_widgets(s);
+        s.clock = s.clock.wrapping_add(1);
         let idx = CONSOLEPLAYER as usize;
-        ST_OLDHEALTH = PLAYERS[idx].health;
-    }
+        s.oldhealth = unsafe { PLAYERS[idx].health };
+    });
+    st_update_palette_effects();
 }
 
 /// Update player fixedcolormap for damage/bonus/invulnerability flash. Original: P_PlayerThink palette part
@@ -671,8 +708,10 @@ fn st_update_palette_effects() {
 }
 
 pub fn st_drawer(fullscreen: bool, refresh: bool) {
-    if fullscreen {
-        st_refresh_background();
-    }
-    st_draw_widgets(refresh);
+    with_st_stuff_state_mut(|s| {
+        if fullscreen {
+            st_refresh_background(s);
+        }
+        st_draw_widgets(s, refresh);
+    });
 }

@@ -13,15 +13,17 @@ use crate::rendering::defs::{
     Angle, DrawSeg, LightTable, Line, Node, Seg, Sector, SideDef, Spritedef, Subsector, Vertex,
     Visplane,
 };
-use std::cell::RefCell;
+use std::sync::{Arc, Mutex, OnceLock};
 
 // =============================================================================
-// State struct - thread_local for single-threaded access (avoids Sync requirement)
+// State struct - thread-safe via OnceLock + Arc + Mutex
 // =============================================================================
 
-thread_local! {
-    static RENDER_STATE: RefCell<RenderState> = RefCell::new(RenderState::default());
-}
+static RENDER_STATE: OnceLock<Arc<Mutex<RenderState>>> = OnceLock::new();
+
+/// Safety: Raw pointers in RenderState are only used while holding the Mutex lock.
+/// They point to zone-allocated data that outlives the render state.
+unsafe impl Send for RenderState {}
 
 pub struct RenderState {
     // Texture pegging
@@ -172,12 +174,17 @@ impl Default for RenderState {
     }
 }
 
+fn get_state() -> &'static Arc<Mutex<RenderState>> {
+    RENDER_STATE.get_or_init(|| Arc::new(Mutex::new(RenderState::default())))
+}
+
 /// Read from render state.
 pub fn with_state<F, R>(f: F) -> R
 where
     F: FnOnce(&RenderState) -> R,
 {
-    RENDER_STATE.with(|s| f(&s.borrow()))
+    let guard = get_state().lock().unwrap();
+    f(&guard)
 }
 
 /// Write to render state.
@@ -185,5 +192,6 @@ pub fn with_state_mut<F, R>(f: F) -> R
 where
     F: FnOnce(&mut RenderState) -> R,
 {
-    RENDER_STATE.with(|s| f(&mut s.borrow_mut()))
+    let mut guard = get_state().lock().unwrap();
+    f(&mut guard)
 }

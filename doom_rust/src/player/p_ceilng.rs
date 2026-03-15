@@ -10,6 +10,7 @@
 use crate::game::d_think::Thinker;
 use crate::m_fixed::Fixed;
 use crate::rendering::defs::{Line, Sector};
+use std::sync::{Mutex, OnceLock};
 
 pub const MAXCEILINGS: usize = 30;
 
@@ -33,21 +34,47 @@ pub unsafe extern "C" fn t_move_ceiling(ceiling: *mut ()) {
     let _ = ceiling;
 }
 
-static mut ACTIVECEILINGS: [*mut CeilingMover; MAXCEILINGS] = [std::ptr::null_mut(); MAXCEILINGS];
+// =============================================================================
+// PCeilngState - thread-safe via OnceLock + Mutex
+// =============================================================================
+
+static P_CEILNG_STATE: OnceLock<Mutex<PCeilngState>> = OnceLock::new();
+
+/// Safety: Raw pointers in PCeilngState are only used while holding the Mutex lock.
+unsafe impl Send for PCeilngState {}
+
+pub struct PCeilngState {
+    pub activeceilings: [*mut CeilingMover; MAXCEILINGS],
+}
+
+fn get_p_ceilng_state() -> &'static Mutex<PCeilngState> {
+    P_CEILNG_STATE.get_or_init(|| Mutex::new(PCeilngState {
+        activeceilings: [std::ptr::null_mut(); MAXCEILINGS],
+    }))
+}
+
+/// Access PCeilngState.
+pub fn with_p_ceilng_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut PCeilngState) -> R,
+{
+    let mut guard = get_p_ceilng_state().lock().unwrap();
+    f(&mut guard)
+}
 
 /// Original: P_AddActiveCeiling
 pub fn p_add_active_ceiling(c: *mut CeilingMover) {
     if c.is_null() {
         return;
     }
-    unsafe {
-        for slot in &mut ACTIVECEILINGS {
-            if (*slot).is_null() {
+    with_p_ceilng_state(|st| {
+        for slot in &mut st.activeceilings {
+            if slot.is_null() {
                 *slot = c;
                 return;
             }
         }
-    }
+    });
 }
 
 /// Execute ceiling special. Original: EV_DoCeiling

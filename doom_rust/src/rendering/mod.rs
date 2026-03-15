@@ -10,7 +10,7 @@ mod r_draw;
 mod r_main;
 mod r_plane;
 mod r_segs;
-mod r_sky;
+pub(crate) mod r_sky;
 mod r_things;
 pub(crate) mod state;
 mod v_patch;
@@ -53,14 +53,11 @@ pub use r_main::{
     MAXLIGHTZ,
     NF_SUBSECTOR,
     NUMCOLORMAPS,
-    VALIDCOUNT,
-    VIEWWINDOWX,
-    VIEWWINDOWY,
 };
 pub use r_plane::{r_check_plane, r_clear_planes, r_draw_planes, r_find_plane, r_init_planes};
 pub use r_segs::{r_render_masked_seg_range, r_store_wall_range};
 pub use r_sky::{
-    r_init_sky_map, ANGLETOSKYSHIFT, SKYFLATNAME, SKYFLATNUM, SKYTEXTURE, SKYTEXTUREMID,
+    r_init_sky_map, with_r_sky_state, with_r_sky_state_mut, ANGLETOSKYSHIFT, SKYFLATNAME,
 };
 pub use r_things::{r_init_sprites, r_sprite_num_for_name};
 pub use state::{with_state, with_state_mut, RenderState};
@@ -71,5 +68,5 @@ pub use v_video::{
     v_draw_patch_flipped, v_draw_raw_screen, v_draw_shadowed_patch, v_draw_tl_patch,
     v_draw_vert_line, v_draw_xla_patch, v_init, v_load_tint_table, v_load_xla_table, v_mark_rect,
     v_read_screen, v_restore_buffer, v_screen_shot, v_set_patch_clip_callback, v_use_buffer,
-    CENTERY, DIRTYBOX, TINTTABLE, VIEWIMAGE,
+    with_v_video_state, with_v_video_state_mut, CENTERY,
 };

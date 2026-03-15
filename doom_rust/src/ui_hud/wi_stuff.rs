@@ -7,7 +7,7 @@
 
 use crate::deh::deh_string;
 use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
-use crate::doomstat::{DEATHMATCH, GAMEMODE, NETGAME, WMINFO};
+use crate::doomstat::with_doomstat_wi;
 use crate::game::d_mode::GameMode;
 use crate::m_random::m_random;
 use crate::rendering::v_draw_patch;
@@ -16,6 +16,7 @@ use crate::wad::w_cache_lump_name;
 use crate::wad::w_release_lump_name;
 use crate::z_zone::PU_STATIC;
 use std::ptr;
+use std::sync::{Mutex, OnceLock};
 
 // =============================================================================
 // Public API (from wi_stuff.h)
@@ -42,45 +43,147 @@ const TICRATE: i32 = 35;
 // Internal state (from wi_stuff.c)
 // =============================================================================
 
-static mut WI_STATE: WiStateEnum = WiStateEnum::NoState;
-static mut WI_BCNT: i32 = 0;
-static mut WI_CNT: i32 = 0;
-static mut WI_BACKGROUND: *mut crate::rendering::patch_t = ptr::null_mut();
+static WI_STUFF_STATE: OnceLock<Mutex<WiStuffState>> = OnceLock::new();
 
-// Single-player stat count animation (sp_state 1–10)
-static mut WI_SP_STATE: i32 = 1;
-static mut WI_CNT_KILLS: i32 = -1;
-static mut WI_CNT_ITEMS: i32 = -1;
-static mut WI_CNT_SECRET: i32 = -1;
-static mut WI_CNT_TIME: i32 = -1;
-static mut WI_CNT_PAR: i32 = -1;
-static mut WI_CNT_PAUSE: i32 = 0;
-static mut WI_ACCELERATE: bool = false;
-static mut WI_BACKGROUND_NAME: [u8; 9] = [0; 9];
+/// Safety: Raw pointers point to zone-allocated patches.
+unsafe impl Send for WiStuffState {}
 
-// Stats patches
-static mut WI_NUM: [*mut crate::rendering::patch_t; 10] = [ptr::null_mut(); 10];
-static mut WI_MINUS: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_PERCENT: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_FINISHED: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_ENTERING: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_KILLS: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_ITEMS: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_SP_SECRET: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_TIMEPATCH: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_PAR: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_COLON: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_SUCKS: *mut crate::rendering::patch_t = ptr::null_mut();
+pub struct WiStuffState {
+    pub state: WiStateEnum,
+    pub bcnt: i32,
+    pub cnt: i32,
+    pub background: *mut crate::rendering::patch_t,
+    pub sp_state: i32,
+    pub cnt_kills: i32,
+    pub cnt_items: i32,
+    pub cnt_secret: i32,
+    pub cnt_time: i32,
+    pub cnt_par: i32,
+    pub cnt_pause: i32,
+    pub accelerate: bool,
+    pub background_name: [u8; 9],
+    pub num: [*mut crate::rendering::patch_t; 10],
+    pub minus: *mut crate::rendering::patch_t,
+    pub percent: *mut crate::rendering::patch_t,
+    pub finished: *mut crate::rendering::patch_t,
+    pub entering: *mut crate::rendering::patch_t,
+    pub kills: *mut crate::rendering::patch_t,
+    pub items: *mut crate::rendering::patch_t,
+    pub sp_secret: *mut crate::rendering::patch_t,
+    pub timepatch: *mut crate::rendering::patch_t,
+    pub par: *mut crate::rendering::patch_t,
+    pub colon: *mut crate::rendering::patch_t,
+    pub sucks: *mut crate::rendering::patch_t,
+    pub killers: *mut crate::rendering::patch_t,
+    pub victims: *mut crate::rendering::patch_t,
+    pub total: *mut crate::rendering::patch_t,
+    pub frags: *mut crate::rendering::patch_t,
+    pub star: *mut crate::rendering::patch_t,
+    pub bstar: *mut crate::rendering::patch_t,
+    pub p: [*mut crate::rendering::patch_t; crate::doomdef::MAXPLAYERS],
+    pub dm_state: i32,
+    pub dm_frags: [[i32; crate::doomdef::MAXPLAYERS]; crate::doomdef::MAXPLAYERS],
+    pub dm_totals: [i32; crate::doomdef::MAXPLAYERS],
+    pub ng_state: i32,
+    pub ng_cnt_kills: [i32; crate::doomdef::MAXPLAYERS],
+    pub ng_cnt_items: [i32; crate::doomdef::MAXPLAYERS],
+    pub ng_cnt_secret: [i32; crate::doomdef::MAXPLAYERS],
+    pub ng_cnt_frags: [i32; crate::doomdef::MAXPLAYERS],
+    pub lnames: [*mut crate::rendering::patch_t; NUMCMAPS],
+    pub num_lnames: usize,
+    pub anims_0: [WiAnim; 10],
+    pub anims_1: [WiAnim; 9],
+    pub anims_2: [WiAnim; 6],
+}
 
-// Deathmatch/netgame patches
-static mut WI_KILLERS: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_VICTIMS: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_TOTAL: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_FRAGS: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_STAR: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_BSTAR: *mut crate::rendering::patch_t = ptr::null_mut();
-static mut WI_P: [*mut crate::rendering::patch_t; crate::doomdef::MAXPLAYERS] =
-    [ptr::null_mut(); crate::doomdef::MAXPLAYERS];
+fn wi_anim_default() -> WiAnim {
+    WiAnim {
+        anim_type: AnimType::Always,
+        period: 0,
+        nanims: 0,
+        loc_x: 0,
+        loc_y: 0,
+        data1: 0,
+        data2: 0,
+        p: [ptr::null_mut(); 3],
+        nexttic: 0,
+        ctr: 0,
+    }
+}
+
+impl Default for WiStuffState {
+    fn default() -> Self {
+        Self {
+            state: WiStateEnum::NoState,
+            bcnt: 0,
+            cnt: 0,
+            background: ptr::null_mut(),
+            sp_state: 1,
+            cnt_kills: -1,
+            cnt_items: -1,
+            cnt_secret: -1,
+            cnt_time: -1,
+            cnt_par: -1,
+            cnt_pause: 0,
+            accelerate: false,
+            background_name: [0; 9],
+            num: [ptr::null_mut(); 10],
+            minus: ptr::null_mut(),
+            percent: ptr::null_mut(),
+            finished: ptr::null_mut(),
+            entering: ptr::null_mut(),
+            kills: ptr::null_mut(),
+            items: ptr::null_mut(),
+            sp_secret: ptr::null_mut(),
+            timepatch: ptr::null_mut(),
+            par: ptr::null_mut(),
+            colon: ptr::null_mut(),
+            sucks: ptr::null_mut(),
+            killers: ptr::null_mut(),
+            victims: ptr::null_mut(),
+            total: ptr::null_mut(),
+            frags: ptr::null_mut(),
+            star: ptr::null_mut(),
+            bstar: ptr::null_mut(),
+            p: [ptr::null_mut(); crate::doomdef::MAXPLAYERS],
+            dm_state: 1,
+            dm_frags: [[0; crate::doomdef::MAXPLAYERS]; crate::doomdef::MAXPLAYERS],
+            dm_totals: [0; crate::doomdef::MAXPLAYERS],
+            ng_state: 1,
+            ng_cnt_kills: [-1; crate::doomdef::MAXPLAYERS],
+            ng_cnt_items: [-1; crate::doomdef::MAXPLAYERS],
+            ng_cnt_secret: [-1; crate::doomdef::MAXPLAYERS],
+            ng_cnt_frags: [-1; crate::doomdef::MAXPLAYERS],
+            lnames: [ptr::null_mut(); NUMCMAPS],
+            num_lnames: NUMMAPS,
+            anims_0: [wi_anim_default(); 10],
+            anims_1: [wi_anim_default(); 9],
+            anims_2: [wi_anim_default(); 6],
+        }
+    }
+}
+
+fn get_wi_stuff_state() -> &'static Mutex<WiStuffState> {
+    WI_STUFF_STATE.get_or_init(|| Mutex::new(WiStuffState::default()))
+}
+
+/// Access WiStuffState.
+pub fn with_wi_stuff_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&WiStuffState) -> R,
+{
+    let guard = get_wi_stuff_state().lock().unwrap();
+    f(&guard)
+}
+
+/// Mutably access WiStuffState.
+pub fn with_wi_stuff_state_mut<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut WiStuffState) -> R,
+{
+    let mut guard = get_wi_stuff_state().lock().unwrap();
+    f(&mut guard)
+}
 
 // Deathmatch state
 const DM_MATRIXX: i32 = 42;
@@ -93,29 +196,16 @@ const DM_VICTIMSX: i32 = 5;
 const DM_VICTIMSY: i32 = 50;
 const WI_SPACINGY: i32 = 33;
 
-static mut WI_DM_STATE: i32 = 1;
-static mut WI_DM_FRAGS: [[i32; crate::doomdef::MAXPLAYERS]; crate::doomdef::MAXPLAYERS] =
-    [[0; crate::doomdef::MAXPLAYERS]; crate::doomdef::MAXPLAYERS];
-static mut WI_DM_TOTALS: [i32; crate::doomdef::MAXPLAYERS] = [0; crate::doomdef::MAXPLAYERS];
-
 // Netgame state
 const NG_STATSX: i32 = 32;
 const NG_STATSY: i32 = 50;
 const NG_SPACINGX: i32 = 64;
 const NG_SPACINGY: i32 = 33;
 
-static mut WI_NG_STATE: i32 = 1;
-static mut WI_NG_CNT_KILLS: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
-static mut WI_NG_CNT_ITEMS: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
-static mut WI_NG_CNT_SECRET: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
-static mut WI_NG_CNT_FRAGS: [i32; crate::doomdef::MAXPLAYERS] = [-1; crate::doomdef::MAXPLAYERS];
-
 // Level name patches (WILVxx or CWILVxx)
 const NUMMAPS: usize = 9;
 const NUMCMAPS: usize = 34;
 const NUMEPISODES: usize = 3;
-static mut WI_LNAMES: [*mut crate::rendering::patch_t; NUMCMAPS] = [ptr::null_mut(); NUMCMAPS];
-static mut WI_NUM_LNAMES: usize = NUMMAPS;
 
 // Animated background (episodes 0-2 only)
 #[derive(Clone, Copy)]
@@ -141,44 +231,8 @@ struct WiAnim {
 }
 
 const NUMANIMS: [usize; NUMEPISODES] = [10, 9, 6];
-static mut WI_ANIMS_0: [WiAnim; 10] = [WiAnim {
-    anim_type: AnimType::Always,
-    period: 0,
-    nanims: 0,
-    loc_x: 0,
-    loc_y: 0,
-    data1: 0,
-    data2: 0,
-    p: [ptr::null_mut(); 3],
-    nexttic: 0,
-    ctr: 0,
-}; 10];
-static mut WI_ANIMS_1: [WiAnim; 9] = [WiAnim {
-    anim_type: AnimType::Always,
-    period: 0,
-    nanims: 0,
-    loc_x: 0,
-    loc_y: 0,
-    data1: 0,
-    data2: 0,
-    p: [ptr::null_mut(); 3],
-    nexttic: 0,
-    ctr: 0,
-}; 9];
-static mut WI_ANIMS_2: [WiAnim; 6] = [WiAnim {
-    anim_type: AnimType::Always,
-    period: 0,
-    nanims: 0,
-    loc_x: 0,
-    loc_y: 0,
-    data1: 0,
-    data2: 0,
-    p: [ptr::null_mut(); 3],
-    nexttic: 0,
-    ctr: 0,
-}; 6];
 
-fn wi_anim_epsd0() {
+fn wi_anim_epsd0(s: &mut WiStuffState) {
     const P: i32 = TICRATE / 3;
     let a = [
         (AnimType::Always, P, 3, 224, 104),
@@ -192,25 +246,23 @@ fn wi_anim_epsd0() {
         (AnimType::Always, P, 3, 80, 16),
         (AnimType::Always, P, 3, 64, 24),
     ];
-    unsafe {
-        for (i, (t, period, nanims, x, y)) in a.iter().enumerate() {
-            WI_ANIMS_0[i] = WiAnim {
-                anim_type: *t,
-                period: *period,
-                nanims: *nanims,
-                loc_x: *x,
-                loc_y: *y,
-                data1: 0,
-                data2: 0,
-                p: [ptr::null_mut(); 3],
-                nexttic: 0,
-                ctr: 0,
-            };
-        }
+    for (i, (t, period, nanims, x, y)) in a.iter().enumerate() {
+        s.anims_0[i] = WiAnim {
+            anim_type: *t,
+            period: *period,
+            nanims: *nanims,
+            loc_x: *x,
+            loc_y: *y,
+            data1: 0,
+            data2: 0,
+            p: [ptr::null_mut(); 3],
+            nexttic: 0,
+            ctr: 0,
+        };
     }
 }
 
-fn wi_anim_epsd1() {
+fn wi_anim_epsd1(s: &mut WiStuffState) {
     const P: i32 = TICRATE / 3;
     let a = [
         (AnimType::Level, P, 1, 128, 136, 1),
@@ -223,25 +275,23 @@ fn wi_anim_epsd1() {
         (AnimType::Level, P, 3, 192, 144, 8),
         (AnimType::Level, P, 1, 128, 136, 8),
     ];
-    unsafe {
-        for (i, (t, period, nanims, x, y, d1)) in a.iter().enumerate() {
-            WI_ANIMS_1[i] = WiAnim {
-                anim_type: *t,
-                period: *period,
-                nanims: *nanims,
-                loc_x: *x,
-                loc_y: *y,
-                data1: *d1,
-                data2: 0,
-                p: [ptr::null_mut(); 3],
-                nexttic: 0,
-                ctr: 0,
-            };
-        }
+    for (i, (t, period, nanims, x, y, d1)) in a.iter().enumerate() {
+        s.anims_1[i] = WiAnim {
+            anim_type: *t,
+            period: *period,
+            nanims: *nanims,
+            loc_x: *x,
+            loc_y: *y,
+            data1: *d1,
+            data2: 0,
+            p: [ptr::null_mut(); 3],
+            nexttic: 0,
+            ctr: 0,
+        };
     }
 }
 
-fn wi_anim_epsd2() {
+fn wi_anim_epsd2(s: &mut WiStuffState) {
     const P: i32 = TICRATE / 3;
     let a = [
         (AnimType::Always, P, 3, 104, 168),
@@ -251,98 +301,89 @@ fn wi_anim_epsd2() {
         (AnimType::Always, P, 3, 120, 32),
         (AnimType::Always, TICRATE / 4, 3, 40, 0),
     ];
-    unsafe {
-        for (i, (t, period, nanims, x, y)) in a.iter().enumerate() {
-            WI_ANIMS_2[i] = WiAnim {
-                anim_type: *t,
-                period: *period,
-                nanims: *nanims,
-                loc_x: *x,
-                loc_y: *y,
-                data1: 0,
-                data2: 0,
-                p: [ptr::null_mut(); 3],
-                nexttic: 0,
-                ctr: 0,
-            };
-        }
+    for (i, (t, period, nanims, x, y)) in a.iter().enumerate() {
+        s.anims_2[i] = WiAnim {
+            anim_type: *t,
+            period: *period,
+            nanims: *nanims,
+            loc_x: *x,
+            loc_y: *y,
+            data1: 0,
+            data2: 0,
+            p: [ptr::null_mut(); 3],
+            nexttic: 0,
+            ctr: 0,
+        };
     }
 }
 
-fn wi_load_anim_patches(epsd: i32) {
-    unsafe {
-        let num_anims = NUMANIMS[epsd as usize];
-        let anims: *mut WiAnim = match epsd {
-            0 => WI_ANIMS_0.as_mut_ptr(),
-            1 => WI_ANIMS_1.as_mut_ptr(),
-            2 => WI_ANIMS_2.as_mut_ptr(),
-            _ => return,
-        };
-        for j in 0..num_anims {
-            let a = &mut *anims.add(j);
-            let nanims = a.nanims as usize;
-            for i in 0..nanims {
-                if epsd == 1 && j == 8 {
-                    a.p[i] = (*anims.add(4)).p[i];
-                } else {
-                    let lump = format!("WIA{}{:02}{:02}", epsd, j, i);
-                    a.p[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-                }
+fn wi_load_anim_patches(s: &mut WiStuffState, epsd: i32) {
+    let num_anims = NUMANIMS[epsd as usize];
+    let anims: *mut WiAnim = match epsd {
+        0 => s.anims_0.as_mut_ptr(),
+        1 => s.anims_1.as_mut_ptr(),
+        2 => s.anims_2.as_mut_ptr(),
+        _ => return,
+    };
+    for j in 0..num_anims {
+        let a = unsafe { &mut *anims.add(j) };
+        let nanims = a.nanims as usize;
+        for i in 0..nanims {
+            if epsd == 1 && j == 8 {
+                a.p[i] = unsafe { (*anims.add(4)).p[i] };
+            } else {
+                let lump = format!("WIA{}{:02}{:02}", epsd, j, i);
+                a.p[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
             }
         }
     }
 }
 
-fn wi_init_animated_back() {
-    unsafe {
-        if GAMEMODE == GameMode::Commercial {
-            return;
-        }
-        let wbs = &WMINFO;
-        if wbs.epsd > 2 {
-            return;
-        }
-        let bcnt = WI_BCNT;
-        let num_anims = NUMANIMS[wbs.epsd as usize];
-        let anims: *mut WiAnim = match wbs.epsd {
-            0 => WI_ANIMS_0.as_mut_ptr(),
-            1 => WI_ANIMS_1.as_mut_ptr(),
-            2 => WI_ANIMS_2.as_mut_ptr(),
-            _ => return,
+fn wi_init_animated_back(s: &mut WiStuffState, gamemode: GameMode, wbs: &crate::doomstat::WbStartStruct) {
+    if gamemode == GameMode::Commercial {
+        return;
+    }
+    if wbs.epsd > 2 {
+        return;
+    }
+    let bcnt = s.bcnt;
+    let num_anims = NUMANIMS[wbs.epsd as usize];
+    let anims: *mut WiAnim = match wbs.epsd {
+        0 => s.anims_0.as_mut_ptr(),
+        1 => s.anims_1.as_mut_ptr(),
+        2 => s.anims_2.as_mut_ptr(),
+        _ => return,
+    };
+    for i in 0..num_anims {
+        let a = unsafe { &mut *anims.add(i) };
+        a.ctr = -1;
+        a.nexttic = match a.anim_type {
+            AnimType::Always => bcnt + 1 + (m_random() % a.period.max(1)),
+            AnimType::Random => bcnt + 1 + a.data2 + (m_random() % a.data1.max(1)),
+            AnimType::Level => bcnt + 1,
         };
-        for i in 0..num_anims {
-            let a = &mut *anims.add(i);
-            a.ctr = -1;
-            a.nexttic = match a.anim_type {
-                AnimType::Always => bcnt + 1 + (m_random() % a.period.max(1)),
-                AnimType::Random => bcnt + 1 + a.data2 + (m_random() % a.data1.max(1)),
-                AnimType::Level => bcnt + 1,
-            };
-        }
     }
 }
 
-fn wi_update_animated_back() {
-    unsafe {
-        if GAMEMODE == GameMode::Commercial {
-            return;
-        }
-        let wbs = &WMINFO;
-        if wbs.epsd > 2 {
-            return;
-        }
-        let bcnt = WI_BCNT;
-        let state = WI_STATE;
-        let num_anims = NUMANIMS[wbs.epsd as usize];
-        let anims: *mut WiAnim = match wbs.epsd {
-            0 => WI_ANIMS_0.as_mut_ptr(),
-            1 => WI_ANIMS_1.as_mut_ptr(),
-            2 => WI_ANIMS_2.as_mut_ptr(),
-            _ => return,
-        };
-        for i in 0..num_anims {
-            let a = &mut *anims.add(i);
-            if bcnt == a.nexttic {
+fn wi_update_animated_back(s: &mut WiStuffState, gamemode: GameMode, wbs: &crate::doomstat::WbStartStruct) {
+    if gamemode == GameMode::Commercial {
+        return;
+    }
+    if wbs.epsd > 2 {
+        return;
+    }
+    let bcnt = s.bcnt;
+    let state = s.state;
+    let num_anims = NUMANIMS[wbs.epsd as usize];
+    let anims: *mut WiAnim = match wbs.epsd {
+        0 => s.anims_0.as_mut_ptr(),
+        1 => s.anims_1.as_mut_ptr(),
+        2 => s.anims_2.as_mut_ptr(),
+        _ => return,
+    };
+    for i in 0..num_anims {
+        let a = unsafe { &mut *anims.add(i) };
+        if bcnt == a.nexttic {
                 match a.anim_type {
                     AnimType::Always => {
                         a.ctr += 1;
@@ -370,32 +411,28 @@ fn wi_update_animated_back() {
                         }
                     }
                 }
-            }
         }
     }
 }
 
-fn wi_draw_animated_back() {
-    unsafe {
-        if GAMEMODE == GameMode::Commercial {
-            return;
-        }
-        let wbs = &WMINFO;
-        if wbs.epsd > 2 {
-            return;
-        }
-        let num_anims = NUMANIMS[wbs.epsd as usize];
-        let anims: *mut WiAnim = match wbs.epsd {
-            0 => WI_ANIMS_0.as_mut_ptr(),
-            1 => WI_ANIMS_1.as_mut_ptr(),
-            2 => WI_ANIMS_2.as_mut_ptr(),
-            _ => return,
-        };
-        for i in 0..num_anims {
-            let a = &*anims.add(i);
-            if a.ctr >= 0 && !a.p[a.ctr as usize].is_null() {
-                v_draw_patch(a.loc_x, a.loc_y, a.p[a.ctr as usize]);
-            }
+fn wi_draw_animated_back(s: &WiStuffState, gamemode: GameMode, wbs: &crate::doomstat::WbStartStruct) {
+    if gamemode == GameMode::Commercial {
+        return;
+    }
+    if wbs.epsd > 2 {
+        return;
+    }
+    let num_anims = NUMANIMS[wbs.epsd as usize];
+    let anims: *const WiAnim = match wbs.epsd {
+        0 => s.anims_0.as_ptr(),
+        1 => s.anims_1.as_ptr(),
+        2 => s.anims_2.as_ptr(),
+        _ => return,
+    };
+    for i in 0..num_anims {
+        let a = unsafe { &*anims.add(i) };
+        if a.ctr >= 0 && !a.p[a.ctr as usize].is_null() {
+            v_draw_patch(a.loc_x, a.loc_y, a.p[a.ctr as usize]);
         }
     }
 }
@@ -404,11 +441,10 @@ fn wi_draw_animated_back() {
 // Implementation (from wi_stuff.c)
 // =============================================================================
 
-fn wi_load_data(wbs: &crate::doomstat::WbStartStruct) {
-    unsafe {
-        let name = if GAMEMODE == GameMode::Commercial {
+fn wi_load_data(s: &mut WiStuffState, wbs: &crate::doomstat::WbStartStruct, gamemode: GameMode) {
+    let name = if gamemode == GameMode::Commercial {
             "INTERPIC"
-        } else if GAMEMODE == GameMode::Retail && wbs.epsd == 3 {
+        } else if gamemode == GameMode::Retail && wbs.epsd == 3 {
             "INTERPIC"
         } else {
             match wbs.epsd {
@@ -418,163 +454,150 @@ fn wi_load_data(wbs: &crate::doomstat::WbStartStruct) {
                 _ => "INTERPIC",
             }
         };
-        let name_bytes = name.as_bytes();
-        let n = name_bytes.len().min(8);
-        WI_BACKGROUND_NAME[..n].copy_from_slice(&name_bytes[..n]);
-        for i in n..8 {
-            WI_BACKGROUND_NAME[i] = 0;
-        }
-        WI_BACKGROUND = w_cache_lump_name(deh_string(name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    let name_bytes = name.as_bytes();
+    let n = name_bytes.len().min(8);
+    s.background_name[..n].copy_from_slice(&name_bytes[..n]);
+    for i in n..8 {
+        s.background_name[i] = 0;
+    }
+    s.background = w_cache_lump_name(deh_string(name), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
 
-        // Load stats patches
-        for i in 0..10 {
-            let lump = format!("WINUM{}", i);
-            WI_NUM[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        }
-        WI_MINUS = w_cache_lump_name(deh_string("WIMINUS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_PERCENT = w_cache_lump_name(deh_string("WIPCNT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_FINISHED = w_cache_lump_name(deh_string("WIF"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_ENTERING = w_cache_lump_name(deh_string("WIENTER"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_KILLS = w_cache_lump_name(deh_string("WIOSTK"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_ITEMS = w_cache_lump_name(deh_string("WIOSTI"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_SP_SECRET = w_cache_lump_name(deh_string("WISCRT2"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_TIMEPATCH = w_cache_lump_name(deh_string("WITIME"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_PAR = w_cache_lump_name(deh_string("WIPAR"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_COLON = w_cache_lump_name(deh_string("WICOLON"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_SUCKS = w_cache_lump_name(deh_string("WISUCKS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    for i in 0..10 {
+        let lump = format!("WINUM{}", i);
+        s.num[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    }
+    s.minus = w_cache_lump_name(deh_string("WIMINUS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.percent = w_cache_lump_name(deh_string("WIPCNT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.finished = w_cache_lump_name(deh_string("WIF"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.entering = w_cache_lump_name(deh_string("WIENTER"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.kills = w_cache_lump_name(deh_string("WIOSTK"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.items = w_cache_lump_name(deh_string("WIOSTI"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.sp_secret = w_cache_lump_name(deh_string("WISCRT2"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.timepatch = w_cache_lump_name(deh_string("WITIME"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.par = w_cache_lump_name(deh_string("WIPAR"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.colon = w_cache_lump_name(deh_string("WICOLON"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.sucks = w_cache_lump_name(deh_string("WISUCKS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
 
-        // Deathmatch/netgame patches
-        WI_KILLERS = w_cache_lump_name(deh_string("WIKILRS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_VICTIMS = w_cache_lump_name(deh_string("WIVCTMS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_TOTAL = w_cache_lump_name(deh_string("WIMSTT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_FRAGS = w_cache_lump_name(deh_string("WIFRGS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_STAR = w_cache_lump_name(deh_string("STFST01"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        WI_BSTAR = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        for i in 0..crate::doomdef::MAXPLAYERS {
-            let lump = format!("WIP{}", i);
-            WI_P[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-        }
+    s.killers = w_cache_lump_name(deh_string("WIKILRS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.victims = w_cache_lump_name(deh_string("WIVCTMS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.total = w_cache_lump_name(deh_string("WIMSTT"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.frags = w_cache_lump_name(deh_string("WIFRGS"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.star = w_cache_lump_name(deh_string("STFST01"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    s.bstar = w_cache_lump_name(deh_string("STFDEAD0"), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    for i in 0..crate::doomdef::MAXPLAYERS {
+        let lump = format!("WIP{}", i);
+        s.p[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
+    }
 
-        // Level names
-        if GAMEMODE == GameMode::Commercial {
-            WI_NUM_LNAMES = NUMCMAPS;
-            for i in 0..NUMCMAPS {
-                let lump = format!("CWILV{:02}", i);
-                WI_LNAMES[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-            }
-        } else {
-            WI_NUM_LNAMES = NUMMAPS;
-            for i in 0..NUMMAPS {
-                let lump = format!("WILV{}{}", wbs.epsd, i);
-                WI_LNAMES[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
-            }
+    if gamemode == GameMode::Commercial {
+        s.num_lnames = NUMCMAPS;
+        for i in 0..NUMCMAPS {
+            let lump = format!("CWILV{:02}", i);
+            s.lnames[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
         }
-        if GAMEMODE != GameMode::Commercial && wbs.epsd < 3 {
-            wi_anim_epsd0();
-            wi_anim_epsd1();
-            wi_anim_epsd2();
-            wi_load_anim_patches(wbs.epsd);
+    } else {
+        s.num_lnames = NUMMAPS;
+        for i in 0..NUMMAPS {
+            let lump = format!("WILV{}{}", wbs.epsd, i);
+            s.lnames[i] = w_cache_lump_name(deh_string(&lump), PU_STATIC).as_ptr_mut() as *mut crate::rendering::patch_t;
         }
+    }
+    if GAMEMODE != GameMode::Commercial && wbs.epsd < 3 {
+        wi_anim_epsd0(s);
+        wi_anim_epsd1(s);
+        wi_anim_epsd2(s);
+        wi_load_anim_patches(s, wbs.epsd);
     }
 }
 
-fn wi_unload_data() {
-    unsafe {
-        if !WI_BACKGROUND.is_null() {
-            let len = WI_BACKGROUND_NAME.iter().position(|&b| b == 0).unwrap_or(8);
-            let name = std::str::from_utf8_unchecked(&WI_BACKGROUND_NAME[..len]);
-            let name = if name.is_empty() { "INTERPIC" } else { name };
-            w_release_lump_name(deh_string(name));
-            WI_BACKGROUND = ptr::null_mut();
-        }
-        // Note: stats patches not released for simplicity; could add full unload
+fn wi_unload_data(s: &mut WiStuffState) {
+    if !s.background.is_null() {
+        let len = s.background_name.iter().position(|&b| b == 0).unwrap_or(8);
+        let name = unsafe { std::str::from_utf8_unchecked(&s.background_name[..len]) };
+        let name = if name.is_empty() { "INTERPIC" } else { name };
+        w_release_lump_name(deh_string(name));
+        s.background = ptr::null_mut();
     }
 }
 
 /// Draw number (right-aligned). Returns new x.
-fn wi_draw_num(x: i32, y: i32, n: i32, digits: i32) -> i32 {
-    unsafe {
-        let p0 = WI_NUM[0];
-        if p0.is_null() {
-            return x;
-        }
-        let fontwidth = (*p0).width as i32;
-        let mut n = n;
-        let mut digits = digits;
-        if digits < 0 {
-            digits = if n == 0 {
-                1
-            } else {
-                let mut d = 0;
-                let mut t = n;
-                while t != 0 {
-                    t /= 10;
-                    d += 1;
-                }
-                d
-            };
-        }
-        let neg = n < 0;
-        if neg {
-            n = -n;
-        }
-        let mut x = x;
-        while digits > 0 {
-            x -= fontwidth;
-            let digit = (n % 10) as usize;
-            v_draw_patch(x, y, WI_NUM[digit]);
-            n /= 10;
-            digits -= 1;
-        }
-        if neg {
-            x -= 8;
-            v_draw_patch(x, y, WI_MINUS);
-        }
-        x
+fn wi_draw_num(s: &WiStuffState, x: i32, y: i32, n: i32, digits: i32) -> i32 {
+    let p0 = s.num[0];
+    if p0.is_null() {
+        return x;
     }
+    let fontwidth = unsafe { (*p0).width as i32 };
+    let mut n = n;
+    let mut digits = digits;
+    if digits < 0 {
+        digits = if n == 0 {
+            1
+        } else {
+            let mut d = 0;
+            let mut t = n;
+            while t != 0 {
+                t /= 10;
+                d += 1;
+            }
+            d
+        };
+    }
+    let neg = n < 0;
+    if neg {
+        n = -n;
+    }
+    let mut x = x;
+    while digits > 0 {
+        x -= fontwidth;
+        let digit = (n % 10) as usize;
+        v_draw_patch(x, y, s.num[digit]);
+        n /= 10;
+        digits -= 1;
+    }
+    if neg {
+        x -= 8;
+        v_draw_patch(x, y, s.minus);
+    }
+    x
 }
 
 /// Draw percentage (right-aligned).
-fn wi_draw_percent(x: i32, y: i32, p: i32) {
-    unsafe {
-        if p < 0 || WI_PERCENT.is_null() {
-            return;
-        }
-        v_draw_patch(x, y, WI_PERCENT);
-        wi_draw_num(x, y, p, -1);
+fn wi_draw_percent(s: &WiStuffState, x: i32, y: i32, p: i32) {
+    if p < 0 || s.percent.is_null() {
+        return;
     }
+    v_draw_patch(x, y, s.percent);
+    wi_draw_num(s, x, y, p, -1);
 }
 
 /// Draw time as MM:SS (or "sucks" if overflow).
-fn wi_draw_time(mut x: i32, y: i32, t: i32) {
-    unsafe {
-        if t < 0 {
-            return;
-        }
-        if t <= 61 * 59 {
-            let mut div = 1i32;
-            let colon_w = if WI_COLON.is_null() {
-                8
-            } else {
-                (*WI_COLON).width as i32
-            };
-            loop {
-                let n = (t / div) % 60;
-                x = wi_draw_num(x, y, n, 2) - colon_w;
-                div *= 60;
-                if div == 60 || t / div != 0 {
-                    if !WI_COLON.is_null() {
-                        v_draw_patch(x, y, WI_COLON);
-                    }
-                }
-                if t / div == 0 {
-                    break;
+fn wi_draw_time(s: &WiStuffState, mut x: i32, y: i32, t: i32) {
+    if t < 0 {
+        return;
+    }
+    if t <= 61 * 59 {
+        let mut div = 1i32;
+        let colon_w = if s.colon.is_null() {
+            8
+        } else {
+            unsafe { (*s.colon).width as i32 }
+        };
+        loop {
+            let n = (t / div) % 60;
+            x = wi_draw_num(s, x, y, n, 2) - colon_w;
+            div *= 60;
+            if div == 60 || t / div != 0 {
+                if !s.colon.is_null() {
+                    v_draw_patch(x, y, s.colon);
                 }
             }
-        } else if !WI_SUCKS.is_null() {
-            let w = (*WI_SUCKS).width as i32;
-            v_draw_patch(x - w, y, WI_SUCKS);
+            if t / div == 0 {
+                break;
+            }
         }
+    } else if !s.sucks.is_null() {
+        let w = unsafe { (*s.sucks).width as i32 };
+        v_draw_patch(x - w, y, s.sucks);
     }
 }
 
@@ -675,8 +698,8 @@ pub fn wi_set_accelerate() {
     }
 }
 
-fn wi_init_stats() {
-    wi_init_animated_back();
+fn wi_init_stats(gamemode: GameMode, wbs: &crate::doomstat::WbStartStruct) {
+    with_wi_stuff_state_mut(|s| wi_init_animated_back(s, gamemode, wbs));
     unsafe {
         WI_SP_STATE = 1;
         WI_CNT_KILLS = -1;
@@ -688,22 +711,19 @@ fn wi_init_stats() {
     }
 }
 
-fn wi_frag_sum(playernum: usize) -> i32 {
-    unsafe {
-        let wbs = &WMINFO;
-        let mut sum = 0i32;
-        if playernum < crate::doomdef::MAXPLAYERS {
-            for j in 0..crate::doomdef::MAXPLAYERS {
-                sum += wbs.plyr[playernum].frags[j];
-            }
+fn wi_frag_sum(playernum: usize, wbs: &crate::doomstat::WbStartStruct) -> i32 {
+    let mut sum = 0i32;
+    if playernum < crate::doomdef::MAXPLAYERS {
+        for j in 0..crate::doomdef::MAXPLAYERS {
+            sum += wbs.plyr[playernum].frags[j];
         }
-        sum
     }
+    sum
 }
 
-fn wi_init_deathmatch_stats() {
+fn wi_init_deathmatch_stats(wbs: &crate::doomstat::WbStartStruct) {
+    let _ = wbs; // used for structure, init doesn't need per-player data
     unsafe {
-        let wbs = &WMINFO;
         WI_DM_STATE = 1;
         WI_CNT_PAUSE = TICRATE;
         for i in 0..crate::doomdef::MAXPLAYERS {
@@ -1117,13 +1137,12 @@ pub fn wi_start(wbstartstruct: &crate::doomstat::WbStartStruct) {
         wi_load_data(wbstartstruct);
         let deathmatch = DEATHMATCH != 0;
         let netgame = NETGAME;
-        if deathmatch {
-            wi_init_deathmatch_stats();
-        } else if netgame {
-            wi_init_netgame_stats();
-        } else {
-            wi_init_stats();
-        }
+    if deathmatch {
+        wi_init_deathmatch_stats(wbstartstruct);
+    } else if netgame {
+        wi_init_netgame_stats(wbstartstruct);
+    } else {
+        wi_init_stats(gamemode, wbstartstruct);
     }
 }
 

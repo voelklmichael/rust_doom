@@ -12,20 +12,16 @@ use crate::geometry::{finecosine, finesine, ANGLETOFINESHIFT};
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS};
 use crate::rendering::defs::Visplane;
 use crate::rendering::r_data::r_get_column;
-use crate::rendering::r_draw::{
-    colfunc, spanfunc, DC_COLORMAP, DC_ISCALE, DC_SOURCE, DC_TEXTUREMID, DC_X, DC_YH, DC_YL,
-    DISTSCALE, DS_COLORMAP, DS_SOURCE, DS_X1, DS_X2, DS_XFRAC, DS_XSTEP, DS_Y, DS_YFRAC, DS_YSTEP,
-    PSPRITEISCALE, YSLOPE,
-};
+use crate::rendering::r_draw::{colfunc, spanfunc, with_r_draw_state_mut};
 use crate::rendering::r_main::{
-    CENTERXFRAC, CENTERY, DETAILSHIFT, EXTRALIGHT, FIXEDCOLORMAP, LIGHTLEVELS, LIGHTSEGSHIFT,
-    LIGHTZSHIFT, MAXLIGHTZ, PROJECTION, ZLIGHT,
+    with_r_main_state, LIGHTLEVELS, LIGHTSEGSHIFT, LIGHTZSHIFT, MAXLIGHTZ,
 };
-use crate::rendering::r_sky::{ANGLETOSKYSHIFT, SKYFLATNUM, SKYTEXTURE, SKYTEXTUREMID};
+use crate::rendering::r_sky::{with_r_sky_state, ANGLETOSKYSHIFT};
 use crate::rendering::state;
 use crate::wad::{w_cache_lump_num, w_release_lump_num};
 use crate::z_zone::PU_STATIC;
 use std::ptr;
+use std::sync::{Mutex, OnceLock};
 
 const MAXVISPLANES: usize = 128;
 const MAXOPENINGS: usize = 320 * 64; // SCREENWIDTH * 64
@@ -34,30 +30,65 @@ const MAXOPENINGS: usize = 320 * 64; // SCREENWIDTH * 64
 const PLANE_SENTINEL: u8 = 0xff;
 
 // =============================================================================
-// State (from r_plane.c)
+// State (from r_plane.c) - thread-safe via OnceLock + Mutex
 // =============================================================================
 
-static mut VISPLANES: [Visplane; MAXVISPLANES] = unsafe { std::mem::zeroed() };
-static mut LASTVISPLANE: *mut Visplane = ptr::null_mut();
-/// Floor clip per column - used by r_segs during wall rendering.
-pub static mut FLOORCLIP: [i16; 320] = [0; 320];
-/// Ceiling clip per column - used by r_segs during wall rendering.
-pub static mut CEILINGCLIP: [i16; 320] = [0; 320];
-static mut SPANSTART: [i32; 200] = [0; 200];
-static mut SPANSTOP: [i32; 200] = [0; 200];
-static mut OPENINGS: [i16; MAXOPENINGS] = [0; MAXOPENINGS];
-/// Current position in openings array - used by r_segs for masked texture allocation.
-pub static mut LASTOPENING: *mut i16 = ptr::null_mut();
+pub struct PlaneState {
+    pub visplanes: [Visplane; MAXVISPLANES],
+    pub lastvisplane: usize,
+    pub floorclip: [i16; 320],
+    pub ceilingclip: [i16; 320],
+    pub spanstart: [i32; 200],
+    pub spanstop: [i32; 200],
+    pub openings: [i16; MAXOPENINGS],
+    pub lastopening: usize,
+    planeheight: Fixed,
+    planezlight: *mut *mut u8,
+    basexscale: Fixed,
+    baseyscale: Fixed,
+    cachedheight: [Fixed; 200],
+    cacheddistance: [Fixed; 200],
+    cachedxstep: [Fixed; 200],
+    cachedystep: [Fixed; 200],
+}
 
-static mut PLANEHEIGHT: Fixed = 0;
-static mut PLANEZLIGHT: *mut *mut u8 = ptr::null_mut();
-static mut BASEXSCALE: Fixed = 0;
-static mut BASEYSCALE: Fixed = 0;
+impl Default for PlaneState {
+    fn default() -> Self {
+        Self {
+            visplanes: unsafe { std::mem::zeroed() },
+            lastvisplane: 0,
+            floorclip: [0; 320],
+            ceilingclip: [0; 320],
+            spanstart: [0; 200],
+            spanstop: [0; 200],
+            openings: [0; MAXOPENINGS],
+            lastopening: 0,
+            planeheight: 0,
+            planezlight: ptr::null_mut(),
+            basexscale: 0,
+            baseyscale: 0,
+            cachedheight: [0; 200],
+            cacheddistance: [0; 200],
+            cachedxstep: [0; 200],
+            cachedystep: [0; 200],
+        }
+    }
+}
 
-static mut CACHEDHEIGHT: [Fixed; 200] = [0; 200];
-static mut CACHEDDISTANCE: [Fixed; 200] = [0; 200];
-static mut CACHEDXSTEP: [Fixed; 200] = [0; 200];
-static mut CACHEDYSTEP: [Fixed; 200] = [0; 200];
+unsafe impl Send for PlaneState {}
+
+static PLANE_STATE: OnceLock<Mutex<PlaneState>> = OnceLock::new();
+
+pub fn with_plane_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut PlaneState) -> R,
+{
+    let mut guard = PLANE_STATE
+        .get_or_init(|| Mutex::new(PlaneState::default()))
+        .lock()
+        .unwrap();
+    f(&mut guard)
+}
 
 // =============================================================================
 // Public API
@@ -65,52 +96,60 @@ static mut CACHEDYSTEP: [Fixed; 200] = [0; 200];
 
 /// Find or create visplane for given height, picnum, lightlevel.
 pub fn r_find_plane(height: Fixed, picnum: i32, lightlevel: i32) -> *mut Visplane {
-    let skyflatnum = unsafe { SKYFLATNUM };
+    let skyflatnum = with_r_sky_state(|rs| rs.skyflatnum);
     let (height, picnum, lightlevel) = if picnum == skyflatnum {
         (0, picnum, 0)
     } else {
         (height, picnum, lightlevel)
     };
 
-    unsafe {
-        let mut check = VISPLANES.as_mut_ptr();
-        let last = LASTVISPLANE;
-        while check < last {
-            if (*check).height == height
-                && (*check).picnum == picnum
-                && (*check).lightlevel == lightlevel
-            {
+    with_plane_state(|ps| {
+        let visplanes = ps.visplanes.as_mut_ptr();
+        let mut check_idx = 0;
+        let last_idx = ps.lastvisplane;
+
+        while check_idx < last_idx {
+            let check = unsafe { visplanes.add(check_idx) };
+            if unsafe {
+                (*check).height == height
+                    && (*check).picnum == picnum
+                    && (*check).lightlevel == lightlevel
+            } {
                 return check;
             }
-            check = check.add(1);
+            check_idx += 1;
         }
 
-        if check < last {
-            return check;
+        if check_idx < last_idx {
+            return unsafe { visplanes.add(check_idx) };
         }
 
-        if last.offset_from(VISPLANES.as_ptr()) as usize >= MAXVISPLANES {
+        if last_idx >= MAXVISPLANES {
             crate::i_system::i_error("R_FindPlane: no more visplanes");
         }
 
-        LASTVISPLANE = check.add(1);
+        let check = unsafe { visplanes.add(last_idx) };
+        ps.lastvisplane = last_idx + 1;
 
-        (*check).height = height;
-        (*check).picnum = picnum;
-        (*check).lightlevel = lightlevel;
-        (*check).minx = SCREENWIDTH;
-        (*check).maxx = -1;
+        unsafe {
+            (*check).height = height;
+            (*check).picnum = picnum;
+            (*check).lightlevel = lightlevel;
+            (*check).minx = SCREENWIDTH;
+            (*check).maxx = -1;
 
-        for t in (*check).top.iter_mut() {
-            *t = PLANE_SENTINEL;
+            for t in (*check).top.iter_mut() {
+                *t = PLANE_SENTINEL;
+            }
         }
 
         check
-    }
+    })
 }
 
 /// Check if plane can be extended, or create new one.
-pub fn r_check_plane(pl: *mut Visplane, start: i32, stop: i32) -> *mut Visplane {
+/// Must be called within with_plane_state; pass the PlaneState reference.
+pub fn r_check_plane(pl: *mut Visplane, start: i32, stop: i32, ps: &mut PlaneState) -> *mut Visplane {
     unsafe {
         if pl.is_null() {
             return pl;
@@ -151,18 +190,20 @@ pub fn r_check_plane(pl: *mut Visplane, start: i32, stop: i32) -> *mut Visplane 
             return pl;
         }
 
-        let last = LASTVISPLANE;
+        let last_idx = ps.lastvisplane;
+        if last_idx >= MAXVISPLANES {
+            crate::i_system::i_error("R_CheckPlane: no more visplanes");
+        }
+
+        let visplanes = ps.visplanes.as_mut_ptr();
+        let last = visplanes.add(last_idx);
         (*last).height = (*pl).height;
         (*last).picnum = (*pl).picnum;
         (*last).lightlevel = (*pl).lightlevel;
 
-        if last.offset_from(VISPLANES.as_ptr()) as usize >= MAXVISPLANES {
-            crate::i_system::i_error("R_CheckPlane: no more visplanes");
-        }
+        ps.lastvisplane = last_idx + 1;
 
         let new_pl = last;
-        LASTVISPLANE = last.add(1);
-
         (*new_pl).minx = start;
         (*new_pl).maxx = stop;
 
@@ -179,136 +220,151 @@ pub fn r_init_planes() {}
 
 /// Clear planes at beginning of frame.
 pub fn r_clear_planes() {
-    unsafe {
+    with_plane_state(|ps| {
         let viewwidth = state::with_state(|s| s.viewwidth) as usize;
         let viewheight = state::with_state(|s| s.viewheight) as usize;
 
         for i in 0..viewwidth {
-            FLOORCLIP[i] = SCREENHEIGHT as i16;
-            CEILINGCLIP[i] = -1;
+            ps.floorclip[i] = SCREENHEIGHT as i16;
+            ps.ceilingclip[i] = -1;
         }
 
-        // Initialize screenheightarray for single-sided wall clipping.
-        let viewheight_i16 = viewheight as i16;
-        for i in 0..viewwidth {
-            crate::rendering::r_draw::SCREENHEIGHTARRAY[i] = viewheight_i16;
-        }
+        let (centerxfrac, projection, centery) =
+            crate::rendering::r_main::with_r_main_state(|rm| (rm.centerxfrac, rm.projection, rm.centery));
+
+        crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
+            // Initialize screenheightarray for single-sided wall clipping.
+            let viewheight_i16 = viewheight as i16;
+            for i in 0..viewwidth {
+                rd.screenheightarray[i] = viewheight_i16;
+            }
+        });
 
         for i in 0..viewheight {
-            SPANSTART[i] = 0;
+            ps.spanstart[i] = 0;
         }
 
-        LASTVISPLANE = VISPLANES.as_mut_ptr();
-        LASTOPENING = OPENINGS.as_mut_ptr();
+        ps.lastvisplane = 0;
+        ps.lastopening = 0;
 
         let viewangle = state::with_state(|s| s.viewangle);
         let angle = (viewangle >> ANGLETOFINESHIFT) as usize;
         let finecos = finecosine(angle);
         let finesin = finesine(angle);
 
-        BASEXSCALE = fixed_div(finecos, CENTERXFRAC);
-        BASEYSCALE = fixed_div(-finesin, CENTERXFRAC);
+        ps.basexscale = fixed_div(finecos, centerxfrac);
+        ps.baseyscale = fixed_div(-finesin, centerxfrac);
 
-        let projection = PROJECTION;
-        for x in 0..viewwidth {
-            let x_angle = state::with_state(|s| s.xtoviewangle[x]) as i32;
-            let xtoview = (x_angle >> ANGLETOFINESHIFT).abs() as usize;
-            let dist = finecosine(xtoview % (5 * crate::geometry::FINEANGLES / 4));
-            let abs_dist = dist.abs().max(1);
-            DISTSCALE[x] = fixed_div(projection, abs_dist);
-        }
+        crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
+            for x in 0..viewwidth {
+                let x_angle = state::with_state(|s| s.xtoviewangle[x]) as i32;
+                let xtoview = (x_angle >> ANGLETOFINESHIFT).abs() as usize;
+                let dist = finecosine(xtoview % (5 * crate::geometry::FINEANGLES / 4));
+                let abs_dist = dist.abs().max(1);
+                rd.distscale[x] = fixed_div(projection, abs_dist);
+            }
 
-        let centery = CENTERY;
-        for i in 0..viewheight {
-            let dy = (centery - i as i32).abs().max(1);
-            YSLOPE[i] = fixed_div(projection, (dy as Fixed) << FRACBITS);
-        }
-    }
+            for i in 0..viewheight {
+                let dy = (centery - i as i32).abs().max(1);
+                rd.yslope[i] = fixed_div(projection, (dy as Fixed) << FRACBITS);
+            }
+        });
+    });
 }
 
 // =============================================================================
 // R_MapPlane - texture mapping for one span
 // =============================================================================
 
-fn r_map_plane(y: i32, x1: i32, x2: i32) {
+fn r_map_plane(ps: &mut PlaneState, y: i32, x1: i32, x2: i32) {
     use crate::geometry::finecosine;
     use crate::geometry::finesine;
 
-    unsafe {
-        let viewwidth = state::with_state(|s| s.viewwidth);
-        let viewheight = state::with_state(|s| s.viewheight);
-        if x2 < x1 || x1 < 0 || x2 >= viewwidth || y > viewheight {
-            return;
-        }
-
-        let y = y as usize;
-        if PLANEHEIGHT != CACHEDHEIGHT[y] {
-            CACHEDHEIGHT[y] = PLANEHEIGHT;
-            let distance = fixed_mul(PLANEHEIGHT, YSLOPE[y]);
-            CACHEDDISTANCE[y] = distance;
-            DS_XSTEP = fixed_mul(distance, BASEXSCALE);
-            DS_YSTEP = fixed_mul(distance, BASEYSCALE);
-            CACHEDXSTEP[y] = DS_XSTEP;
-            CACHEDYSTEP[y] = DS_YSTEP;
-        } else {
-            DS_XSTEP = CACHEDXSTEP[y];
-            DS_YSTEP = CACHEDYSTEP[y];
-        }
-
-        let distance = CACHEDDISTANCE[y];
-        let length = fixed_mul(distance, DISTSCALE[x1 as usize]);
-        let viewangle = state::with_state(|s| s.viewangle);
-        let viewx = state::with_state(|s| s.viewx);
-        let viewy = state::with_state(|s| s.viewy);
-        let angle_idx = ((viewangle.wrapping_add(state::with_state(|s| s.xtoviewangle[x1 as usize])))
-            >> ANGLETOFINESHIFT) as usize;
-        DS_XFRAC = viewx + fixed_mul(finecosine(angle_idx), length);
-        DS_YFRAC = -viewy - fixed_mul(finesine(angle_idx), length);
-
-        if !FIXEDCOLORMAP.is_null() {
-            DS_COLORMAP = FIXEDCOLORMAP;
-        } else {
-            let index = (distance >> LIGHTZSHIFT) as usize;
-            let index = index.min(MAXLIGHTZ - 1);
-            DS_COLORMAP = PLANEZLIGHT.add(index).read();
-        }
-
-        DS_Y = y as i32;
-        DS_X1 = x1;
-        DS_X2 = x2;
-
-        spanfunc();
+    let viewwidth = state::with_state(|s| s.viewwidth);
+    let viewheight = state::with_state(|s| s.viewheight);
+    if x2 < x1 || x1 < 0 || x2 >= viewwidth || y > viewheight {
+        return;
     }
+
+    let y = y as usize;
+    let (_d, ds_xstep, ds_ystep, _l, ds_xfrac, ds_yfrac, ds_colormap) =
+        crate::rendering::r_draw::with_r_draw_state(|rd| {
+            let (distance, ds_xstep, ds_ystep) = if ps.planeheight != ps.cachedheight[y] {
+                let distance = fixed_mul(ps.planeheight, rd.yslope[y]);
+                ps.cachedheight[y] = ps.planeheight;
+                ps.cacheddistance[y] = distance;
+                let ds_xstep = fixed_mul(distance, ps.basexscale);
+                let ds_ystep = fixed_mul(distance, ps.baseyscale);
+                ps.cachedxstep[y] = ds_xstep;
+                ps.cachedystep[y] = ds_ystep;
+                (distance, ds_xstep, ds_ystep)
+            } else {
+                (
+                    ps.cacheddistance[y],
+                    ps.cachedxstep[y],
+                    ps.cachedystep[y],
+                )
+            };
+            let length = fixed_mul(distance, rd.distscale[x1 as usize]);
+            let viewangle = state::with_state(|s| s.viewangle);
+            let viewx = state::with_state(|s| s.viewx);
+            let viewy = state::with_state(|s| s.viewy);
+            let angle_idx = ((viewangle
+                .wrapping_add(state::with_state(|s| s.xtoviewangle[x1 as usize])))
+                >> ANGLETOFINESHIFT) as usize;
+            let ds_xfrac = viewx + fixed_mul(finecosine(angle_idx), length);
+            let ds_yfrac = -viewy - fixed_mul(finesine(angle_idx), length);
+            let fixcol = crate::rendering::r_main::with_r_main_state(|rm| rm.fixedcolormap);
+            let ds_colormap = if !fixcol.is_null() {
+                fixcol
+            } else {
+                let index = (distance >> LIGHTZSHIFT) as usize;
+                let index = index.min(MAXLIGHTZ - 1);
+                unsafe { ps.planezlight.add(index).read() }
+            };
+            (distance, ds_xstep, ds_ystep, length, ds_xfrac, ds_yfrac, ds_colormap)
+        });
+
+    crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
+        rd.ds_xstep = ds_xstep;
+        rd.ds_ystep = ds_ystep;
+        rd.ds_xfrac = ds_xfrac;
+        rd.ds_yfrac = ds_yfrac;
+        rd.ds_colormap = ds_colormap;
+        rd.ds_y = y as i32;
+        rd.ds_x1 = x1;
+        rd.ds_x2 = x2;
+    });
+
+    spanfunc();
 }
 
 // =============================================================================
 // R_MakeSpans
 // =============================================================================
 
-fn r_make_spans(x: i32, t1: i32, b1: i32, t2: i32, b2: i32) {
-    unsafe {
-        let mut t1 = t1;
-        let mut b1 = b1;
-        let mut t2 = t2;
-        let mut b2 = b2;
+fn r_make_spans(ps: &mut PlaneState, x: i32, t1: i32, b1: i32, t2: i32, b2: i32) {
+    let mut t1 = t1;
+    let mut b1 = b1;
+    let mut t2 = t2;
+    let mut b2 = b2;
 
-        while t1 < t2 && t1 <= b1 {
-            r_map_plane(t1, SPANSTART[t1 as usize], x - 1);
-            t1 += 1;
-        }
-        while b1 > b2 && b1 >= t1 {
-            r_map_plane(b1, SPANSTART[b1 as usize], x - 1);
-            b1 -= 1;
-        }
+    while t1 < t2 && t1 <= b1 {
+        r_map_plane(ps, t1, ps.spanstart[t1 as usize], x - 1);
+        t1 += 1;
+    }
+    while b1 > b2 && b1 >= t1 {
+        r_map_plane(ps, b1, ps.spanstart[b1 as usize], x - 1);
+        b1 -= 1;
+    }
 
-        while t2 < t1 && t2 <= b2 {
-            SPANSTART[t2 as usize] = x;
-            t2 += 1;
-        }
-        while b2 > b1 && b2 >= t2 {
-            SPANSTART[b2 as usize] = x;
-            b2 -= 1;
-        }
+    while t2 < t1 && t2 <= b2 {
+        ps.spanstart[t2 as usize] = x;
+        t2 += 1;
+    }
+    while b2 > b1 && b2 >= t2 {
+        ps.spanstart[b2 as usize] = x;
+        b2 -= 1;
     }
 }
 
@@ -317,67 +373,77 @@ fn r_make_spans(x: i32, t1: i32, b1: i32, t2: i32, b2: i32) {
 // =============================================================================
 
 pub fn r_draw_planes() {
-    unsafe {
-        let skyflatnum = SKYFLATNUM;
+    with_plane_state(|ps| {
+        let (skyflatnum, detailshift, extralight) =
+            crate::rendering::r_main::with_r_main_state(|rm| {
+                (crate::rendering::r_sky::with_r_sky_state(|rs| rs.skyflatnum), rm.detailshift, rm.extralight)
+            });
         let colormaps = state::with_state(|s| s.colormaps);
         let firstflat = state::with_state(|s| s.firstflat);
         let flattranslation = state::with_state(|s| s.flattranslation);
         let viewz = state::with_state(|s| s.viewz);
 
-        let detailshift = DETAILSHIFT;
-        let extralight = EXTRALIGHT;
+        let visplanes = ps.visplanes.as_mut_ptr();
+        let mut pl_idx = 0;
+        let last_idx = ps.lastvisplane;
 
-        let mut pl = VISPLANES.as_mut_ptr();
-        let last = LASTVISPLANE;
+        while pl_idx < last_idx {
+            let pl = unsafe { visplanes.add(pl_idx) };
 
-        while pl < last {
-            if (*pl).minx > (*pl).maxx {
-                pl = pl.add(1);
+            if unsafe { (*pl).minx > (*pl).maxx } {
+                pl_idx += 1;
                 continue;
             }
 
-            if (*pl).picnum == skyflatnum {
-                let pspriteiscale = if PSPRITEISCALE != 0 {
-                    PSPRITEISCALE
-                } else {
-                    0x8000
-                };
-                DC_ISCALE = pspriteiscale >> detailshift;
-                DC_COLORMAP = colormaps;
-                DC_TEXTUREMID = SKYTEXTUREMID;
-
-                let skytexture = SKYTEXTURE;
-                let minx = (*pl).minx;
-                let maxx = (*pl).maxx;
+            if unsafe { (*pl).picnum == skyflatnum } {
+                let (pspriteiscale, skytexturemid, skytexture) = (
+                    crate::rendering::r_draw::with_r_draw_state(|rd| {
+                        if rd.pspriteiscale != 0 { rd.pspriteiscale } else { 0x8000 }
+                    }),
+                    crate::rendering::r_sky::with_r_sky_state(|rs| rs.skytexturemid),
+                    crate::rendering::r_sky::with_r_sky_state(|rs| rs.skytexture),
+                );
+                crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
+                    rd.dc_iscale = pspriteiscale >> detailshift;
+                    rd.dc_colormap = colormaps;
+                    rd.dc_texturemid = skytexturemid;
+                });
+                let minx = unsafe { (*pl).minx };
+                let maxx = unsafe { (*pl).maxx };
 
                 for x in minx..=maxx {
-                    DC_YL = (*pl).top[x as usize] as i32;
-                    DC_YH = (*pl).bottom[x as usize] as i32;
+                    let dc_yl = unsafe { (*pl).top[x as usize] as i32 };
+                    let dc_yh = unsafe { (*pl).bottom[x as usize] as i32 };
 
-                    if DC_YL <= DC_YH {
+                    if dc_yl <= dc_yh {
                         let angle = (state::with_state(|s| s.viewangle)
                             .wrapping_add(state::with_state(|s| s.xtoviewangle[x as usize])))
                             >> ANGLETOSKYSHIFT;
-                        DC_X = x;
-                        DC_SOURCE = r_get_column(skytexture, angle as i32);
+                        crate::rendering::r_draw::with_r_draw_state_mut(|rd| {
+                            rd.dc_yl = dc_yl;
+                            rd.dc_yh = dc_yh;
+                            rd.dc_x = x;
+                            rd.dc_source = r_get_column(skytexture, angle as i32);
+                        });
                         colfunc();
                     }
                 }
-                pl = pl.add(1);
+                pl_idx += 1;
                 continue;
             }
 
             let lumpnum = if flattranslation.is_null() {
-                firstflat + (*pl).picnum
+                firstflat + unsafe { (*pl).picnum }
             } else {
-                firstflat + *flattranslation.add((*pl).picnum as usize)
+                firstflat + unsafe { *flattranslation.add((*pl).picnum as usize) }
             };
 
             let lump = w_cache_lump_num(lumpnum, PU_STATIC);
-            DS_SOURCE = lump.as_ptr();
-            PLANEHEIGHT = ((*pl).height - viewz).abs();
+            crate::rendering::r_draw::with_r_draw_state_mut(|rd| rd.ds_source = lump.as_ptr());
+            ps.planeheight = unsafe { ((*pl).height - viewz).abs() };
 
-            let mut light = ((*pl).lightlevel >> LIGHTSEGSHIFT) + extralight;
+            let mut light =
+                unsafe { (*pl).lightlevel >> LIGHTSEGSHIFT } as i32 + extralight;
             if light >= LIGHTLEVELS as i32 {
                 light = LIGHTLEVELS as i32 - 1;
             }
@@ -385,29 +451,33 @@ pub fn r_draw_planes() {
                 light = 0;
             }
 
-            PLANEZLIGHT = ZLIGHT[light as usize].as_mut_ptr();
+            ps.planezlight =
+                crate::rendering::r_main::with_r_main_state(|rm| rm.zlight[light as usize].as_ptr() as *mut *mut u8);
 
-            let maxx = (*pl).maxx as usize;
-            let minx = (*pl).minx as usize;
-            (*pl).top[maxx + 1] = PLANE_SENTINEL;
-            if minx > 0 {
-                (*pl).top[minx - 1] = PLANE_SENTINEL;
+            let maxx = unsafe { (*pl).maxx as usize };
+            let minx = unsafe { (*pl).minx as usize };
+            unsafe {
+                (*pl).top[maxx + 1] = PLANE_SENTINEL;
+                if minx > 0 {
+                    (*pl).top[minx - 1] = PLANE_SENTINEL;
+                }
             }
 
             let stop = maxx + 1;
             for x in minx..=stop {
                 r_make_spans(
+                    ps,
                     x as i32,
-                    (*pl).top[x.wrapping_sub(1)] as i32,
-                    (*pl).bottom[x.wrapping_sub(1)] as i32,
-                    (*pl).top[x] as i32,
-                    (*pl).bottom[x] as i32,
+                    unsafe { (*pl).top[x.wrapping_sub(1)] as i32 },
+                    unsafe { (*pl).bottom[x.wrapping_sub(1)] as i32 },
+                    unsafe { (*pl).top[x] as i32 },
+                    unsafe { (*pl).bottom[x] as i32 },
                 );
             }
 
             w_release_lump_num(lumpnum);
 
-            pl = pl.add(1);
+            pl_idx += 1;
         }
-    }
+    });
 }

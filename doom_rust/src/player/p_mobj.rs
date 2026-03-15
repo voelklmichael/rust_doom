@@ -476,7 +476,7 @@ pub fn p_spawn_mobj(x: Fixed, y: Fixed, z: Fixed, type_: Mobjtype) -> *mut Mobj 
 
 /// Spawn player at map thing (type 1-4). Original: P_SpawnPlayer
 pub fn p_spawn_player(mthing: &MapThing) {
-    use crate::doomstat::{PlayerState, PLAYERINGAME, PLAYERS};
+    use crate::doomstat::{with_doomstat_state, PlayerState};
     //use crate::game::g_game::g_player_reborn;
     use crate::info::MT_PLAYER;
 
@@ -488,7 +488,7 @@ pub fn p_spawn_player(mthing: &MapThing) {
     if idx >= crate::doomdef::MAXPLAYERS {
         return;
     }
-    if !unsafe { PLAYERINGAME[idx] } {
+    if !crate::doomstat::with_doomstat_state(|st| st.playeringame[idx]) {
         return;
     }
 
@@ -501,29 +501,31 @@ pub fn p_spawn_player(mthing: &MapThing) {
         return;
     }
 
-    unsafe {
-        let p = &mut PLAYERS[idx];
+    crate::doomstat::with_doomstat_state(|st| {
+        let p = &mut st.players[idx];
         if p.playerstate == PlayerState::Reborn {
             dbg!("g_player_reborn not yet implemented");
             //g_player_reborn(idx);
         }
-        let p = &mut PLAYERS[idx];
+        let p = &mut st.players[idx];
 
-        if mt_type > 1 {
-            (*mobj).flags |= ((mt_type - 1) as i32) << MF_TRANSSHIFT;
+        unsafe {
+            if mt_type > 1 {
+                (*mobj).flags |= ((mt_type - 1) as i32) << MF_TRANSSHIFT;
+            }
+            (*mobj).angle =
+                (crate::geometry::ANG45 as u32).wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
+            (*mobj).player = p as *mut crate::doomstat::Player as *mut std::ffi::c_void;
+            (*mobj).health = p.health;
         }
-        (*mobj).angle =
-            (crate::geometry::ANG45 as u32).wrapping_mul((mthing.angle as i32).max(0) as u32 / 45);
-        (*mobj).player = p as *mut crate::doomstat::Player as *mut std::ffi::c_void;
-        (*mobj).health = p.health;
 
         p.mo = mobj as *mut std::ffi::c_void;
         p.playerstate = PlayerState::Live;
         p.viewheight = super::VIEWHEIGHT;
-        p.viewz = (*mobj).z + super::VIEWHEIGHT;
+        p.viewz = unsafe { (*mobj).z } + super::VIEWHEIGHT;
         p.extralight = 0;
         p.fixedcolormap = 0;
-    }
+    });
 
     // super::p_pspr::p_setup_psprites(unsafe {
     //     &mut PLAYERS[idx] as *mut crate::doomstat::Player as *mut std::ffi::c_void
@@ -534,7 +536,7 @@ pub fn p_spawn_player(mthing: &MapThing) {
 /// Spawn a map thing (from THINGS lump). Original: P_SpawnMapThing
 /// Handles player starts (1-4), deathmatch (11). Spawns monsters/items by doomednum.
 pub fn p_spawn_map_thing(mthing: &MapThing) {
-    use crate::doomstat::{DEATHMATCH, PLAYERSTARTS};
+    use crate::doomstat::with_doomstat_state;
     use crate::geometry::ANG45;
     use crate::info::{MOBJINFO, NUMMOBJTYPES};
 
@@ -552,10 +554,8 @@ pub fn p_spawn_map_thing(mthing: &MapThing) {
     if mt_type <= 4 {
         let idx = (mt_type - 1) as usize;
         if idx < crate::doomdef::MAXPLAYERS {
-            unsafe {
-                PLAYERSTARTS[idx] = *mthing;
-            }
-            let deathmatch = unsafe { DEATHMATCH };
+            with_doomstat_state(|st| st.playerstarts[idx] = *mthing);
+            let deathmatch = with_doomstat_state(|st| st.deathmatch);
             if deathmatch == 0 {
                 p_spawn_player(mthing);
             }

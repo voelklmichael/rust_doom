@@ -8,7 +8,7 @@
 use crate::doomdef::SCREENWIDTH;
 use crate::doomstat::AUTOMAPACTIVE;
 use crate::doomtype::Boolean;
-use crate::rendering::{VIEWWINDOWX, VIEWWINDOWY};
+use crate::rendering::r_main;
 use crate::rendering::state;
 use crate::rendering::{patch_t, r_video_erase, v_draw_patch_direct};
 
@@ -170,19 +170,20 @@ pub fn hulib_draw_text_line(l: &HuTextline, drawcursor: bool) {
 pub fn hulib_erase_text_line(l: &mut HuTextline) {
     let (viewheight, viewwidth) = state::with_state(|s| (s.viewheight, s.viewwidth));
     unsafe {
-        if !AUTOMAPACTIVE && VIEWWINDOWX != 0 && l.needsupdate != 0 {
+        if !AUTOMAPACTIVE && r_main::with_r_main_state(|rm| rm.viewwindowx) != 0 && l.needsupdate != 0 {
             if !l.f.is_null() {
                 let lh = (*(*l.f.add(0))).height as i32 + 1;
                 let screen_width = SCREENWIDTH as usize;
                 for y in l.y..(l.y + lh) {
                     let yoffset = (y as usize) * screen_width;
-                    if y < VIEWWINDOWY || y >= VIEWWINDOWY + viewheight {
+                    let viewwindowy = r_main::with_r_main_state(|rm| rm.viewwindowy);
+                    if y < viewwindowy || y >= viewwindowy + viewheight {
                         r_video_erase(yoffset, SCREENWIDTH);
                     } else {
-                        r_video_erase(yoffset, VIEWWINDOWX);
+                        r_video_erase(yoffset, r_main::with_r_main_state(|rm| rm.viewwindowx));
                         r_video_erase(
-                            yoffset + (VIEWWINDOWX + viewwidth) as usize,
-                            VIEWWINDOWX,
+                            yoffset + (r_main::with_r_main_state(|rm| rm.viewwindowx) + viewwidth) as usize,
+                            r_main::with_r_main_state(|rm| rm.viewwindowx),
                         );
                     }
                 }

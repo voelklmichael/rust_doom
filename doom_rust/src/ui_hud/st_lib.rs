@@ -16,13 +16,6 @@ use crate::z_zone::PU_STATIC;
 // Public API (from st_lib.h)
 // =============================================================================
 
-/// STTMINUS patch for negative numbers.
-static mut STTMINUS: *mut patch_t = std::ptr::null_mut();
-
-// =============================================================================
-// Implementation (from st_lib.c)
-// =============================================================================
-
 /// Number widget for status bar.
 #[repr(C)]
 #[derive(Debug)]
@@ -71,10 +64,9 @@ pub struct StBinIcon {
     pub data: i32,
 }
 
-pub fn stlib_init() {
-    unsafe {
-        STTMINUS = w_cache_lump_name(deh_string("STTMINUS"), PU_STATIC).as_ptr_mut() as *mut patch_t;
-    }
+/// Initialize STTMINUS patch. Caller provides storage (e.g. from StStuffState).
+pub fn stlib_init(sttmminus: &mut *mut patch_t) {
+    *sttmminus = w_cache_lump_name(deh_string("STTMINUS"), PU_STATIC).as_ptr_mut() as *mut patch_t;
 }
 
 pub fn stlib_init_num(
@@ -95,16 +87,17 @@ pub fn stlib_init_num(
     n.p = pl;
 }
 
-/// Draw number. Requires backing_screen (st_backing_screen) and st_y (ST_Y).
+/// Draw number. Requires backing_screen (st_backing_screen), st_y (ST_Y), and sttmminus patch.
 pub fn stlib_update_num(
     n: &mut StNumber,
     refresh: bool,
     backing_screen: *const u8,
     st_y: i32,
+    sttmminus: *mut patch_t,
 ) {
     unsafe {
         if *n.on {
-            stlib_draw_num(n, refresh, backing_screen, st_y);
+            stlib_draw_num(n, refresh, backing_screen, st_y, sttmminus);
         }
     }
 }
@@ -114,6 +107,7 @@ fn stlib_draw_num(
     _refresh: bool,
     backing_screen: *const u8,
     st_y: i32,
+    sttmminus: *mut patch_t,
 ) {
     unsafe {
         let numdigits = n.width;
@@ -158,7 +152,7 @@ fn stlib_draw_num(
             numdigits -= 1;
         }
         if neg {
-            v_draw_patch(x - 8, n.y, STTMINUS);
+            v_draw_patch(x - 8, n.y, sttmminus);
         }
     }
 }
@@ -176,18 +170,19 @@ pub fn stlib_init_percent(
     p.p = percent;
 }
 
-/// Update percent. Requires backing_screen and st_y.
+/// Update percent. Requires backing_screen, st_y, and sttmminus.
 pub fn stlib_update_percent(
     per: &mut StPercent,
     refresh: bool,
     backing_screen: *const u8,
     st_y: i32,
+    sttmminus: *mut patch_t,
 ) {
     unsafe {
         if refresh && *per.n.on {
             v_draw_patch(per.n.x, per.n.y, per.p);
         }
-        stlib_update_num(&mut per.n, refresh, backing_screen, st_y);
+        stlib_update_num(&mut per.n, refresh, backing_screen, st_y, sttmminus);
     }
 }
 

@@ -18,6 +18,7 @@ use crate::rendering::r_sky;
 use crate::rendering::r_things;
 use crate::rendering::state;
 use std::ptr;
+use std::sync::{Mutex, OnceLock};
 
 // =============================================================================
 // Clip range for solid/pass wall segments
@@ -33,69 +34,100 @@ struct ClipRange {
 const MAXSEGS: usize = 32;
 
 // =============================================================================
-// State (from r_bsp.c)
+// State (from r_bsp.c) - thread-safe via OnceLock + Mutex
 // =============================================================================
 
-static mut SOLIDSEGS: [ClipRange; MAXSEGS] = [ClipRange { first: 0, last: 0 }; MAXSEGS];
-static mut NEWEND: *mut ClipRange = ptr::null_mut();
+struct BspState {
+    solidsegs: [ClipRange; MAXSEGS],
+    newend: usize,
+}
+
+impl Default for BspState {
+    fn default() -> Self {
+        Self {
+            solidsegs: [ClipRange { first: 0, last: 0 }; MAXSEGS],
+            newend: 0,
+        }
+    }
+}
+
+static BSP_STATE: OnceLock<Mutex<BspState>> = OnceLock::new();
+
+fn with_bsp_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut BspState) -> R,
+{
+    let mut guard = BSP_STATE
+        .get_or_init(|| Mutex::new(BspState::default()))
+        .lock()
+        .unwrap();
+    f(&mut guard)
+}
 
 // =============================================================================
 // R_ClipSolidWallSegment
 // =============================================================================
 
 fn r_clip_solid_wall_segment(first: i32, last: i32) {
-    unsafe {
-        let mut start = SOLIDSEGS.as_mut_ptr();
-        while (*start).last < first - 1 {
-            start = start.add(1);
+    with_bsp_state(|state| {
+        let solidsegs = &mut state.solidsegs[..];
+        let newend = &mut state.newend;
+
+        let mut start_idx = 0;
+        while solidsegs[start_idx].last < first - 1 {
+            start_idx += 1;
         }
 
-        if first < (*start).first {
-            if last < (*start).first - 1 {
+        if first < solidsegs[start_idx].first {
+            if last < solidsegs[start_idx].first - 1 {
                 r_segs::r_store_wall_range(first, last);
-                let mut next = NEWEND;
-                NEWEND = NEWEND.add(1);
+                let mut next_idx = *newend;
+                *newend += 1;
 
-                while next != start {
-                    *next = *next.sub(1);
-                    next = next.sub(1);
+                while next_idx != start_idx {
+                    solidsegs[next_idx] = solidsegs[next_idx - 1];
+                    next_idx -= 1;
                 }
-                (*next).first = first;
-                (*next).last = last;
+                solidsegs[next_idx].first = first;
+                solidsegs[next_idx].last = last;
                 return;
             }
-            r_segs::r_store_wall_range(first, (*start).first - 1);
-            (*start).first = first;
+            r_segs::r_store_wall_range(first, solidsegs[start_idx].first - 1);
+            solidsegs[start_idx].first = first;
         }
 
-        if last <= (*start).last {
+        if last <= solidsegs[start_idx].last {
             return;
         }
 
-        let mut next = start;
-        while last >= (*(next.add(1))).first - 1 {
-            r_segs::r_store_wall_range((*next).last + 1, (*(next.add(1))).first - 1);
-            next = next.add(1);
+        let mut next_idx = start_idx;
+        while last >= solidsegs[next_idx + 1].first - 1 {
+            r_segs::r_store_wall_range(
+                solidsegs[next_idx].last + 1,
+                solidsegs[next_idx + 1].first - 1,
+            );
+            next_idx += 1;
 
-            if last <= (*next).last {
-                (*start).last = (*next).last;
-                break;
+            if last <= solidsegs[next_idx].last {
+                solidsegs[start_idx].last = solidsegs[next_idx].last;
+                return;
             }
         }
 
-        if last > (*next).last {
-            r_segs::r_store_wall_range((*next).last + 1, last);
-            (*start).last = last;
+        if last > solidsegs[next_idx].last {
+            r_segs::r_store_wall_range(solidsegs[next_idx].last + 1, last);
+            solidsegs[start_idx].last = last;
 
-            let mut next = next.add(1);
-            while next != NEWEND {
-                start = start.add(1);
-                *start = *next;
-                next = next.add(1);
+            let mut copy_src = next_idx + 1;
+            let mut copy_dst = start_idx + 1;
+            while copy_src < *newend {
+                solidsegs[copy_dst] = solidsegs[copy_src];
+                copy_src += 1;
+                copy_dst += 1;
             }
-            NEWEND = start.add(1);
+            *newend = copy_dst;
         }
-    }
+    });
 }
 
 // =============================================================================
@@ -103,35 +135,41 @@ fn r_clip_solid_wall_segment(first: i32, last: i32) {
 // =============================================================================
 
 fn r_clip_pass_wall_segment(first: i32, last: i32) {
-    unsafe {
-        let mut start = SOLIDSEGS.as_mut_ptr();
-        while (*start).last < first - 1 {
-            start = start.add(1);
+    with_bsp_state(|state| {
+        let solidsegs = &state.solidsegs[..];
+
+        let mut start_idx = 0;
+        while solidsegs[start_idx].last < first - 1 {
+            start_idx += 1;
         }
 
-        if first < (*start).first {
-            if last < (*start).first - 1 {
+        if first < solidsegs[start_idx].first {
+            if last < solidsegs[start_idx].first - 1 {
                 r_segs::r_store_wall_range(first, last);
                 return;
             }
-            r_segs::r_store_wall_range(first, (*start).first - 1);
+            r_segs::r_store_wall_range(first, solidsegs[start_idx].first - 1);
         }
 
-        if last <= (*start).last {
+        if last <= solidsegs[start_idx].last {
             return;
         }
 
-        while last >= (*(start.add(1))).first - 1 {
-            r_segs::r_store_wall_range((*start).last + 1, (*(start.add(1))).first - 1);
-            start = start.add(1);
+        let mut idx = start_idx;
+        while last >= solidsegs[idx + 1].first - 1 {
+            r_segs::r_store_wall_range(
+                solidsegs[idx].last + 1,
+                solidsegs[idx + 1].first - 1,
+            );
+            idx += 1;
 
-            if last <= (*start).last {
+            if last <= solidsegs[idx].last {
                 return;
             }
         }
 
-        r_segs::r_store_wall_range((*start).last + 1, last);
-    }
+        r_segs::r_store_wall_range(solidsegs[idx].last + 1, last);
+    });
 }
 
 // =============================================================================
@@ -139,13 +177,13 @@ fn r_clip_pass_wall_segment(first: i32, last: i32) {
 // =============================================================================
 
 pub fn r_clear_clip_segs() {
-    unsafe {
-        SOLIDSEGS[0].first = -0x7fff_ffff;
-        SOLIDSEGS[0].last = -1;
-        SOLIDSEGS[1].first = state::with_state(|s| s.viewwidth);
-        SOLIDSEGS[1].last = 0x7fff_ffff;
-        NEWEND = SOLIDSEGS.as_mut_ptr().add(2);
-    }
+    with_bsp_state(|state| {
+        state.solidsegs[0].first = -0x7fff_ffff;
+        state.solidsegs[0].last = -1;
+        state.solidsegs[1].first = state::with_state(|s| s.viewwidth);
+        state.solidsegs[1].last = 0x7fff_ffff;
+        state.newend = 2;
+    });
 }
 
 // =============================================================================
@@ -337,18 +375,18 @@ fn r_check_bbox(bspcoord: &[Fixed; 4]) -> bool {
     }
     sx2 -= 1;
 
-    unsafe {
-        let mut start = SOLIDSEGS.as_ptr();
-        while (*start).last < sx2 {
-            start = start.add(1);
+    with_bsp_state(|state| {
+        let solidsegs = &state.solidsegs[..];
+        let mut start_idx = 0;
+        while solidsegs[start_idx].last < sx2 {
+            start_idx += 1;
         }
 
-        if sx1 >= (*start).first && sx2 <= (*start).last {
+        if sx1 >= solidsegs[start_idx].first && sx2 <= solidsegs[start_idx].last {
             return false;
         }
-    }
-
-    true
+        true
+    })
 }
 
 // =============================================================================
@@ -389,7 +427,7 @@ fn r_subsector(num: usize) {
         };
         state::with_state_mut(|s| s.floorplane = floorplane);
 
-        let skyflatnum = r_sky::SKYFLATNUM;
+        let skyflatnum = r_sky::with_r_sky_state(|rs| rs.skyflatnum);
         let ceilingplane = if (*frontsector).ceilingheight > viewz
             || (*frontsector).ceilingpic as i32 == skyflatnum
         {
@@ -440,7 +478,7 @@ pub fn r_render_bsp_node(bspnum: i32) {
         let side = r_point_on_side(
             state::with_state(|s| s.viewx),
             state::with_state(|s| s.viewy),
-            bsp,
+            &*bsp,
         );
 
         r_render_bsp_node((*bsp).children[side as usize] as i32);

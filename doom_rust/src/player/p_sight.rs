@@ -10,7 +10,7 @@
 use crate::m_fixed::{fixed_div, Fixed};
 use crate::rendering::defs::{ML_TWOSIDED, Subsector};
 use crate::rendering::state;
-use crate::rendering::{NF_SUBSECTOR, VALIDCOUNT};
+use crate::rendering::{r_main, NF_SUBSECTOR};
 
 use super::p_maputl::{p_divline_side, p_intercept_vector};
 use super::p_mobj::Mobj;
@@ -78,7 +78,7 @@ pub fn p_check_sight(t1: *const Mobj, t2: *const Mobj) -> bool {
     };
 
     unsafe {
-        VALIDCOUNT += 1;
+        r_main::with_r_main_state_mut(|rm| rm.validcount += 1);
     }
 
     let numnodes = state::with_state(|s| s.numnodes);
@@ -103,7 +103,7 @@ struct SightTrace {
 /// Original: P_CrossSubsector
 fn p_cross_subsector(st: &mut SightTrace, num: usize) -> bool {
     let (subsectors, segs) = state::with_state(|s| (s.subsectors, s.segs));
-    let validcount = unsafe { VALIDCOUNT };
+    let validcount = r_main::with_r_main_state(|rm| rm.validcount);
 
     if subsectors.is_null() || segs.is_null() {
         return true;

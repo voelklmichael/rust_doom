@@ -9,6 +9,7 @@
 
 use super::d_ticcmd::Ticcmd;
 use std::ptr;
+use std::sync::{Mutex, OnceLock};
 
 /// Callback: run one game tic with given ticcmds.
 pub type RunTicFn = fn(*const Ticcmd, *const bool);
@@ -31,23 +32,47 @@ pub struct LoopInterface {
     pub run_menu: RunMenuFn,
 }
 
-/// When true, run one tic per TryRunTics call. Original: singletics
-pub static mut SINGLETICS: bool = true;
+// =============================================================================
+// DLoopState - thread-safe via OnceLock + Mutex
+// =============================================================================
 
-/// Game tic counter. Original: gametic
-pub static mut GAMETIC: i32 = 0;
+static D_LOOP_STATE: OnceLock<Mutex<DLoopState>> = OnceLock::new();
 
-/// Tic duplication for net sync. Original: ticdup
-pub static mut TICDUP: i32 = 1;
+/// Safety: Raw pointer in DLoopState is only used while holding the Mutex lock.
+unsafe impl Send for DLoopState {}
 
-static mut LOOP_INTERFACE: *const LoopInterface = ptr::null();
+pub struct DLoopState {
+    pub loop_interface: *const LoopInterface,
+    /// When true, run one tic per TryRunTics call. Original: singletics
+    pub singletics: bool,
+    /// Game tic counter. Original: gametic
+    pub gametic: i32,
+    /// Tic duplication for net sync. Original: ticdup
+    pub ticdup: i32,
+}
+
+fn get_d_loop_state() -> &'static Mutex<DLoopState> {
+    D_LOOP_STATE.get_or_init(|| Mutex::new(DLoopState {
+        loop_interface: ptr::null(),
+        singletics: true,
+        gametic: 0,
+        ticdup: 1,
+    }))
+}
+
+/// Access DLoopState.
+pub fn with_d_loop_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut DLoopState) -> R,
+{
+    let mut guard = get_d_loop_state().lock().unwrap();
+    f(&mut guard)
+}
 
 /// Register callback functions for the main loop.
 /// Original: D_RegisterLoopCallbacks
 pub fn d_register_loop_callbacks(i: *const LoopInterface) {
-    unsafe {
-        LOOP_INTERFACE = i;
-    }
+    with_d_loop_state(|st| st.loop_interface = i);
 }
 
 /// Create any new ticcmds and broadcast to other players.
@@ -64,22 +89,22 @@ pub fn d_quit_net_game() {
 /// Run pending tics. Single-player: runs one tic if singletics.
 /// Original: TryRunTics
 pub fn try_run_tics() {
-    unsafe {
-        let iface = LOOP_INTERFACE;
-        if iface.is_null() {
-            return;
-        }
-        let iface = &*iface;
-        (iface.process_events)();
-        if SINGLETICS {
+    let iface = with_d_loop_state(|st| st.loop_interface);
+    if iface.is_null() {
+        return;
+    }
+    let iface = unsafe { &*iface };
+    (iface.process_events)();
+    with_d_loop_state(|st| {
+        if st.singletics {
             let mut cmd = Ticcmd::default();
-            (iface.build_ticcmd)(&mut cmd, GAMETIC);
+            (iface.build_ticcmd)(&mut cmd, st.gametic);
             let ingame = true;
             (iface.run_tic)(&cmd, &ingame);
-            GAMETIC += 1;
+            st.gametic += 1;
         }
         // TODO: multi-tic logic when !singletics
-    }
+    });
 }
 
 /// Called at start of game loop to initialize timers.

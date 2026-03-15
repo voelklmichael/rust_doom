@@ -7,7 +7,7 @@
 //
 // Original: i_video.h + i_video.c
 
-use crate::rendering::VIEWIMAGE;
+use crate::rendering::v_video;
 
 /// Screen dimensions for aspect-ratio modes.
 pub const SCREENWIDTH_4_3: i32 = 256;
@@ -120,10 +120,10 @@ pub fn i_enable_loading_disk() {
     // Stub
 }
 
-/// Get video buffer. Points to VIEWIMAGE.
+/// Get video buffer. Points to viewimage in VVideoState.
 /// Original: I_VideoBuffer
 pub fn i_video_buffer() -> *mut u8 {
-    unsafe { VIEWIMAGE }
+    v_video::with_v_video_state(|vv| vv.viewimage)
 }
 
 /// Copy screen buffer to destination. Original: I_ReadScreen

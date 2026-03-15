@@ -10,7 +10,7 @@
 use std::io::{Read, Write};
 
 use crate::doomdef::MAXPLAYERS;
-use crate::doomstat::{GAMEEPISODE, GAMEMAP, GAMESKILL, PLAYERINGAME};
+use crate::doomstat::with_doomstat_state;
 use crate::game::d_mode::Skill;
 
 /// Maximum size of a savegame description string.
@@ -26,14 +26,14 @@ fn g_vanilla_version_code() -> i32 {
 
 /// Temporary filename while saving. Original: P_TempSaveGameFile
 pub fn p_temp_save_game_file() -> std::path::PathBuf {
-    let dir = unsafe { crate::doomstat::SAVEGAMEDIR.as_deref().unwrap_or(".") };
-    std::path::Path::new(dir).join("temp.dsg")
+    let dir = with_doomstat_state(|st| st.savegamedir.as_deref().unwrap_or(".").to_string());
+    std::path::Path::new(&dir).join("temp.dsg")
 }
 
 /// Filename for save slot. Original: P_SaveGameFile
 pub fn p_save_game_file(slot: i32) -> std::path::PathBuf {
-    let dir = unsafe { crate::doomstat::SAVEGAMEDIR.as_deref().unwrap_or(".") };
-    std::path::Path::new(dir).join(format!("{}{}.dsg", crate::game::dstrings::SAVEGAMENAME, slot))
+    let dir = with_doomstat_state(|st| st.savegamedir.as_deref().unwrap_or(".").to_string());
+    std::path::Path::new(&dir).join(format!("{}{}.dsg", crate::game::dstrings::SAVEGAMENAME, slot))
 }
 
 // --- Low-level I/O ---
@@ -87,8 +87,8 @@ pub fn p_read_save_game_header<R: Read>(r: &mut R) -> std::io::Result<bool> {
     let gameepisode = saveg_read8(r)? as i32;
     let gamemap = saveg_read8(r)? as i32;
 
-    unsafe {
-        GAMESKILL = match gameskill {
+    with_doomstat_state(|st| {
+        st.gameskill = match gameskill {
             0 => Skill::Baby,
             1 => Skill::Easy,
             2 => Skill::Medium,
@@ -96,18 +96,19 @@ pub fn p_read_save_game_header<R: Read>(r: &mut R) -> std::io::Result<bool> {
             4 => Skill::Nightmare,
             _ => Skill::Medium,
         };
-        GAMEEPISODE = gameepisode;
-        GAMEMAP = gamemap;
-    }
+        st.gameepisode = gameepisode;
+        st.gamemap = gamemap;
+    });
 
     for i in 0..MAXPLAYERS {
-        unsafe { PLAYERINGAME[i] = saveg_read8(r)? != 0 };
+        let v = saveg_read8(r)? != 0;
+        with_doomstat_state(|st| st.playeringame[i] = v);
     }
 
     let a = saveg_read8(r)? as i32;
     let b = saveg_read8(r)? as i32;
     let c = saveg_read8(r)? as i32;
-    unsafe { crate::doomstat::LEVELTIME = (a << 16) | (b << 8) | c };
+    with_doomstat_state(|st| st.leveltime = (a << 16) | (b << 8) | c);
 
     Ok(true)
 }
@@ -126,16 +127,22 @@ pub fn p_write_save_game_header<W: Write>(w: &mut W, description: &[u8]) -> std:
         saveg_write8(w, vbytes.get(i).copied().unwrap_or(0))?;
     }
 
-    let (gameskill, gameepisode, gamemap) = unsafe { (GAMESKILL as i32, GAMEEPISODE, GAMEMAP) };
+    let (gameskill, gameepisode, gamemap, playeringame, leveltime) = with_doomstat_state(|st| {
+        (
+            st.gameskill as i32,
+            st.gameepisode,
+            st.gamemap,
+            st.playeringame,
+            st.leveltime,
+        )
+    });
     saveg_write8(w, gameskill as u8)?;
     saveg_write8(w, gameepisode as u8)?;
     saveg_write8(w, gamemap as u8)?;
 
     for i in 0..MAXPLAYERS {
-        saveg_write8(w, if unsafe { PLAYERINGAME[i] } { 1 } else { 0 })?;
+        saveg_write8(w, if playeringame[i] { 1 } else { 0 })?;
     }
-
-    let leveltime = unsafe { crate::doomstat::LEVELTIME };
     saveg_write8(w, ((leveltime >> 16) & 0xff) as u8)?;
     saveg_write8(w, ((leveltime >> 8) & 0xff) as u8)?;
     saveg_write8(w, (leveltime & 0xff) as u8)?;
@@ -157,15 +164,16 @@ pub fn p_write_save_game_eof<W: Write>(w: &mut W) -> std::io::Result<()> {
 /// Archive players to save stream. Original: P_ArchivePlayers
 pub fn p_archive_players<W: Write>(w: &mut W) -> std::io::Result<()> {
     use crate::doomdef::{NUMAMMO, NUMCARDS, NUMWEAPONS};
-    use crate::doomstat::{Player, PlayerState, PLAYERS};
+    use crate::doomstat::{Player, PlayerState, with_doomstat_state};
     use crate::game::d_ticcmd::Ticcmd;
     use crate::info::states;
 
+    with_doomstat_state(|st| {
     for i in 0..MAXPLAYERS {
-        if !unsafe { PLAYERINGAME[i] } {
+        if !st.playeringame[i] {
             continue;
         }
-        let p = unsafe { &PLAYERS[i] };
+        let p = &st.players[i];
 
         // mo - stored as pointer (we use 0, will be set when unarc thinker)
         saveg_write32(w, 0)?;
@@ -243,20 +251,22 @@ pub fn p_archive_players<W: Write>(w: &mut W) -> std::io::Result<()> {
         saveg_write32(w, if p.didsecret { 1 } else { 0 })?;
     }
     Ok(())
+    })
 }
 
 /// Unarchive players from save stream. Original: P_UnArchivePlayers
 pub fn p_unarchive_players<R: Read>(r: &mut R) -> std::io::Result<()> {
     use crate::doomdef::{NUMAMMO, NUMCARDS, NUMWEAPONS};
-    use crate::doomstat::{Player, PlayerState, PLAYERS};
+    use crate::doomstat::{Player, PlayerState, with_doomstat_state};
     use crate::game::d_ticcmd::Ticcmd;
     use crate::info::states;
 
+    with_doomstat_state(|st| {
     for i in 0..MAXPLAYERS {
-        if !unsafe { PLAYERINGAME[i] } {
+        if !st.playeringame[i] {
             continue;
         }
-        let p = unsafe { &mut PLAYERS[i] };
+        let p = &mut st.players[i];
 
         let _mo = saveg_read32(r)?;
         p.playerstate = match saveg_read32(r)? {
@@ -436,112 +446,117 @@ pub fn p_archive_thinkers<W: Write>(w: &mut W) -> std::io::Result<()> {
     use crate::game::d_think::Thinker;
     use crate::info::{states, MOBJINFO};
     use crate::player::p_mobj::p_mobj_thinker;
-    use crate::player::p_tick::THINKERCAP;
+    use crate::player::p_tick::with_ptick_state;
 
-    let mut th = unsafe { THINKERCAP.next };
-    let cap = unsafe { &THINKERCAP as *const Thinker as *mut Thinker };
+    with_ptick_state(|s| {
+        let cap = &s.thinkercap as *const Thinker as *mut Thinker;
+        let mut th = s.thinkercap.next;
 
-    while !th.is_null() && th != cap {
-        let next = unsafe { (*th).next };
-        if unsafe { (*th).function.acp1 } == p_mobj_thinker {
-            let mo = th as *mut crate::player::p_mobj::Mobj;
-            saveg_write8(w, TC_MOBJ)?;
+        while !th.is_null() && th != cap {
+            let next = unsafe { (*th).next };
+            if unsafe { (*th).function.acp1 } == p_mobj_thinker {
+                let mo = th as *mut crate::player::p_mobj::Mobj;
+                saveg_write8(w, TC_MOBJ)?;
 
-            // thinker (prev, next - we skip, just write 0)
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
+                // thinker (prev, next - we skip, just write 0)
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
 
-            let m = unsafe { &*mo };
-            saveg_write32(w, m.x)?;
-            saveg_write32(w, m.y)?;
-            saveg_write32(w, m.z)?;
-            saveg_write32(w, 0)?; // snext
-            saveg_write32(w, 0)?; // sprev
-            saveg_write32(w, m.angle as i32)?;
-            saveg_write32(w, m.sprite)?;
-            saveg_write32(w, m.frame)?;
-            saveg_write32(w, 0)?; // bnext
-            saveg_write32(w, 0)?; // bprev
-            saveg_write32(w, 0)?; // subsector
-            saveg_write32(w, m.floorz)?;
-            saveg_write32(w, m.ceilingz)?;
-            saveg_write32(w, m.radius)?;
-            saveg_write32(w, m.height)?;
-            saveg_write32(w, m.momx)?;
-            saveg_write32(w, m.momy)?;
-            saveg_write32(w, m.momz)?;
-            saveg_write32(w, m.validcount)?;
-            saveg_write32(w, m.type_ as i32)?;
-            saveg_write32(w, 0)?; // info
-            saveg_write32(w, m.tics)?;
-            let state_idx = if m.state.is_null() {
-                0
-            } else {
-                let st = states();
-                let base = st.as_ptr() as usize;
-                let ptr = m.state as usize;
-                ((ptr - base) / std::mem::size_of::<crate::info::types::State>()) as i32
-            };
-            saveg_write32(w, state_idx)?;
-            saveg_write32(w, m.flags)?;
-            saveg_write32(w, m.health)?;
-            saveg_write32(w, m.movedir)?;
-            saveg_write32(w, m.movecount)?;
-            saveg_write32(w, 0)?; // target
-            saveg_write32(w, m.reactiontime)?;
-            saveg_write32(w, m.threshold)?;
-            // player index (1-based)
-            let pl_idx = if m.player.is_null() {
-                0
-            } else {
-                unsafe {
-                    let players = crate::doomstat::PLAYERS.as_ptr();
-                    let p = m.player as *const crate::doomstat::Player;
-                    (p as usize - players as usize) / std::mem::size_of::<crate::doomstat::Player>()
-                        + 1
-                }
-            };
-            saveg_write32(w, pl_idx as i32)?;
-            saveg_write32(w, m.lastlook)?;
-            saveg_write16(w, m.spawnpoint.x)?;
-            saveg_write16(w, m.spawnpoint.y)?;
-            saveg_write16(w, m.spawnpoint.angle)?;
-            saveg_write16(w, m.spawnpoint.type_)?;
-            saveg_write16(w, m.spawnpoint.options)?;
-            saveg_write32(w, 0)?; // tracer
+                let m = unsafe { &*mo };
+                saveg_write32(w, m.x)?;
+                saveg_write32(w, m.y)?;
+                saveg_write32(w, m.z)?;
+                saveg_write32(w, 0)?; // snext
+                saveg_write32(w, 0)?; // sprev
+                saveg_write32(w, m.angle as i32)?;
+                saveg_write32(w, m.sprite)?;
+                saveg_write32(w, m.frame)?;
+                saveg_write32(w, 0)?; // bnext
+                saveg_write32(w, 0)?; // bprev
+                saveg_write32(w, 0)?; // subsector
+                saveg_write32(w, m.floorz)?;
+                saveg_write32(w, m.ceilingz)?;
+                saveg_write32(w, m.radius)?;
+                saveg_write32(w, m.height)?;
+                saveg_write32(w, m.momx)?;
+                saveg_write32(w, m.momy)?;
+                saveg_write32(w, m.momz)?;
+                saveg_write32(w, m.validcount)?;
+                saveg_write32(w, m.type_ as i32)?;
+                saveg_write32(w, 0)?; // info
+                saveg_write32(w, m.tics)?;
+                let state_idx = if m.state.is_null() {
+                    0
+                } else {
+                    let st = states();
+                    let base = st.as_ptr() as usize;
+                    let ptr = m.state as usize;
+                    ((ptr - base) / std::mem::size_of::<crate::info::types::State>()) as i32
+                };
+                saveg_write32(w, state_idx)?;
+                saveg_write32(w, m.flags)?;
+                saveg_write32(w, m.health)?;
+                saveg_write32(w, m.movedir)?;
+                saveg_write32(w, m.movecount)?;
+                saveg_write32(w, 0)?; // target
+                saveg_write32(w, m.reactiontime)?;
+                saveg_write32(w, m.threshold)?;
+                // player index (1-based)
+                let pl_idx = if m.player.is_null() {
+                    0
+                } else {
+                    unsafe {
+                        let players = crate::doomstat::PLAYERS.as_ptr();
+                        let p = m.player as *const crate::doomstat::Player;
+                        (p as usize - players as usize) / std::mem::size_of::<crate::doomstat::Player>()
+                            + 1
+                    }
+                };
+                saveg_write32(w, pl_idx as i32)?;
+                saveg_write32(w, m.lastlook)?;
+                saveg_write16(w, m.spawnpoint.x)?;
+                saveg_write16(w, m.spawnpoint.y)?;
+                saveg_write16(w, m.spawnpoint.angle)?;
+                saveg_write16(w, m.spawnpoint.type_)?;
+                saveg_write16(w, m.spawnpoint.options)?;
+                saveg_write32(w, 0)?; // tracer
+            }
+            th = next;
         }
-        th = next;
-    }
+        Ok(())
+    })?;
     saveg_write8(w, TC_END)?;
     Ok(())
 }
 
 /// Unarchive thinkers. Original: P_UnArchiveThinkers
 pub fn p_unarchive_thinkers<R: Read>(r: &mut R) -> std::io::Result<()> {
-    use crate::doomstat::PLAYERS;
+    use crate::doomstat::with_doomstat_state;
     use crate::game::d_think::Thinker;
     use crate::info::{states, MOBJINFO, NUMMOBJTYPES};
     use crate::player::p_mobj::{p_mobj_thinker, Mobj};
     use crate::player::p_maputl::p_set_thing_position;
-    use crate::player::p_tick::{p_add_thinker, p_init_thinkers, THINKERCAP};
+    use crate::player::p_tick::{p_add_thinker, p_init_thinkers, with_ptick_state};
     use crate::z_zone::{z_free, z_malloc, PU_LEVEL};
 
     // Remove all current thinkers (unlink and free immediately)
-    let mut current = unsafe { THINKERCAP.next };
-    let cap = unsafe { &mut THINKERCAP as *mut Thinker };
+    with_ptick_state(|s| {
+        let cap = &mut s.thinkercap as *mut Thinker;
+        let mut current = s.thinkercap.next;
 
-    while !current.is_null() && current != cap {
-        let next = unsafe { (*current).next };
-        unsafe {
-            (*(*current).prev).next = (*current).next;
-            (*(*current).next).prev = (*current).prev;
+        while !current.is_null() && current != cap {
+            let next = unsafe { (*current).next };
+            unsafe {
+                (*(*current).prev).next = (*current).next;
+                (*(*current).next).prev = (*current).prev;
+            }
+            if unsafe { (*current).function.acp1 } == p_mobj_thinker {
+                super::p_maputl::p_unset_thing_position(current as *mut Mobj);
+            }
+            z_free(current as *mut u8);
+            current = next;
         }
-        if unsafe { (*current).function.acp1 } == p_mobj_thinker {
-            super::p_maputl::p_unset_thing_position(current as *mut Mobj);
-        }
-        z_free(current as *mut u8);
-        current = next;
-    }
+    });
     p_init_thinkers();
 
     // Read saved thinkers
@@ -599,9 +614,11 @@ pub fn p_unarchive_thinkers<R: Read>(r: &mut R) -> std::io::Result<()> {
                 (*ptr).threshold = saveg_read32(r)?;
                 let pl = saveg_read32(r)?;
                 if pl > 0 && (pl as usize) <= MAXPLAYERS {
-                    let p = PLAYERS.as_mut_ptr().add(pl as usize - 1);
-                    (*ptr).player = p as *mut std::ffi::c_void;
-                    (*p).mo = ptr as *mut std::ffi::c_void;
+                    with_doomstat_state(|st| {
+                        let p = &mut st.players[pl as usize - 1];
+                        (*ptr).player = p as *mut crate::doomstat::Player as *mut std::ffi::c_void;
+                        p.mo = ptr as *mut std::ffi::c_void;
+                    });
                 } else {
                     (*ptr).player = std::ptr::null_mut();
                 }
@@ -684,112 +701,114 @@ pub fn p_archive_specials<W: Write>(w: &mut W) -> std::io::Result<()> {
     use crate::player::p_floor::{t_move_floor, FloorMover};
     use crate::player::p_lights::{t_light_flash, t_strobe_flash, t_glow, Glow, LightFlash, Strobe};
     use crate::player::p_plats::{t_plat_raise, Plat};
-    use crate::player::p_tick::THINKERCAP;
+    use crate::player::p_tick::with_ptick_state;
     use crate::game::d_think::Thinker;
 
-    let mut th = unsafe { THINKERCAP.next };
-    let cap = unsafe { &THINKERCAP as *const Thinker as *mut Thinker };
+    with_ptick_state(|s| {
+        let cap = &s.thinkercap as *const Thinker as *mut Thinker;
+        let mut th = s.thinkercap.next;
 
-    while !th.is_null() && th != cap {
-        let next = unsafe { (*th).next };
-        let acp1 = unsafe { (*th).function.acp1 };
+        while !th.is_null() && th != cap {
+            let next = unsafe { (*th).next };
+            let acp1 = unsafe { (*th).function.acp1 };
 
-        if acp1 == t_move_ceiling {
-            let c = th as *mut CeilingMover;
-            let m = unsafe { &*c };
-            saveg_write8(w, TC_CEILING)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, m.ceilingtype)?;
-            saveg_write32(w, sector_index(m.sector))?;
-            saveg_write32(w, m.bottomheight)?;
-            saveg_write32(w, m.topheight)?;
-            saveg_write32(w, m.speed)?;
-            saveg_write32(w, if m.crush { 1 } else { 0 })?;
-            saveg_write32(w, m.direction)?;
-            saveg_write32(w, m.tag)?;
-            saveg_write32(w, m.olddirection)?;
-        } else if acp1 == t_vertical_door {
-            let d = th as *mut Vldoor;
-            let m = unsafe { &*d };
-            saveg_write8(w, TC_DOOR)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, m.doortype)?;
-            saveg_write32(w, sector_index(m.sector))?;
-            saveg_write32(w, m.topheight)?;
-            saveg_write32(w, m.speed)?;
-            saveg_write32(w, m.direction)?;
-            saveg_write32(w, m.topwait)?;
-            saveg_write32(w, m.topcountdown)?;
-        } else if acp1 == t_move_floor {
-            let f = th as *mut FloorMover;
-            let m = unsafe { &*f };
-            saveg_write8(w, TC_FLOOR)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, m.floortype)?;
-            saveg_write32(w, if m.crush { 1 } else { 0 })?;
-            saveg_write32(w, sector_index(m.sector))?;
-            saveg_write32(w, m.direction)?;
-            saveg_write32(w, m.newspecial)?;
-            saveg_write16(w, m.texture)?;
-            saveg_write32(w, m.floordestheight)?;
-            saveg_write32(w, m.speed)?;
-        } else if acp1 == t_plat_raise {
-            let p = th as *mut Plat;
-            let m = unsafe { &*p };
-            saveg_write8(w, TC_PLAT)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, sector_index(m.sector))?;
-            saveg_write32(w, m.speed)?;
-            saveg_write32(w, m.low)?;
-            saveg_write32(w, m.high)?;
-            saveg_write32(w, m.wait)?;
-            saveg_write32(w, m.count)?;
-            saveg_write32(w, m.status)?;
-            saveg_write32(w, m.oldstatus)?;
-            saveg_write32(w, if m.crush { 1 } else { 0 })?;
-            saveg_write32(w, m.tag)?;
-            saveg_write32(w, m.plattype)?;
-        } else if acp1 == t_light_flash {
-            let f = th as *mut LightFlash;
-            let m = unsafe { &*f };
-            saveg_write8(w, TC_FLASH)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, sector_index(m.sector))?;
-            saveg_write32(w, m.count)?;
-            saveg_write32(w, m.maxlight)?;
-            saveg_write32(w, m.minlight)?;
-            saveg_write32(w, m.maxtime)?;
-            saveg_write32(w, m.mintime)?;
-        } else if acp1 == t_strobe_flash {
-            let s = th as *mut Strobe;
-            let m = unsafe { &*s };
-            saveg_write8(w, TC_STROBE)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, sector_index(m.sector))?;
-            saveg_write32(w, m.count)?;
-            saveg_write32(w, m.minlight)?;
-            saveg_write32(w, m.maxlight)?;
-            saveg_write32(w, m.darktime)?;
-            saveg_write32(w, m.brighttime)?;
-        } else if acp1 == t_glow {
-            let g = th as *mut Glow;
-            let m = unsafe { &*g };
-            saveg_write8(w, TC_GLOW)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, 0)?;
-            saveg_write32(w, sector_index(m.sector))?;
-            saveg_write32(w, m.minlight)?;
-            saveg_write32(w, m.maxlight)?;
-            saveg_write32(w, m.direction)?;
+            if acp1 == t_move_ceiling {
+                let c = th as *mut CeilingMover;
+                let m = unsafe { &*c };
+                saveg_write8(w, TC_CEILING)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, m.ceilingtype)?;
+                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.bottomheight)?;
+                saveg_write32(w, m.topheight)?;
+                saveg_write32(w, m.speed)?;
+                saveg_write32(w, if m.crush { 1 } else { 0 })?;
+                saveg_write32(w, m.direction)?;
+                saveg_write32(w, m.tag)?;
+                saveg_write32(w, m.olddirection)?;
+            } else if acp1 == t_vertical_door {
+                let d = th as *mut Vldoor;
+                let m = unsafe { &*d };
+                saveg_write8(w, TC_DOOR)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, m.doortype)?;
+                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.topheight)?;
+                saveg_write32(w, m.speed)?;
+                saveg_write32(w, m.direction)?;
+                saveg_write32(w, m.topwait)?;
+                saveg_write32(w, m.topcountdown)?;
+            } else if acp1 == t_move_floor {
+                let f = th as *mut FloorMover;
+                let m = unsafe { &*f };
+                saveg_write8(w, TC_FLOOR)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, m.floortype)?;
+                saveg_write32(w, if m.crush { 1 } else { 0 })?;
+                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.direction)?;
+                saveg_write32(w, m.newspecial)?;
+                saveg_write16(w, m.texture)?;
+                saveg_write32(w, m.floordestheight)?;
+                saveg_write32(w, m.speed)?;
+            } else if acp1 == t_plat_raise {
+                let p = th as *mut Plat;
+                let m = unsafe { &*p };
+                saveg_write8(w, TC_PLAT)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.speed)?;
+                saveg_write32(w, m.low)?;
+                saveg_write32(w, m.high)?;
+                saveg_write32(w, m.wait)?;
+                saveg_write32(w, m.count)?;
+                saveg_write32(w, m.status)?;
+                saveg_write32(w, m.oldstatus)?;
+                saveg_write32(w, if m.crush { 1 } else { 0 })?;
+                saveg_write32(w, m.tag)?;
+                saveg_write32(w, m.plattype)?;
+            } else if acp1 == t_light_flash {
+                let f = th as *mut LightFlash;
+                let m = unsafe { &*f };
+                saveg_write8(w, TC_FLASH)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.count)?;
+                saveg_write32(w, m.maxlight)?;
+                saveg_write32(w, m.minlight)?;
+                saveg_write32(w, m.maxtime)?;
+                saveg_write32(w, m.mintime)?;
+            } else if acp1 == t_strobe_flash {
+                let strobe = th as *mut Strobe;
+                let m = unsafe { &*strobe };
+                saveg_write8(w, TC_STROBE)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.count)?;
+                saveg_write32(w, m.minlight)?;
+                saveg_write32(w, m.maxlight)?;
+                saveg_write32(w, m.darktime)?;
+                saveg_write32(w, m.brighttime)?;
+            } else if acp1 == t_glow {
+                let g = th as *mut Glow;
+                let m = unsafe { &*g };
+                saveg_write8(w, TC_GLOW)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, 0)?;
+                saveg_write32(w, sector_index(m.sector))?;
+                saveg_write32(w, m.minlight)?;
+                saveg_write32(w, m.maxlight)?;
+                saveg_write32(w, m.direction)?;
+            }
+            th = next;
         }
-        th = next;
-    }
+    });
     saveg_write8(w, TC_ENDSPECIALS)?;
     Ok(())
 }

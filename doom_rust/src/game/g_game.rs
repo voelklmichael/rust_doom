@@ -8,47 +8,67 @@
 // Original: g_game.h + g_game.c
 
 use super::d_event::{buttoncode, Event, EvType};
-use super::d_main::{GAMEACTION, SAVEGAMEDESCRIPTION, SAVEGAMESLOT};
-use super::d_loop::GAMETIC;
+use std::sync::{Mutex, OnceLock};
+use super::d_main::with_d_main_state;
+use super::d_loop::with_d_loop_state;
 use super::d_ticcmd::Ticcmd;
 use super::f_finale;
 use crate::deh::misc::DEH_DEFAULT_INITIAL_HEALTH;
 use crate::doomdef::{Gameaction, Gamestate, MAXPLAYERS, TICRATE};
-use crate::doomstat::{
-    CONSOLEPLAYER, DISPLAYPLAYER, GAMEEPISODE, GAMEMAP, GAMEMODE, GAMESKILL, GAMESTATE,
-    LEVELSTARTTIC, LEVELTIME, PLAYERINGAME, PLAYERS, Player, PlayerState, RESPAWNMONSTERS,
-    SECRETEXIT, TOTALITEMS, TOTALKILLS, TOTALSECRET, USERGAME, VIEWACTIVE, WMINFO,
-};
+use crate::doomstat::{with_doomstat_state, Player, PlayerState};
 use crate::game::d_mode::{GameMode, Skill};
 use crate::player::{p_saveg, p_setup, p_tick};
 use crate::rendering::r_data::r_texture_num_for_name;
-use crate::rendering::{v_screen_shot, SKYFLATNAME, SKYFLATNUM, SKYTEXTURE};
+use crate::rendering::{r_sky, v_screen_shot, SKYFLATNAME};
 use crate::ui_hud::controls;
 use crate::wad::w_check_num_for_name;
 
-/// Gamestate from previous tick. Used to detect Intermission→Level transition for WI_End.
-static mut OLDGAMESTATE: Gamestate = Gamestate::Level;
+// =============================================================================
+// GGameState - thread-safe via OnceLock + Mutex
+// =============================================================================
 
-/// Deferred new-game parameters. Set by G_DeferedInitNew, read by G_DoNewGame.
-/// Original: d_skill, d_episode, d_map in g_game.c
-static mut D_SKILL: Skill = Skill::Medium;
-static mut D_EPISODE: i32 = 1;
-static mut D_MAP: i32 = 1;
-
-/// Key state for G_BuildTiccmd. Set by G_Responder from ev_keydown/ev_keyup.
 const NUMKEYS: usize = 256;
-static mut GAMEKEYDOWN: [bool; NUMKEYS] = [false; NUMKEYS];
 
-/// Mouse movement (accumulated, consumed by G_BuildTiccmd). Set by G_Responder from ev_mouse.
-static mut MOUSEX: i32 = 0;
-static mut MOUSEY: i32 = 0;
+static G_GAME_STATE: OnceLock<Mutex<GGameState>> = OnceLock::new();
 
-/// For accelerative turning. Original: turnheld
-static mut TURNHELD: i32 = 0;
+pub struct GGameState {
+    pub oldgamestate: Gamestate,
+    pub d_skill: Skill,
+    pub d_episode: i32,
+    pub d_map: i32,
+    pub gamekeydown: [bool; NUMKEYS],
+    pub mousex: i32,
+    pub mousey: i32,
+    pub turnheld: i32,
+    pub sendpause: bool,
+    pub sendsave: bool,
+}
 
-/// Pause/save requested by menu. Original: sendpause, sendsave
-static mut SENDPAUSE: bool = false;
-static mut SENDSAVE: bool = false;
+fn get_g_game_state() -> &'static Mutex<GGameState> {
+    G_GAME_STATE.get_or_init(|| {
+        Mutex::new(GGameState {
+            oldgamestate: Gamestate::Level,
+            d_skill: Skill::Medium,
+            d_episode: 1,
+            d_map: 1,
+            gamekeydown: [false; NUMKEYS],
+            mousex: 0,
+            mousey: 0,
+            turnheld: 0,
+            sendpause: false,
+            sendsave: false,
+        })
+    })
+}
+
+/// Access GGameState.
+pub fn with_g_game_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut GGameState) -> R,
+{
+    let mut guard = get_g_game_state().lock().unwrap();
+    f(&mut guard)
+}
 
 /// Movement lookup tables. Original: forwardmove, sidemove, angleturn
 const FORWARDMOVE: [i32; 2] = [0x19, 0x32]; // normal, speed
@@ -117,10 +137,12 @@ pub fn g_ticker() {
     }
 
     // Have we just finished displaying an intermission screen?
-    if unsafe { OLDGAMESTATE == Gamestate::Intermission && GAMESTATE != Gamestate::Intermission } {
-        crate::ui_hud::wi_end();
-    }
-    unsafe { OLDGAMESTATE = GAMESTATE };
+    with_g_game_state(|st| {
+        if st.oldgamestate == Gamestate::Intermission && GAMESTATE != Gamestate::Intermission {
+            crate::ui_hud::wi_end();
+        }
+        st.oldgamestate = GAMESTATE;
+    });
 
     match unsafe { GAMESTATE } {
         Gamestate::Level => {
@@ -145,48 +167,58 @@ fn g_do_reborn(player: usize) {
 /// Original: G_DoLoadLevel
 fn g_do_load_level() {
     unsafe {
-        SKYFLATNUM = crate::rendering::r_data::r_flat_num_for_name(SKYFLATNAME);
-        // Vanilla: sky texture set in G_InitNew; G_DoLoadLevel only sets skyflatnum
-        LEVELSTARTTIC = GAMETIC;
-        GAMESTATE = Gamestate::Level;
-        crate::doomstat::WIPEGAMESTATE = Gamestate::Level;
-        // Clear input state (C: memset gamekeydown, mousex, mousey, etc.)
-        GAMEKEYDOWN = [false; NUMKEYS];
-        MOUSEX = 0;
-        MOUSEY = 0;
-        SENDPAUSE = false;
-        SENDSAVE = false;
-        crate::doomstat::PAUSED = false;
+        r_sky::with_r_sky_state_mut(|rs| {
+            rs.skyflatnum = crate::rendering::r_data::r_flat_num_for_name(SKYFLATNAME);
+        });
     }
+    let gametic = with_d_loop_state(|st| st.gametic);
+    with_doomstat_state(|st| {
+        st.levelstarttic = gametic;
+        st.gamestate = Gamestate::Level;
+        st.wipegamestate = Gamestate::Level;
+        st.paused = false;
+    });
+    with_g_game_state(|st| {
+        st.gamekeydown = [false; NUMKEYS];
+        st.mousex = 0;
+        st.mousey = 0;
+        st.sendpause = false;
+        st.sendsave = false;
+    });
     for i in 0..MAXPLAYERS {
-        if unsafe { PLAYERINGAME[i] } && unsafe { PLAYERS[i].playerstate == PlayerState::Dead } {
-            unsafe { PLAYERS[i].playerstate = PlayerState::Reborn };
+        if with_doomstat_state(|st| st.playeringame[i] && st.players[i].playerstate == PlayerState::Dead) {
+            with_doomstat_state(|st| {
+                st.players[i].playerstate = PlayerState::Reborn;
+                st.players[i].frags = [0; MAXPLAYERS];
+            });
+        } else if with_doomstat_state(|st| st.playeringame[i]) {
+            with_doomstat_state(|st| st.players[i].frags = [0; MAXPLAYERS]);
         }
-        unsafe { PLAYERS[i].frags = [0; MAXPLAYERS] };
     }
-    let map_name = p_setup::p_map_name_from_episode_map(
-        unsafe { GAMEEPISODE },
-        unsafe { GAMEMAP },
-    );
+    let (gameepisode, gamemap, gamemode) =
+        with_doomstat_state(|st| (st.gameepisode, st.gamemap, st.gamemode));
+    let map_name = p_setup::p_map_name_from_episode_map(gameepisode, gamemap, gamemode);
     if let Err(e) = p_setup::p_load_level(&map_name) {
         crate::i_system::i_error(&format!("p_load_level failed: {}", e));
     }
-    unsafe {
-        DISPLAYPLAYER = crate::doomstat::CONSOLEPLAYER;
-        GAMEACTION = Gameaction::Nothing;
-    }
+    with_doomstat_state(|st| st.displayplayer = st.consoleplayer);
+    with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
 }
 
 /// Start new game. Resets playeringame, calls G_InitNew. Original: G_DoNewGame
 fn g_do_new_game() {
-    unsafe {
-        PLAYERINGAME[1] = false;
-        PLAYERINGAME[2] = false;
-        PLAYERINGAME[3] = false;
-        crate::doomstat::CONSOLEPLAYER = 0;
-        g_init_new(D_SKILL, D_EPISODE, D_MAP);
-        GAMEACTION = Gameaction::Nothing;
-    }
+    with_doomstat_state(|st| {
+        st.playeringame[1] = false;
+        st.playeringame[2] = false;
+        st.playeringame[3] = false;
+        st.consoleplayer = 0;
+    });
+    g_init_new(
+        with_g_game_state(|st| st.d_skill),
+        with_g_game_state(|st| st.d_episode),
+        with_g_game_state(|st| st.d_map),
+    );
+    with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
 }
 
 /// Initialize new game. Validates episode/map, sets globals, resets players, sets sky, loads level.
@@ -196,7 +228,7 @@ fn g_init_new(skill: Skill, episode: i32, map: i32) {
     if skill > Skill::Nightmare {
         skill = Skill::Nightmare;
     }
-    let (gameversion, gamemode) = unsafe { (crate::doomstat::GAMEVERSION, GAMEMODE) };
+    let (gameversion, gamemode) = with_doomstat_state(|st| (st.gameversion, st.gamemode));
     if gameversion >= crate::game::d_mode::GameVersion::ExeUltimate {
         if episode == 0 {
             episode = 4;
@@ -218,20 +250,20 @@ fn g_init_new(skill: Skill, episode: i32, map: i32) {
     if map > 9 && gamemode != GameMode::Commercial {
         map = 9;
     }
-    unsafe {
-        RESPAWNMONSTERS = skill == Skill::Nightmare;
+    with_doomstat_state(|st| {
+        st.respawnmonsters = skill == Skill::Nightmare;
         for i in 0..MAXPLAYERS {
-            PLAYERS[i].playerstate = PlayerState::Reborn;
+            st.players[i].playerstate = PlayerState::Reborn;
         }
-        USERGAME = true;
-        crate::doomstat::PAUSED = false;
-        crate::doomstat::DEMOPLAYBACK = false;
-        crate::doomstat::AUTOMAPACTIVE = false;
-        VIEWACTIVE = true;
-        GAMEEPISODE = episode;
-        GAMEMAP = map;
-        GAMESKILL = skill;
-    }
+        st.usergame = true;
+        st.paused = false;
+        st.demoplayback = false;
+        st.automapactive = false;
+        st.viewactive = true;
+        st.gameepisode = episode;
+        st.gamemap = map;
+        st.gameskill = skill;
+    });
     // Set sky texture (C: skytexturename by episode/map)
     let skytex = if gamemode == GameMode::Commercial {
         if map < 12 {
@@ -249,30 +281,32 @@ fn g_init_new(skill: Skill, episode: i32, map: i32) {
             _ => "SKY1",
         }
     };
-    unsafe {
-        SKYTEXTURE = r_texture_num_for_name(crate::deh::deh_string(skytex));
-    }
+    r_sky::with_r_sky_state_mut(|rs| {
+        rs.skytexture = r_texture_num_for_name(crate::deh::deh_string(skytex));
+    });
     g_do_load_level();
 }
 
 /// Load game from savefile. Original: G_DoLoadGame
 fn g_do_load_game() {
-    let slot = unsafe { SAVEGAMESLOT };
+    let slot = with_d_main_state(|st| st.savegameslot);
     let path = p_saveg::p_save_game_file(slot);
     let mut file = match std::fs::File::open(&path) {
         Ok(f) => f,
         Err(_) => {
-            unsafe { GAMEACTION = Gameaction::Nothing };
+            with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
             return;
         }
     };
     if !p_saveg::p_read_save_game_header(&mut file).unwrap_or(false) {
-        unsafe { GAMEACTION = Gameaction::Nothing };
+        with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
         return;
     }
-    let saved_leveltime = unsafe { crate::doomstat::LEVELTIME };
-    g_init_new(unsafe { GAMESKILL }, unsafe { GAMEEPISODE }, unsafe { GAMEMAP });
-    unsafe { crate::doomstat::LEVELTIME = saved_leveltime };
+    let saved_leveltime = with_doomstat_state(|st| st.leveltime);
+    let (gameskill, gameepisode, gamemap) =
+        with_doomstat_state(|st| (st.gameskill, st.gameepisode, st.gamemap));
+    g_init_new(gameskill, gameepisode, gamemap);
+    with_doomstat_state(|st| st.leveltime = saved_leveltime);
     let _ = p_saveg::p_unarchive_players(&mut file);
     let _ = p_saveg::p_unarchive_world(&mut file);
     let _ = p_saveg::p_unarchive_thinkers(&mut file);
@@ -285,7 +319,7 @@ fn g_do_load_game() {
 
 /// Save game to file. Original: G_DoSaveGame
 fn g_do_save_game() {
-    let slot = unsafe { SAVEGAMESLOT };
+    let (slot, desc) = with_d_main_state(|st| (st.savegameslot, st.savegamedescription));
     let temp_path = p_saveg::p_temp_save_game_file();
     let save_path = p_saveg::p_save_game_file(slot);
     let mut file = match std::fs::File::create(&temp_path) {
@@ -295,8 +329,7 @@ fn g_do_save_game() {
             unreachable!()
         }
     };
-    let desc = unsafe { &SAVEGAMEDESCRIPTION };
-    if let Err(e) = p_saveg::p_write_save_game_header(&mut file, desc) {
+    if let Err(e) = p_saveg::p_write_save_game_header(&mut file, &desc) {
         crate::i_system::i_error(&format!("Failed to write savegame header: {}", e));
     }
     let _ = p_saveg::p_archive_players(&mut file);
@@ -311,12 +344,12 @@ fn g_do_save_game() {
     if std::fs::rename(&temp_path, &save_path).is_err() {
         crate::i_system::i_error("Failed to rename savegame file");
     }
-    unsafe {
-        GAMEACTION = Gameaction::Nothing;
+    with_d_main_state(|st| {
+        st.gameaction = Gameaction::Nothing;
         for i in 0..24 {
-            SAVEGAMEDESCRIPTION[i] = 0;
+            st.savegamedescription[i] = 0;
         }
-    }
+    });
 }
 
 /// Reset player for respawn. Original: G_PlayerReborn
@@ -324,15 +357,14 @@ pub fn g_player_reborn(player: usize) {
     if player >= crate::doomdef::MAXPLAYERS {
         return;
     }
-    unsafe {
-        let p = &mut PLAYERS[player];
+    with_doomstat_state(|st| {
         let mut pl = Player::default();
         pl.mo = std::ptr::null_mut();
         pl.playerstate = PlayerState::Live;
         pl.viewheight = crate::player::VIEWHEIGHT;
         pl.health = DEH_DEFAULT_INITIAL_HEALTH;
-        *p = pl;
-    }
+        st.players[player] = pl;
+    });
 }
 
 /// Handle input event. Sets gamekeydown/mouse from input, dispatches to F/AM/ST responder.
@@ -341,24 +373,29 @@ pub fn g_responder(ev: &Event) -> bool {
     // Update input state from events (C: switch ev->type)
     match ev.ev_type {
         EvType::KeyDown => {
-            if ev.data1 == unsafe { controls::KEY_PAUSE } {
-                unsafe { SENDPAUSE = true };
-            } else if ev.data1 >= 0 && (ev.data1 as usize) < NUMKEYS {
-                unsafe { GAMEKEYDOWN[ev.data1 as usize] = true };
-            }
+            with_g_game_state(|st| {
+                if ev.data1 == controls::key_pause() {
+                    st.sendpause = true;
+                } else if ev.data1 >= 0 && (ev.data1 as usize) < NUMKEYS {
+                    st.gamekeydown[ev.data1 as usize] = true;
+                }
+            });
             return true;
         }
         EvType::KeyUp => {
-            if ev.data1 >= 0 && (ev.data1 as usize) < NUMKEYS {
-                unsafe { GAMEKEYDOWN[ev.data1 as usize] = false };
-            }
+            with_g_game_state(|st| {
+                if ev.data1 >= 0 && (ev.data1 as usize) < NUMKEYS {
+                    st.gamekeydown[ev.data1 as usize] = false;
+                }
+            });
             return false;
         }
         EvType::Mouse => {
-            unsafe {
-                MOUSEX += ev.data2 * (crate::doomstat::MOUSESENSITIVITY + 5) / 10;
-                MOUSEY += ev.data3 * (crate::doomstat::MOUSESENSITIVITY + 5) / 10;
-            }
+            let sens = with_doomstat_state(|st| st.mousesensitivity);
+            with_g_game_state(|st| {
+                st.mousex += ev.data2 * (sens + 5) / 10;
+                st.mousey += ev.data3 * (sens + 5) / 10;
+            });
             return true;
         }
         EvType::Joystick => {
@@ -368,7 +405,7 @@ pub fn g_responder(ev: &Event) -> bool {
         EvType::Quit => {}
     }
 
-    if unsafe { crate::doomstat::GAMESTATE == Gamestate::Finale } {
+    if with_doomstat_state(|st| st.gamestate == Gamestate::Finale) {
         return f_finale::f_responder(ev);
     }
     crate::ui_hud::am_responder(ev) || crate::ui_hud::st_responder(ev) as bool
@@ -378,15 +415,22 @@ pub fn g_responder(ev: &Event) -> bool {
 pub fn g_build_ticcmd(cmd: &mut Ticcmd, maketic: i32) {
     *cmd = Ticcmd::default();
 
-    let (key_right, key_left, key_up, key_down, key_strafe, key_speed, key_strafeleft, key_straferight, key_fire, key_use) = unsafe {
-        (controls::KEY_RIGHT, controls::KEY_LEFT, controls::KEY_UP, controls::KEY_DOWN,
-         controls::KEY_STRAFE, controls::KEY_SPEED, controls::KEY_STRAFELEFT, controls::KEY_STRAFERIGHT,
-         controls::KEY_FIRE, controls::KEY_USE)
-    };
+    let (key_right, key_left, key_up, key_down, key_strafe, key_speed, key_strafeleft, key_straferight, key_fire, key_use) = (
+        controls::key_right(),
+        controls::key_left(),
+        controls::key_up(),
+        controls::key_down(),
+        controls::key_strafe(),
+        controls::key_speed(),
+        controls::key_strafeleft(),
+        controls::key_straferight(),
+        controls::key_fire(),
+        controls::key_use(),
+    );
 
     let gamekeydown = |k: i32| -> bool {
         if k >= 0 && (k as usize) < NUMKEYS {
-            unsafe { GAMEKEYDOWN[k as usize] }
+            with_g_game_state(|st| st.gamekeydown[k as usize])
         } else {
             false
         }
@@ -400,11 +444,15 @@ pub fn g_build_ticcmd(cmd: &mut Ticcmd, maketic: i32) {
     let mut side: i32 = 0;
 
     // Accelerative turning
-    let turnheld = if gamekeydown(key_right) || gamekeydown(key_left) {
-        unsafe { TURNHELD += 1; TURNHELD }
-    } else {
-        unsafe { TURNHELD = 0; 0 }
-    };
+    let turnheld = with_g_game_state(|st| {
+        if gamekeydown(key_right) || gamekeydown(key_left) {
+            st.turnheld += 1;
+            st.turnheld
+        } else {
+            st.turnheld = 0;
+            0
+        }
+    });
     let tspeed = if turnheld < SLOWTURNTICS { 2 } else { speed_idx };
 
     if strafe {
@@ -425,14 +473,18 @@ pub fn g_build_ticcmd(cmd: &mut Ticcmd, maketic: i32) {
 
     cmd.chatchar = crate::ui_hud::hu_dequeue_chat_char();
 
-    let (mousex, mousey) = unsafe { (MOUSEX, MOUSEY) };
+    let (mousex, mousey) = with_g_game_state(|st| {
+        let (mx, my) = (st.mousex, st.mousey);
+        st.mousex = 0;
+        st.mousey = 0;
+        (mx, my)
+    });
     forward += mousey;
     if strafe {
         side += mousex * 2;
     } else {
         cmd.angleturn -= (mousex * 0x8) as i16;
     }
-    unsafe { MOUSEX = 0; MOUSEY = 0; }
 
     forward = forward.clamp(-MAXPLMOVE, MAXPLMOVE);
     side = side.clamp(-MAXPLMOVE, MAXPLMOVE);
@@ -440,75 +492,65 @@ pub fn g_build_ticcmd(cmd: &mut Ticcmd, maketic: i32) {
     cmd.forwardmove = forward as i8;
     cmd.sidemove = side as i8;
 
-    if unsafe { SENDPAUSE } {
-        unsafe { SENDPAUSE = false };
+    if with_g_game_state(|st| std::mem::replace(&mut st.sendpause, false)) {
         cmd.buttons = (buttoncode::BT_SPECIAL | buttoncode::BTS_PAUSE) as u8;
     }
-    if unsafe { SENDSAVE } {
-        unsafe {
-            SENDSAVE = false;
-            cmd.buttons = (buttoncode::BT_SPECIAL | buttoncode::BTS_SAVEGAME | (SAVEGAMESLOT << buttoncode::BTS_SAVESHIFT)) as u8;
-        }
+    if with_g_game_state(|st| std::mem::replace(&mut st.sendsave, false)) {
+        let slot = with_d_main_state(|st| st.savegameslot);
+        cmd.buttons = (buttoncode::BT_SPECIAL
+            | buttoncode::BTS_SAVEGAME
+            | (slot << buttoncode::BTS_SAVESHIFT)) as u8;
     }
 }
 
 /// Defer new game start. Used by idclev cheat and menu.
 /// Original: G_DeferedInitNew
 pub fn g_defered_init_new(skill: Skill, episode: i32, map: i32) {
-    unsafe {
-        D_SKILL = skill;
-        D_EPISODE = episode;
-        D_MAP = map;
-        GAMEACTION = Gameaction::NewGame;
-    }
+    with_g_game_state(|st| {
+        st.d_skill = skill;
+        st.d_episode = episode;
+        st.d_map = map;
+    });
+    with_d_main_state(|st| st.gameaction = Gameaction::NewGame);
 }
 
 /// Defer load game. Used by menu Load slot selection.
 /// Original: G_LoadGame (deferred via gameaction)
 pub fn g_defered_load_game(slot: i32) {
-    unsafe {
-        SAVEGAMESLOT = slot;
-        GAMEACTION = Gameaction::LoadGame;
-    }
+    with_d_main_state(|st| {
+        st.savegameslot = slot;
+        st.gameaction = Gameaction::LoadGame;
+    });
 }
 
 /// Defer save game. Used by menu Save slot selection.
 /// Original: G_SaveGame (sets sendsave, next tic G_BuildTiccmd adds button, RunTic sets gameaction)
 pub fn g_defered_save_game(slot: i32) {
-    unsafe {
-        SAVEGAMESLOT = slot;
-        SENDSAVE = true;
-    }
+    with_d_main_state(|st| st.savegameslot = slot);
+    with_g_game_state(|st| st.sendsave = true);
 }
 
 /// Defer level load. Used by G_WorldDone (intermission → next level).
 /// Caller must set GAMEMAP, GAMEEPISODE before. Original: gameaction = ga_loadlevel
 pub fn g_defered_load_level() {
-    unsafe {
-        GAMEACTION = Gameaction::LoadLevel;
-    }
+    with_d_main_state(|st| st.gameaction = Gameaction::LoadLevel);
 }
 
 /// Exit level (normal exit). Sets gameaction to Completed.
 /// Original: G_ExitLevel
 pub fn g_exit_level() {
-    unsafe {
-        SECRETEXIT = false;
-        GAMEACTION = Gameaction::Completed;
-    }
+    with_doomstat_state(|st| st.secretexit = false);
+    with_d_main_state(|st| st.gameaction = Gameaction::Completed);
 }
 
 /// Secret exit level. Sets gameaction to Completed, SECRETEXIT = true if map31 exists.
 /// Original: G_SecretExitLevel
 pub fn g_secret_exit_level() {
-    unsafe {
-        if GAMEMODE == GameMode::Commercial && w_check_num_for_name("map31") < 0 {
-            SECRETEXIT = false;
-        } else {
-            SECRETEXIT = true;
-        }
-        GAMEACTION = Gameaction::Completed;
-    }
+    with_doomstat_state(|st| {
+        st.secretexit =
+            st.gamemode != GameMode::Commercial || w_check_num_for_name("map31") >= 0;
+    });
+    with_d_main_state(|st| st.gameaction = Gameaction::Completed);
 }
 
 /// Initialize player at game start. Original: G_InitPlayer
@@ -522,118 +564,131 @@ pub fn g_player_finish_level(player: usize) {
     if player >= MAXPLAYERS {
         return;
     }
-    unsafe {
-        let p = &mut PLAYERS[player];
+    with_doomstat_state(|st| {
+        let p = &mut st.players[player];
         p.powers = [0; crate::doomdef::NUMPOWERS];
         p.cards = [false; crate::doomdef::NUMCARDS];
         if !p.mo.is_null() {
             let mo = p.mo as *mut crate::player::p_mobj::Mobj;
-            (*mo).flags &= !crate::player::p_mobj::MF_SHADOW;
+            unsafe { (*mo).flags &= !crate::player::p_mobj::MF_SHADOW };
         }
         p.extralight = 0;
         p.fixedcolormap = 0;
         p.damagecount = 0;
         p.bonuscount = 0;
-    }
+    });
 }
 
 /// Level completed. Fill wminfo, start intermission. Original: G_DoCompleted
 fn g_do_completed() {
-    unsafe {
-        GAMEACTION = Gameaction::Nothing;
+    with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
 
-        for i in 0..MAXPLAYERS {
-            if PLAYERINGAME[i] {
-                g_player_finish_level(i);
-            }
+    for i in 0..MAXPLAYERS {
+        if with_doomstat_state(|st| st.playeringame[i]) {
+            g_player_finish_level(i);
         }
+    }
 
-        if crate::doomstat::AUTOMAPACTIVE {
-            crate::ui_hud::am_stop();
-        }
+    if with_doomstat_state(|st| st.automapactive) {
+        crate::ui_hud::am_stop();
+    }
+
+    let (victory, wminfo) = with_doomstat_state(|st| {
+        let gameversion = st.gameversion;
+        let gamemode = st.gamemode;
+        let gamemap = st.gamemap;
+        let gameepisode = st.gameepisode;
+        let secretexit = st.secretexit;
+        let consoleplayer = st.consoleplayer;
 
         // Chex Quest ends after 5 levels
-        let gameversion = crate::doomstat::GAMEVERSION;
-        if GAMEMODE != GameMode::Commercial {
-            if gameversion == crate::game::d_mode::GameVersion::ExeChex && GAMEMAP == 5 {
-                GAMEACTION = Gameaction::Victory;
-                return;
+        if gamemode != GameMode::Commercial {
+            if gameversion == crate::game::d_mode::GameVersion::ExeChex && gamemap == 5 {
+                return (true, None);
             }
-            if GAMEMAP == 8 {
-                GAMEACTION = Gameaction::Victory;
-                return;
+            if gamemap == 8 {
+                return (true, None);
             }
-            if GAMEMAP == 9 {
+            if gamemap == 9 {
                 for i in 0..MAXPLAYERS {
-                    PLAYERS[i].didsecret = true;
+                    st.players[i].didsecret = true;
                 }
             }
         }
 
-        let wminfo = &mut WMINFO;
-        wminfo.didsecret = PLAYERS[CONSOLEPLAYER as usize].didsecret;
-        wminfo.epsd = GAMEEPISODE - 1;
-        wminfo.last = GAMEMAP - 1;
+        let mut wminfo = st.wminfo.clone();
+        wminfo.didsecret = st.players[consoleplayer as usize].didsecret;
+        wminfo.epsd = gameepisode - 1;
+        wminfo.last = gamemap - 1;
 
-        if GAMEMODE == GameMode::Commercial {
-            if SECRETEXIT {
-                wminfo.next = match GAMEMAP {
+        if gamemode == GameMode::Commercial {
+            if secretexit {
+                wminfo.next = match gamemap {
                     15 => 30,
                     31 => 31,
-                    _ => GAMEMAP - 1,
+                    _ => gamemap - 1,
                 };
             } else {
-                wminfo.next = match GAMEMAP {
+                wminfo.next = match gamemap {
                     31 | 32 => 15,
-                    _ => GAMEMAP - 1,
+                    _ => gamemap - 1,
                 };
             }
         } else {
-            if SECRETEXIT {
+            if secretexit {
                 wminfo.next = 8;
-            } else if GAMEMAP == 9 {
-                wminfo.next = match GAMEEPISODE {
+            } else if gamemap == 9 {
+                wminfo.next = match gameepisode {
                     1 => 3,
                     2 => 5,
                     3 => 6,
                     4 => 2,
-                    _ => GAMEMAP - 1,
+                    _ => gamemap - 1,
                 };
             } else {
-                wminfo.next = GAMEMAP - 1;
+                wminfo.next = gamemap - 1;
             }
         }
 
-        wminfo.maxkills = TOTALKILLS;
-        wminfo.maxitems = TOTALITEMS;
-        wminfo.maxsecret = TOTALSECRET;
+        wminfo.maxkills = st.totalkills;
+        wminfo.maxitems = st.totalitems;
+        wminfo.maxsecret = st.totalsecret;
         wminfo.maxfrags = 0;
 
-        if GAMEMODE == GameMode::Commercial {
-            wminfo.partime = TICRATE * CPARS[(GAMEMAP - 1) as usize];
-        } else if GAMEEPISODE < 4 {
-            wminfo.partime = TICRATE * PARS[GAMEEPISODE as usize][GAMEMAP as usize];
+        if gamemode == GameMode::Commercial {
+            wminfo.partime = TICRATE * CPARS[(gamemap - 1) as usize];
+        } else if gameepisode < 4 {
+            wminfo.partime = TICRATE * PARS[gameepisode as usize][gamemap as usize];
         } else {
-            wminfo.partime = TICRATE * CPARS[(GAMEMAP - 1) as usize];
+            wminfo.partime = TICRATE * CPARS[(gamemap - 1) as usize];
         }
 
-        wminfo.pnum = CONSOLEPLAYER;
+        wminfo.pnum = consoleplayer;
 
         for i in 0..MAXPLAYERS {
-            wminfo.plyr[i].in_game = if PLAYERINGAME[i] { 1 } else { 0 };
-            wminfo.plyr[i].kills = PLAYERS[i].killcount;
-            wminfo.plyr[i].items = PLAYERS[i].itemcount;
-            wminfo.plyr[i].secret = PLAYERS[i].secretcount;
-            wminfo.plyr[i].time = LEVELTIME;
-            wminfo.plyr[i].frags = PLAYERS[i].frags;
+            wminfo.plyr[i].in_game = if st.playeringame[i] { 1 } else { 0 };
+            wminfo.plyr[i].kills = st.players[i].killcount;
+            wminfo.plyr[i].items = st.players[i].itemcount;
+            wminfo.plyr[i].secret = st.players[i].secretcount;
+            wminfo.plyr[i].time = st.leveltime;
+            wminfo.plyr[i].frags = st.players[i].frags;
         }
 
-        GAMESTATE = Gamestate::Intermission;
-        VIEWACTIVE = false;
-        crate::doomstat::AUTOMAPACTIVE = false;
+        st.gamestate = Gamestate::Intermission;
+        st.viewactive = false;
+        st.automapactive = false;
 
-        crate::game::statdump::stat_copy(wminfo);
-        crate::ui_hud::wi_start(wminfo);
+        (false, Some(wminfo))
+    });
+
+    if victory {
+        with_d_main_state(|st| st.gameaction = Gameaction::Victory);
+        return;
+    }
+
+    if let Some(wminfo) = wminfo {
+        crate::game::statdump::stat_copy(&wminfo);
+        crate::ui_hud::wi_start(&wminfo);
     }
 }
 
@@ -654,18 +709,18 @@ const CPARS: [i32; 32] = [
 /// Called by WI when intermission ends. Sets gameaction to WorldDone (or Victory for finale maps).
 /// Original: G_WorldDone
 pub fn g_world_done() {
-    unsafe {
-        if SECRETEXIT {
-            PLAYERS[CONSOLEPLAYER as usize].didsecret = true;
+    with_doomstat_state(|st| {
+        if st.secretexit {
+            st.players[st.consoleplayer as usize].didsecret = true;
         }
-        if GAMEMODE == GameMode::Commercial {
-            match GAMEMAP {
+        if st.gamemode == GameMode::Commercial {
+            match st.gamemap {
                 6 | 11 | 20 | 30 => {
                     f_finale::f_start_finale();
                     return;
                 }
                 15 | 31 => {
-                    if SECRETEXIT {
+                    if st.secretexit {
                         f_finale::f_start_finale();
                         return;
                     }
@@ -673,41 +728,41 @@ pub fn g_world_done() {
                 _ => {}
             }
         }
-        GAMEACTION = Gameaction::WorldDone;
-    }
+    });
+    with_d_main_state(|st| st.gameaction = Gameaction::WorldDone);
 }
 
 /// Load next level after intermission. Original: G_DoWorldDone
 fn g_do_world_done() {
-    unsafe {
-        GAMESTATE = Gamestate::Level;
-        GAMEMAP = WMINFO.next + 1;
-        g_do_load_level();
-        GAMEACTION = Gameaction::Nothing;
-        VIEWACTIVE = true;
-    }
+    with_doomstat_state(|st| {
+        st.gamestate = Gamestate::Level;
+        st.gamemap = st.wminfo.next + 1;
+        st.viewactive = true;
+    });
+    g_do_load_level();
+    with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
 }
 
 /// Demo playback. Stub: clears gameaction. Original: G_DoPlayDemo
 fn g_do_play_demo() {
-    unsafe { GAMEACTION = Gameaction::Nothing };
+    with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
 }
 
 /// Request screenshot. Menu calls this; next tick G_Ticker processes it.
 /// Original: G_ScreenShot
 pub fn g_screen_shot() {
-    unsafe { GAMEACTION = Gameaction::Screenshot };
+    with_d_main_state(|st| st.gameaction = Gameaction::Screenshot);
 }
 
 /// Defer demo playback. Stub: clears gameaction. Original: G_DeferedPlayDemo
 pub fn g_defered_play_demo(_name: &str) {
-    unsafe { GAMEACTION = Gameaction::Nothing };
+    with_d_main_state(|st| st.gameaction = Gameaction::Nothing);
 }
 
 /// Vanilla version code for demo compatibility. Original: G_VanillaVersionCode
 pub fn g_vanilla_version_code() -> i32 {
     use crate::game::d_mode::GameVersion;
-    match unsafe { crate::doomstat::GAMEVERSION } {
+    match with_doomstat_state(|st| st.gameversion) {
         GameVersion::ExeDoom12 => {
             crate::i_system::i_error("Doom 1.2 does not have a version code!");
             0

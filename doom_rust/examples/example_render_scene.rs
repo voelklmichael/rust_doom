@@ -12,7 +12,7 @@
 use doom_rust::doomdef::{SCREENHEIGHT, SCREENWIDTH};
 use doom_rust::m_argv;
 use doom_rust::player::p_setup;
-use doom_rust::rendering::{r_init, r_render_player_view, view_player_from_console, VIEWIMAGE};
+use doom_rust::rendering::{r_init, r_render_player_view, view_player_from_console, with_v_video_state};
 use doom_rust::wad;
 use doom_rust::z_zone;
 use image::{ImageBuffer, RgbaImage};
@@ -56,8 +56,9 @@ fn main() {
     let palette = unsafe { std::slice::from_raw_parts(palette_data.as_ptr(), 768) }; // First 256 colors
 
     let mut rgba = Vec::with_capacity((SCREENWIDTH * SCREENHEIGHT * 4) as usize);
+    let viewimage = with_v_video_state(|vv| vv.viewimage);
     unsafe {
-        let screen = std::slice::from_raw_parts(VIEWIMAGE, (SCREENWIDTH * SCREENHEIGHT) as usize);
+        let screen = std::slice::from_raw_parts(viewimage, (SCREENWIDTH * SCREENHEIGHT) as usize);
         for &idx in screen {
             let i = (idx as usize) * 3;
             if i + 2 < palette.len() {

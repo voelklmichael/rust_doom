@@ -7,6 +7,8 @@
 //
 // Original: i_cdmus.h + i_cdmus.c
 
+use std::sync::{Mutex, OnceLock};
+
 /// CD error codes.
 pub const CDERR_NOTINSTALLED: i32 = 10;
 pub const CDERR_NOAUDIOSUPPORT: i32 = 11;
@@ -16,15 +18,33 @@ pub const CDERR_BADTRACK: i32 = 21;
 pub const CDERR_IOCTLBUFFMEM: i32 = 22;
 pub const CDERR_DEVREQBASE: i32 = 100;
 
-/// Last CD error.
-pub static mut CD_ERROR: i32 = 0;
+// =============================================================================
+// ICdmusState - thread-safe via OnceLock + Mutex
+// =============================================================================
+
+static I_CDMUS_STATE: OnceLock<Mutex<ICdmusState>> = OnceLock::new();
+
+pub struct ICdmusState {
+    pub cd_error: i32,
+}
+
+fn get_i_cdmus_state() -> &'static Mutex<ICdmusState> {
+    I_CDMUS_STATE.get_or_init(|| Mutex::new(ICdmusState { cd_error: 0 }))
+}
+
+/// Access ICdmusState.
+pub fn with_i_cdmus_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut ICdmusState) -> R,
+{
+    let mut guard = get_i_cdmus_state().lock().unwrap();
+    f(&mut guard)
+}
 
 /// Initialize CD music.
 /// Original: I_CDMusInit
 pub fn i_cdmus_init() -> i32 {
-    unsafe {
-        CD_ERROR = CDERR_NOTINSTALLED;
-    }
+    with_i_cdmus_state(|s| s.cd_error = CDERR_NOTINSTALLED);
     -1
 }
 

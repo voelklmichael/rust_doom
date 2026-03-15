@@ -9,40 +9,78 @@
 
 use crate::doomdef::{SCREENHEIGHT, SCREENWIDTH};
 use crate::rendering::v_patch::patch_t;
+use std::sync::{Mutex, OnceLock};
 
 // =============================================================================
-// Screen buffer (for r_draw colfunc/spanfunc)
+// VVideoState - thread-safe via OnceLock + Mutex
 // =============================================================================
 
 const SCREEN_SIZE: usize = (SCREENWIDTH * SCREENHEIGHT) as usize;
 
-/// Main screen buffer - 8-bit palette indices, row-major.
-static mut SCREENS: [u8; SCREEN_SIZE] = [0; SCREEN_SIZE];
+static V_VIDEO_STATE: OnceLock<Mutex<VVideoState>> = OnceLock::new();
 
-/// Current drawing target. Points into SCREENS.
-pub static mut VIEWIMAGE: *mut u8 = std::ptr::null_mut();
+/// Safety: Raw pointers in VVideoState point to leaked/zone-allocated data.
+unsafe impl Send for VVideoState {}
 
-/// Row offset table: ylookup[y] = VIEWIMAGE + y * SCREENWIDTH.
-pub static mut YLOOKUP: [*mut u8; 200] = [std::ptr::null_mut(); 200];
+pub struct VVideoState {
+    /// Main screen buffer - 8-bit palette indices, row-major. Leaked at init.
+    pub screens: &'static mut [u8; SCREEN_SIZE],
+    /// Saved VIEWIMAGE for V_RestoreBuffer (when drawing to alternate buffer).
+    pub saved_viewimage: *mut u8,
+    /// Current drawing target. Points into screens or alternate buffer.
+    pub viewimage: *mut u8,
+    /// Row offset table: ylookup[y] = viewimage + y * SCREENWIDTH.
+    pub ylookup: [*mut u8; 200],
+    /// Column offset table for subwindows (columnofs[x] = x for fullscreen).
+    pub columnofs: [i32; 320],
+    /// Dirty region box [minx, miny, maxx, maxy].
+    pub dirtybox: [i32; 4],
+    /// Tint table for translucency (Heretic/Hexen).
+    pub tinttable: *mut u8,
+}
 
-/// Saved VIEWIMAGE for V_RestoreBuffer (when drawing to alternate buffer).
-static mut SAVED_VIEWIMAGE: *mut u8 = std::ptr::null_mut();
+impl Default for VVideoState {
+    fn default() -> Self {
+        Self {
+            screens: Box::leak(Box::new([0u8; SCREEN_SIZE])),
+            saved_viewimage: std::ptr::null_mut(),
+            viewimage: std::ptr::null_mut(),
+            ylookup: [std::ptr::null_mut(); 200],
+            columnofs: [0; 320],
+            dirtybox: [0, 0, 0, 0],
+            tinttable: std::ptr::null_mut(),
+        }
+    }
+}
 
-/// Column offset table for subwindows (columnofs[x] = x for fullscreen).
-pub static mut COLUMNOFS: [i32; 320] = [0; 320];
+fn get_v_video_state() -> &'static Mutex<VVideoState> {
+    V_VIDEO_STATE.get_or_init(|| Mutex::new(VVideoState::default()))
+}
+
+/// Access VVideoState.
+pub fn with_v_video_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&VVideoState) -> R,
+{
+    let guard = get_v_video_state().lock().unwrap();
+    f(&guard)
+}
+
+/// Mutably access VVideoState.
+pub fn with_v_video_state_mut<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut VVideoState) -> R,
+{
+    let mut guard = get_v_video_state().lock().unwrap();
+    f(&mut guard)
+}
 
 // =============================================================================
 // Public API (from .h)
 // =============================================================================
 
-/// Center Y (SCREENHEIGHT/2).
+/// Center Y (SCREENHEIGHT/2). For view center use r_main::with_r_main_state(|s| s.centery).
 pub const CENTERY: i32 = SCREENHEIGHT / 2;
-
-/// Dirty region box [minx, miny, maxx, maxy].
-pub static mut DIRTYBOX: [i32; 4] = [0, 0, 0, 0];
-
-/// Tint table for translucency (Heretic/Hexen).
-pub static mut TINTTABLE: *mut u8 = std::ptr::null_mut();
 
 /// Patch clipping callback type (Strife).
 pub type VpatchClipFunc = fn(*const patch_t, i32, i32) -> bool;
@@ -52,15 +90,16 @@ pub fn v_set_patch_clip_callback(_func: Option<VpatchClipFunc>) {}
 
 /// Allocate buffer screens. Call before R_Init.
 pub fn v_init() {
-    unsafe {
-        VIEWIMAGE = SCREENS.as_mut_ptr();
+    with_v_video_state_mut(|s| {
+        s.viewimage = s.screens.as_mut_ptr();
         for y in 0..SCREENHEIGHT {
-            YLOOKUP[y as usize] = SCREENS.as_mut_ptr().add((y as usize) * SCREENWIDTH as usize);
+            s.ylookup[y as usize] =
+                unsafe { s.screens.as_mut_ptr().add((y as usize) * SCREENWIDTH as usize) };
         }
         for x in 0..SCREENWIDTH {
-            COLUMNOFS[x as usize] = x;
+            s.columnofs[x as usize] = x;
         }
-    }
+    });
 }
 
 /// Copy rect from source to dest.
@@ -74,65 +113,69 @@ pub fn v_copy_rect(
     destx: i32,
     desty: i32,
 ) {
-    unsafe {
-        if source.is_null() || VIEWIMAGE.is_null() {
-            return;
+    with_v_video_state(|s| {
+        unsafe {
+            if source.is_null() || s.viewimage.is_null() {
+                return;
+            }
+            let srcx = srcx.max(0).min(SCREENWIDTH - 1);
+            let srcy = srcy.max(0).min(SCREENHEIGHT - 1);
+            let destx = destx.max(0).min(SCREENWIDTH - 1);
+            let desty = desty.max(0).min(SCREENHEIGHT - 1);
+            let w = width.min(SCREENWIDTH - srcx).min(SCREENWIDTH - destx);
+            let h = height.min(SCREENHEIGHT - srcy).min(SCREENHEIGHT - desty);
+            if w <= 0 || h <= 0 {
+                return;
+            }
+            let mut src = source.add((srcy as usize) * SCREENWIDTH as usize + srcx as usize);
+            let mut dest = s.viewimage.add((desty as usize) * SCREENWIDTH as usize + destx as usize);
+            for _ in 0..h {
+                std::ptr::copy_nonoverlapping(src, dest, w as usize);
+                src = src.add(SCREENWIDTH as usize);
+                dest = dest.add(SCREENWIDTH as usize);
+            }
         }
-        let srcx = srcx.max(0).min(SCREENWIDTH - 1);
-        let srcy = srcy.max(0).min(SCREENHEIGHT - 1);
-        let destx = destx.max(0).min(SCREENWIDTH - 1);
-        let desty = desty.max(0).min(SCREENHEIGHT - 1);
-        let w = width.min(SCREENWIDTH - srcx).min(SCREENWIDTH - destx);
-        let h = height.min(SCREENHEIGHT - srcy).min(SCREENHEIGHT - desty);
-        if w <= 0 || h <= 0 {
-            return;
-        }
-        let mut src = source.add((srcy as usize) * SCREENWIDTH as usize + srcx as usize);
-        let mut dest = VIEWIMAGE.add((desty as usize) * SCREENWIDTH as usize + destx as usize);
-        for _ in 0..h {
-            std::ptr::copy_nonoverlapping(src, dest, w as usize);
-            src = src.add(SCREENWIDTH as usize);
-            dest = dest.add(SCREENWIDTH as usize);
-        }
-    }
+    });
 }
 
 /// Draw patch at (x, y). Patch is column-based masked format.
 pub fn v_draw_patch(x: i32, y: i32, patch: *const patch_t) {
-    unsafe {
-        if patch.is_null() || VIEWIMAGE.is_null() {
-            return;
-        }
-        let w = (*patch).width as i32;
-        let _h = (*patch).height as i32;
-        let left = (*patch).leftoffset as i32;
-        let top = (*patch).topoffset as i32;
-        let x = x - left;
-        let y = y - top;
-        if x + w > SCREENWIDTH || y + _h > SCREENHEIGHT || x < 0 || y < 0 {
-            return;
-        }
-        let patch_bytes = patch as *const u8;
-        for col in 0..w {
-            let ofs = i32::from_le_bytes(std::ptr::read_unaligned(patch_bytes.add(8 + col as usize * 4) as *const [u8; 4]));
-            let column = patch_bytes.add(ofs as usize);
-            let mut col_ptr = column;
-            let dest_col = VIEWIMAGE.add((y as usize) * SCREENWIDTH as usize + (x + col) as usize);
-            loop {
-                let topdelta = *col_ptr;
-                if topdelta == 0xff {
-                    break;
+    with_v_video_state(|s| {
+        unsafe {
+            if patch.is_null() || s.viewimage.is_null() {
+                return;
+            }
+            let w = (*patch).width as i32;
+            let _h = (*patch).height as i32;
+            let left = (*patch).leftoffset as i32;
+            let top = (*patch).topoffset as i32;
+            let x = x - left;
+            let y = y - top;
+            if x + w > SCREENWIDTH || y + _h > SCREENHEIGHT || x < 0 || y < 0 {
+                return;
+            }
+            let patch_bytes = patch as *const u8;
+            for col in 0..w {
+                let ofs = i32::from_le_bytes(std::ptr::read_unaligned(patch_bytes.add(8 + col as usize * 4) as *const [u8; 4]));
+                let column = patch_bytes.add(ofs as usize);
+                let mut col_ptr = column;
+                let dest_col = s.viewimage.add((y as usize) * SCREENWIDTH as usize + (x + col) as usize);
+                loop {
+                    let topdelta = *col_ptr;
+                    if topdelta == 0xff {
+                        break;
+                    }
+                    let length = *col_ptr.add(1) as usize;
+                    let source = col_ptr.add(3);
+                    let dest = dest_col.add(topdelta as usize * SCREENWIDTH as usize);
+                    for row in 0..length {
+                        *dest.add(row * SCREENWIDTH as usize) = *source.add(row);
+                    }
+                    col_ptr = col_ptr.add(4 + length);
                 }
-                let length = *col_ptr.add(1) as usize;
-                let source = col_ptr.add(3);
-                let dest = dest_col.add(topdelta as usize * SCREENWIDTH as usize);
-                for row in 0..length {
-                    *dest.add(row * SCREENWIDTH as usize) = *source.add(row);
-                }
-                col_ptr = col_ptr.add(4 + length);
             }
         }
-    }
+    });
 }
 
 /// Draw patch flipped. Stub: no-op.
@@ -157,28 +200,30 @@ pub fn v_draw_patch_direct(x: i32, y: i32, patch: *const patch_t) {
 
 /// Draw block of pixels.
 pub fn v_draw_block(x: i32, y: i32, width: i32, height: i32, src: *const u8) {
-    unsafe {
-        if VIEWIMAGE.is_null() || src.is_null() {
-            return;
-        }
-        let x = x.max(0).min(SCREENWIDTH - 1);
-        let y = y.max(0).min(SCREENHEIGHT - 1);
-        let w = width.min(SCREENWIDTH - x);
-        let h = height.min(SCREENHEIGHT - y);
-        if w <= 0 || h <= 0 {
-            return;
-        }
-        for row in 0..h {
-            let dest = YLOOKUP[(y + row) as usize];
-            if !dest.is_null() {
-                std::ptr::copy_nonoverlapping(
-                    src.add((row * width) as usize),
-                    dest.add(x as usize),
-                    w as usize,
-                );
+    with_v_video_state(|s| {
+        unsafe {
+            if s.viewimage.is_null() || src.is_null() {
+                return;
+            }
+            let x = x.max(0).min(SCREENWIDTH - 1);
+            let y = y.max(0).min(SCREENHEIGHT - 1);
+            let w = width.min(SCREENWIDTH - x);
+            let h = height.min(SCREENHEIGHT - y);
+            if w <= 0 || h <= 0 {
+                return;
+            }
+            for row in 0..h {
+                let dest = s.ylookup[(y + row) as usize];
+                if !dest.is_null() {
+                    std::ptr::copy_nonoverlapping(
+                        src.add((row * width) as usize),
+                        dest.add(x as usize),
+                        w as usize,
+                    );
+                }
             }
         }
-    }
+    });
 }
 
 /// Mark rect as dirty. Stub: no-op.
@@ -198,11 +243,13 @@ pub fn v_draw_box(_x: i32, _y: i32, _w: i32, _h: i32, _c: u8) {}
 
 /// Copy current screen buffer to dest. For wipe/finale. Original: I_ReadScreen
 pub fn v_read_screen(dest: *mut u8) {
-    unsafe {
-        if !VIEWIMAGE.is_null() && !dest.is_null() {
-            std::ptr::copy_nonoverlapping(VIEWIMAGE, dest, SCREEN_SIZE);
+    with_v_video_state(|s| {
+        unsafe {
+            if !s.viewimage.is_null() && !dest.is_null() {
+                std::ptr::copy_nonoverlapping(s.viewimage, dest, SCREEN_SIZE);
+            }
         }
-    }
+    });
 }
 
 /// Draw raw screen lump. Stub: no-op.
@@ -210,28 +257,30 @@ pub fn v_draw_raw_screen(_raw: *const u8) {}
 
 /// Switch to alternate buffer (e.g. status bar backing screen).
 pub fn v_use_buffer(buffer: *mut u8) {
-    unsafe {
-        SAVED_VIEWIMAGE = VIEWIMAGE;
-        VIEWIMAGE = buffer;
+    with_v_video_state_mut(|s| {
+        s.saved_viewimage = s.viewimage;
+        s.viewimage = buffer;
         if !buffer.is_null() {
             for y in 0..SCREENHEIGHT {
-                YLOOKUP[y as usize] = buffer.add((y as usize) * SCREENWIDTH as usize);
+                s.ylookup[y as usize] =
+                    unsafe { buffer.add((y as usize) * SCREENWIDTH as usize) };
             }
         }
-    }
+    });
 }
 
 /// Restore normal buffer after v_use_buffer.
 pub fn v_restore_buffer() {
-    unsafe {
-        if !SAVED_VIEWIMAGE.is_null() {
-            VIEWIMAGE = SAVED_VIEWIMAGE;
+    with_v_video_state_mut(|s| {
+        if !s.saved_viewimage.is_null() {
+            s.viewimage = s.saved_viewimage;
             for y in 0..SCREENHEIGHT {
-                YLOOKUP[y as usize] = SAVED_VIEWIMAGE.add((y as usize) * SCREENWIDTH as usize);
+                s.ylookup[y as usize] =
+                    unsafe { s.saved_viewimage.add((y as usize) * SCREENWIDTH as usize) };
             }
-            SAVED_VIEWIMAGE = std::ptr::null_mut();
+            s.saved_viewimage = std::ptr::null_mut();
         }
-    }
+    });
 }
 
 /// Save screenshot. Stub: no-op.

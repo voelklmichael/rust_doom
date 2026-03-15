@@ -8,8 +8,9 @@
 // Original: p_maputl.c
 
 use crate::m_fixed::{fixed_div, fixed_mul, Fixed, FRACBITS, FRACUNIT};
+use std::sync::{Mutex, OnceLock};
 use crate::rendering::defs::{Line, SlopeType, Subsector};
-use crate::rendering::{r_point_in_subsector, VALIDCOUNT};
+use crate::rendering::{r_point_in_subsector, r_main};
 use crate::rendering::state;
 use crate::rendering::{BOXBOTTOM, BOXLEFT, BOXRIGHT, BOXTOP};
 
@@ -244,35 +245,23 @@ pub fn p_box_on_line_side(tmbox: &[Fixed; 4], ld: *const Line) -> i32 {
     }
 }
 
-/// P_LineOpening globals - set by p_line_opening.
-pub static mut OPENTOP: Fixed = 0;
-pub static mut OPENBOTTOM: Fixed = 0;
-pub static mut OPENRANGE: Fixed = 0;
-pub static mut LOWFLOOR: Fixed = 0;
-
 /// Sets OPENTOP, OPENBOTTOM, OPENRANGE, LOWFLOOR for two-sided line.
 /// Original: P_LineOpening
 pub fn p_line_opening(linedef: *const Line) {
     if linedef.is_null() {
-        unsafe {
-            OPENRANGE = 0;
-        }
+        with_p_maputl_state(|st| st.openrange = 0);
         return;
     }
     let ld = unsafe { &*linedef };
     if ld.sidenum[1] == -1 {
-        unsafe {
-            OPENRANGE = 0;
-        }
+        with_p_maputl_state(|st| st.openrange = 0);
         return;
     }
 
     let front = ld.frontsector;
     let back = ld.backsector;
     if front.is_null() || back.is_null() {
-        unsafe {
-            OPENRANGE = 0;
-        }
+        with_p_maputl_state(|st| st.openrange = 0);
         return;
     }
 
@@ -291,12 +280,12 @@ pub fn p_line_opening(linedef: *const Line) {
         (back.floorheight, front.floorheight)
     };
 
-    unsafe {
-        OPENTOP = opentop;
-        OPENBOTTOM = openbottom;
-        OPENRANGE = opentop - openbottom;
-        LOWFLOOR = lowfloor;
-    }
+    with_p_maputl_state(|st| {
+        st.opentop = opentop;
+        st.openbottom = openbottom;
+        st.openrange = opentop - openbottom;
+        st.lowfloor = lowfloor;
+    });
 }
 
 /// Call func for each line in block (x,y). Increment validcount before first call.
@@ -314,7 +303,7 @@ where
     if blockmap.is_null() || blockmaplump.is_null() || lines.is_null() {
         return true;
     }
-    let validcount = unsafe { VALIDCOUNT };
+    let validcount = r_main::with_r_main_state(|rm| rm.validcount);
     let offset_idx = (y * bmapwidth + x) as usize;
     let offset = unsafe { *blockmap.add(offset_idx) } as usize;
     let mut list = unsafe { blockmaplump.add(offset) };
@@ -463,48 +452,84 @@ pub fn p_set_thing_position(thing: *mut Mobj) {
 }
 
 // =============================================================================
-// P_PathTraverse - intercept collection and traversal
+// PMaputlState - thread-safe via OnceLock + Mutex
 // =============================================================================
 
-static mut INTERCEPTS: [Intercept; super::MAXINTERCEPTS] = [Intercept {
-    frac: 0,
-    isaline: false,
-    line: std::ptr::null_mut(),
-    thing: std::ptr::null_mut(),
-}; super::MAXINTERCEPTS];
-static mut INTERCEPT_P: usize = 0;
-static mut TRACE: Divline = Divline {
-    x: 0,
-    y: 0,
-    dx: 0,
-    dy: 0,
-};
-static mut EARLYOUT: bool = false;
+static P_MAPUTL_STATE: OnceLock<Mutex<PMaputlState>> = OnceLock::new();
+
+/// Safety: Raw pointers in PMaputlState (Intercept) are only used while holding the Mutex lock.
+unsafe impl Send for PMaputlState {}
+
+pub struct PMaputlState {
+    pub intercepts: [Intercept; super::MAXINTERCEPTS],
+    pub intercept_p: usize,
+    pub trace: Divline,
+    pub earlyout: bool,
+    /// P_LineOpening globals - set by p_line_opening.
+    pub opentop: Fixed,
+    pub openbottom: Fixed,
+    pub openrange: Fixed,
+    pub lowfloor: Fixed,
+}
+
+fn default_intercepts() -> [Intercept; super::MAXINTERCEPTS] {
+    [Intercept {
+        frac: 0,
+        isaline: false,
+        line: std::ptr::null_mut(),
+        thing: std::ptr::null_mut(),
+    }; super::MAXINTERCEPTS]
+}
+
+fn get_p_maputl_state() -> &'static Mutex<PMaputlState> {
+    P_MAPUTL_STATE.get_or_init(|| {
+        Mutex::new(PMaputlState {
+            intercepts: default_intercepts(),
+            intercept_p: 0,
+            trace: Divline { x: 0, y: 0, dx: 0, dy: 0 },
+            earlyout: false,
+            opentop: 0,
+            openbottom: 0,
+            openrange: 0,
+            lowfloor: 0,
+        })
+    })
+}
+
+/// Access PMaputlState.
+pub fn with_p_maputl_state<F, R>(f: F) -> R
+where
+    F: FnOnce(&mut PMaputlState) -> R,
+{
+    let mut guard = get_p_maputl_state().lock().unwrap();
+    f(&mut guard)
+}
 
 /// Add line intercepts from block. Original: PIT_AddLineIntercepts
 fn pit_add_line_intercepts(ld: *mut Line) -> bool {
     if ld.is_null() {
         return true;
     }
-    let (s1, s2) = unsafe {
-        let (trace_dx, trace_dy) = (TRACE.dx, TRACE.dy);
+    with_p_maputl_state(|st| {
+    let (s1, s2) = {
+        let (trace_dx, trace_dy) = (st.trace.dx, st.trace.dy);
         if trace_dx > FRACUNIT * 16
             || trace_dy > FRACUNIT * 16
             || trace_dx < -FRACUNIT * 16
             || trace_dy < -FRACUNIT * 16
         {
-            let v1_x = (*(*ld).v1).x;
-            let v1_y = (*(*ld).v1).y;
-            let v2_x = (*(*ld).v2).x;
-            let v2_y = (*(*ld).v2).y;
+            let v1_x = unsafe { (*(*ld).v1).x };
+            let v1_y = unsafe { (*(*ld).v1).y };
+            let v2_x = unsafe { (*(*ld).v2).x };
+            let v2_y = unsafe { (*(*ld).v2).y };
             (
-                p_point_on_divline_side(v1_x, v1_y, &TRACE),
-                p_point_on_divline_side(v2_x, v2_y, &TRACE),
+                p_point_on_divline_side(v1_x, v1_y, &st.trace),
+                p_point_on_divline_side(v2_x, v2_y, &st.trace),
             )
         } else {
             (
-                p_point_on_line_side(TRACE.x, TRACE.y, ld),
-                p_point_on_line_side(TRACE.x + TRACE.dx, TRACE.y + TRACE.dy, ld),
+                p_point_on_line_side(st.trace.x, st.trace.y, ld),
+                p_point_on_line_side(st.trace.x + st.trace.dx, st.trace.y + st.trace.dy, ld),
             )
         }
     };
@@ -513,25 +538,24 @@ fn pit_add_line_intercepts(ld: *mut Line) -> bool {
     }
     let mut dl = Divline { x: 0, y: 0, dx: 0, dy: 0 };
     p_make_divline(ld, &mut dl);
-    let frac = unsafe { p_intercept_vector(&TRACE, &dl) };
+    let frac = p_intercept_vector(&st.trace, &dl);
     if frac < 0 {
         return true;
     }
-    if unsafe { EARLYOUT } && frac < FRACUNIT && unsafe { (*ld).backsector.is_null() } {
+    if st.earlyout && frac < FRACUNIT && unsafe { (*ld).backsector.is_null() } {
         return false;
     }
-    let p = unsafe { INTERCEPT_P };
+    let p = st.intercept_p;
     if p >= super::MAXINTERCEPTS {
         return true;
     }
-    unsafe {
-        INTERCEPTS[p].frac = frac;
-        INTERCEPTS[p].isaline = true;
-        INTERCEPTS[p].line = ld;
-        INTERCEPTS[p].thing = std::ptr::null_mut();
-        INTERCEPT_P += 1;
-    }
+    st.intercepts[p].frac = frac;
+    st.intercepts[p].isaline = true;
+    st.intercepts[p].line = ld;
+    st.intercepts[p].thing = std::ptr::null_mut();
+    st.intercept_p += 1;
     true
+    })
 }
 
 /// Add thing intercepts from block. Original: PIT_AddThingIntercepts
@@ -539,19 +563,18 @@ fn pit_add_thing_intercepts(thing: *mut Mobj) -> bool {
     if thing.is_null() {
         return true;
     }
+    with_p_maputl_state(|st| {
     let (x, y, radius) = unsafe { ((*thing).x, (*thing).y, (*thing).radius) };
-    let tracepositive = (unsafe { TRACE.dx } ^ unsafe { TRACE.dy }) > 0;
+    let tracepositive = (st.trace.dx ^ st.trace.dy) > 0;
     let (x1, y1, x2, y2) = if tracepositive {
         (x - radius, y + radius, x + radius, y - radius)
     } else {
         (x - radius, y - radius, x + radius, y + radius)
     };
-    let (s1, s2) = unsafe {
-        (
-            p_point_on_divline_side(x1, y1, &TRACE),
-            p_point_on_divline_side(x2, y2, &TRACE),
-        )
-    };
+    let (s1, s2) = (
+        p_point_on_divline_side(x1, y1, &st.trace),
+        p_point_on_divline_side(x2, y2, &st.trace),
+    );
     if s1 == s2 {
         return true;
     }
@@ -561,22 +584,21 @@ fn pit_add_thing_intercepts(thing: *mut Mobj) -> bool {
         dx: x2 - x1,
         dy: y2 - y1,
     };
-    let frac = unsafe { p_intercept_vector(&TRACE, &dl) };
+    let frac = p_intercept_vector(&st.trace, &dl);
     if frac < 0 {
         return true;
     }
-    let p = unsafe { INTERCEPT_P };
+    let p = st.intercept_p;
     if p >= super::MAXINTERCEPTS {
         return true;
     }
-    unsafe {
-        INTERCEPTS[p].frac = frac;
-        INTERCEPTS[p].isaline = false;
-        INTERCEPTS[p].line = std::ptr::null_mut();
-        INTERCEPTS[p].thing = thing;
-        INTERCEPT_P += 1;
-    }
+    st.intercepts[p].frac = frac;
+    st.intercepts[p].isaline = false;
+    st.intercepts[p].line = std::ptr::null_mut();
+    st.intercepts[p].thing = thing;
+    st.intercept_p += 1;
     true
+    })
 }
 
 /// Traverse intercepts in order, call trav for each. Original: P_TraverseIntercepts
@@ -584,33 +606,33 @@ fn p_traverse_intercepts<F>(trav: &mut F, maxfrac: Fixed) -> bool
 where
     F: FnMut(&mut Intercept) -> bool,
 {
-    let count = unsafe { INTERCEPT_P };
-    if count == 0 {
-        return true;
-    }
-    let mut remaining = count;
-    while remaining > 0 {
-        let mut dist = i32::MAX;
-        let mut in_idx = 0;
-        for i in 0..count {
-            let frac = unsafe { INTERCEPTS[i].frac };
-            if frac < dist {
-                dist = frac;
-                in_idx = i;
-            }
-        }
-        if dist > maxfrac {
+    with_p_maputl_state(|st| {
+        let count = st.intercept_p;
+        if count == 0 {
             return true;
         }
-        if !trav(unsafe { &mut INTERCEPTS[in_idx] }) {
-            return false;
+        let mut remaining = count;
+        while remaining > 0 {
+            let mut dist = i32::MAX;
+            let mut in_idx = 0;
+            for i in 0..count {
+                let frac = st.intercepts[i].frac;
+                if frac < dist {
+                    dist = frac;
+                    in_idx = i;
+                }
+            }
+            if dist > maxfrac {
+                return true;
+            }
+            if !trav(&mut st.intercepts[in_idx]) {
+                return false;
+            }
+            st.intercepts[in_idx].frac = i32::MAX;
+            remaining -= 1;
         }
-        unsafe {
-            INTERCEPTS[in_idx].frac = i32::MAX;
-        }
-        remaining -= 1;
-    }
-    true
+        true
+    })
 }
 
 /// Trace path from (x1,y1) to (x2,y2), call trav for each intercept.
@@ -619,11 +641,11 @@ pub fn p_path_traverse<F>(x1: Fixed, y1: Fixed, x2: Fixed, y2: Fixed, flags: i32
 where
     F: FnMut(&mut Intercept) -> bool,
 {
-    unsafe {
-        VALIDCOUNT += 1;
-        INTERCEPT_P = 0;
-        EARLYOUT = (flags & PT_EARLYOUT) != 0;
-    }
+    r_main::with_r_main_state_mut(|rm| rm.validcount += 1);
+    with_p_maputl_state(|st| {
+        st.intercept_p = 0;
+        st.earlyout = (flags & PT_EARLYOUT) != 0;
+    });
     let (bmaporgx, bmaporgy, bmapwidth, bmapheight) = state::with_state(|s| {
         (s.bmaporgx, s.bmaporgy, s.bmapwidth, s.bmapheight)
     });
@@ -635,12 +657,12 @@ where
     if ((y1 - bmaporgy) & (super::MAPBMASK as i32)) == 0 {
         y1 += FRACUNIT;
     }
-    unsafe {
-        TRACE.x = x1;
-        TRACE.y = y1;
-        TRACE.dx = x2 - x1;
-        TRACE.dy = y2 - y1;
-    }
+    with_p_maputl_state(|st| {
+        st.trace.x = x1;
+        st.trace.y = y1;
+        st.trace.dx = x2 - x1;
+        st.trace.dy = y2 - y1;
+    });
     let x1_off = x1 - bmaporgx;
     let y1_off = y1 - bmaporgy;
     let xt1 = x1_off >> MAPBLOCKSHIFT;

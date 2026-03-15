@@ -1,0 +1,175 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'doom_rust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "doom_rust",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'doom_rust'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=doom_rust",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "doom_rust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'doom_rust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=doom_rust",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "doom_rust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'example_render_scene'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=example_render_scene",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "example_render_scene",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'example_render_scene'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=example_render_scene",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "example_render_scene",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'example_render_sprite'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=example_render_sprite",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "example_render_sprite",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'example_render_sprite'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=example_render_sprite",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "example_render_sprite",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'example_wad'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=example_wad",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "example_wad",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'example_wad'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=example_wad",
+                    "--package=doom_rust"
+                ],
+                "filter": {
+                    "name": "example_wad",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
