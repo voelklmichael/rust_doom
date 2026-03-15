@@ -75,17 +75,17 @@ pub fn m_string_replace(haystack: &str, needle: &str, replacement: &str) -> Stri
 }
 
 /// C function: M_StringJoin (variadic - varargs omitted in stub)
-pub fn m_string_join(_s: *const i8) -> *mut i8 {
+pub fn m_string_join(&[&str]) -> String {
     todo!("original: M_StringJoin")
 }
 
 /// C function: M_StringStartsWith
-pub fn m_string_starts_with(s: *const i8, prefix: *const i8) -> Boolean {
+pub fn m_string_starts_with(s: &str, prefix: &str) -> Boolean {
     todo!("original: M_StringStartsWith")
 }
 
 /// C function: M_StringEndsWith
-pub fn m_string_ends_with(s: *const i8, suffix: *const i8) -> Boolean {
+pub fn m_string_ends_with(s: &str, suffix: &str) -> Boolean {
     todo!("original: M_StringEndsWith")
 }
 

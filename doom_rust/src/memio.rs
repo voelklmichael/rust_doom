@@ -32,7 +32,7 @@ pub fn mem_fopen_write() -> Arc<Mutex<Memfile>> {
 }
 
 /// C function: mem_fwrite
-pub fn mem_fwrite(ptr: *const u8, size: usize, nmemb: usize, stream: &mut Memfile) -> usize {
+pub fn mem_fwrite(ptr: &str, size: usize, nmemb: usize, stream: &mut Memfile) -> usize {
     todo!("original: mem_fwrite")
 }
 

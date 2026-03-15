@@ -62,7 +62,7 @@ pub fn w_generate_hash_table() {
 }
 
 /// C function: W_LumpNameHash
-pub fn w_lump_name_hash(s: *const i8) -> u32 {
+pub fn w_lump_name_hash(s: &str) -> u32 {
     todo!("original: W_LumpNameHash")
 }
 

@@ -38,7 +38,7 @@ pub fn m_get_int_variable(name: &str) -> i32 {
 }
 
 /// C function: M_GetStrVariable
-pub fn m_get_str_variable(name: *mut i8) -> *const i8 {
+pub fn m_get_str_variable(name: &str) -> String {
     todo!("original: M_GetStrVariable")
 }
 

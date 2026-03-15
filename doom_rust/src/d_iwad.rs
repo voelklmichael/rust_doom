@@ -44,7 +44,7 @@ pub fn d_find_iwad(mask: i32, mission: &mut GameMissionT) -> String {
 }
 
 /// C function: D_FindAllIWADs
-pub fn d_find_all_iwads(mask: i32) -> *const *const IwadT {
+pub fn d_find_all_iwads(mask: i32) -> Vec<Arc<Mutex<IwadT>>> {
     todo!("original: D_FindAllIWADs")
 }
 

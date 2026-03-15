@@ -51,6 +51,6 @@ pub fn dg_get_key(pressed: &mut i32, key: &mut u8) -> i32 {
 }
 
 /// C function: DG_SetWindowTitle
-pub fn dg_set_window_title(title: *const i8) {
+pub fn dg_set_window_title(title: &str) {
     todo!("original: DG_SetWindowTitle")
 }
