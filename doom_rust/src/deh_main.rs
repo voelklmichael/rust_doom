@@ -49,3 +49,9 @@ pub static mut deh_allow_extended_strings: Boolean = Boolean::False;
 pub static mut deh_allow_long_strings: Boolean = Boolean::False;
 pub static mut deh_allow_long_cheats: Boolean = Boolean::False;
 pub static mut deh_apply_cheats: Boolean = Boolean::False;
+
+#[cfg(feature = "origcode")]
+/// C function: LoadIwadDeh
+pub fn load_iwad_deh() {
+    todo!("original: LoadIwadDeh")
+}

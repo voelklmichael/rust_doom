@@ -274,6 +274,7 @@ name = "doom_rust"
 version = "0.1.0"
 dependencies = [
  "image",
+ "once_cell",
  "sha1",
 ]
 

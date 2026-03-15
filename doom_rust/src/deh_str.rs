@@ -13,6 +13,18 @@ pub fn deh_string(s: &str) -> &str {
     s
 }
 
+#[cfg(not(feature = "dehacked"))]
+/// No-op when dehacked disabled
+pub fn deh_printf(_fmt: &str) {}
+
+#[cfg(not(feature = "dehacked"))]
+/// No-op when dehacked disabled
+pub fn deh_add_string_replacement(_from: &str, _to: &str) {}
+
+#[cfg(not(feature = "dehacked"))]
+/// No-op when dehacked disabled
+pub fn deh_snprintf(_buf: &mut [u8], _len: usize, _fmt: &str) {}
+
 #[cfg(feature = "dehacked")]
 /// C function: DEH_printf
 pub fn deh_printf(_fmt: &str) {

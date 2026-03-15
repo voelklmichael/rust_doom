@@ -1,6 +1,8 @@
 //! Rust translation of doomgeneric/doom.h
 
-/// C function: D_DoomMain
+use crate::d_main;
+
+/// C function: D_DoomMain - entry point, delegates to d_main
 pub fn d_doom_main() {
-    todo!("original: D_DoomMain")
+    d_main::d_doom_main();
 }

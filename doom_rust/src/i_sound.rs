@@ -95,8 +95,8 @@ pub struct MusicModuleT {
     pub pause_music: Option<extern "C" fn()>,
     pub resume_music: Option<extern "C" fn()>,
     pub register_song:
-        Option<extern "C" fn(*mut core::ffi::c_void, i32) -> Option<Arc<Mutex<core::ffi::c_void>>>>,
-    pub un_register_song: Option<extern "C" fn(*mut core::ffi::c_void)>,
+        Option<extern "C" fn(&mut core::ffi::c_void, i32) -> Option<Arc<Mutex<core::ffi::c_void>>>>,
+    pub un_register_song: Option<extern "C" fn(&mut core::ffi::c_void)>,
     pub play_song: Option<extern "C" fn(&mut core::ffi::c_void, Boolean)>,
     pub stop_song: Option<extern "C" fn()>,
     pub music_is_playing: Option<extern "C" fn() -> Boolean>,

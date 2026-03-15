@@ -3,6 +3,12 @@ name = "doom_rust"
 version = "0.1.0"
 edition = "2024"
 
+[features]
+default = []
+dehacked = []
+multiplayer = []
+origcode = []
+
 [dependencies]
 sha1 = "0.10"
 image = "0.25"

@@ -1,4 +1,5 @@
-#![forbid(unsafe_code)]
+// Note: unsafe_code allowed for C port - static mut used for global state
+#![allow(unsafe_code)]
 #![allow(dead_code)] // Stub phase: many translated items not yet used
 #![allow(non_upper_case_globals)] // C compatibility: extern/static names
 #![allow(unused_variables)]

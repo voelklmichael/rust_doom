@@ -18,7 +18,7 @@ pub fn m_save_defaults_alternate(main: &str, extra: &str) {
 }
 
 /// C function: M_SetConfigDir
-pub fn m_set_config_dir(dir: &str) {
+pub fn m_set_config_dir(dir: Option<&str>) {
     todo!("original: M_SetConfigDir")
 }
 
