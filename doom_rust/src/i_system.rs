@@ -3,6 +3,7 @@
 use crate::d_event::*;
 use crate::d_ticcmd::*;
 use crate::doomtype::*;
+use std::sync::{Arc, Mutex};
 
 /// C typedef: atexit_func_t
 pub type AtexitFuncT = extern "C" fn();
@@ -23,7 +24,7 @@ pub fn i_console_stdout() -> boolean {
 }
 
 /// C function: I_BaseTiccmd
-pub fn i_base_ticcmd() -> *mut TiccmdT {
+pub fn i_base_ticcmd() -> Arc<Mutex<TiccmdT>> {
     todo!("original: I_BaseTiccmd")
 }
 

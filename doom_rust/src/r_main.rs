@@ -7,6 +7,7 @@ use crate::m_fixed::*;
 use crate::r_data::*;
 use crate::r_defs::*;
 use crate::tables::*;
+use std::sync::{Arc, Mutex};
 
 pub static mut viewcos: FixedT = 0;
 pub static mut viewsin: FixedT = 0;
@@ -85,7 +86,7 @@ pub fn r_scale_from_global_angle(visangle: AngleT) -> FixedT {
 }
 
 /// C function: R_PointInSubsector
-pub fn r_point_in_subsector(x: FixedT, y: FixedT) -> *mut SubsectorT {
+pub fn r_point_in_subsector(x: FixedT, y: FixedT) -> Arc<Mutex<SubsectorT>> {
     todo!("original: R_PointInSubsector")
 }
 

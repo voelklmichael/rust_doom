@@ -53,7 +53,7 @@ pub fn m_set_config_filenames(main_config: &str, extra_config: &str) {
 }
 
 /// C function: M_GetSaveGameDir
-pub fn m_get_save_game_dir(iwadname: &str) -> *mut i8 {
+pub fn m_get_save_game_dir(iwadname: &str) -> String {
     todo!("original: M_GetSaveGameDir")
 }
 

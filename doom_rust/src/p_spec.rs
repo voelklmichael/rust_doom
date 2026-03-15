@@ -6,6 +6,7 @@ use crate::doomtype::*;
 use crate::m_fixed::*;
 use crate::p_mobj::*;
 use crate::r_defs::*;
+use std::sync::{Arc, Mutex};
 
 pub static mut level_timer: boolean = crate::doomtype::Boolean::False;
 pub static mut level_time_count: i32 = 0;
@@ -59,7 +60,7 @@ pub fn get_sector(current_sector: i32, line: i32, side: i32) -> *mut SectorT {
 }
 
 /// C function: getSide
-pub fn get_side(current_sector: i32, line: i32, side: i32) -> *mut SideT {
+pub fn get_side(current_sector: i32, line: i32, side: i32) -> Arc<Mutex<SideT>> {
     todo!("original: getSide")
 }
 
@@ -99,7 +100,7 @@ pub fn p_find_min_surrounding_light(sector: &mut SectorT, max: i32) -> i32 {
 }
 
 /// C function: getNextSector
-pub fn get_next_sector(line: &mut LineT, sec: &mut SectorT) -> *mut SectorT {
+pub fn get_next_sector(line: &mut LineT, sec: &mut SectorT) -> Arc<Mutex<SectorT>> {
     todo!("original: getNextSector")
 }
 

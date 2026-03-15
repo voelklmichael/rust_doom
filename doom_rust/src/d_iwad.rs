@@ -2,6 +2,7 @@
 //! Find IWAD and initialize according to IWAD type.
 
 use crate::d_mode::*;
+use std::sync::{Arc, Mutex};
 
 /// C #define: IWAD_MASK_DOOM
 pub const IWAD_MASK_DOOM: i32 = (1 << GameMissionT::Doom as i32)
@@ -28,17 +29,17 @@ pub struct IwadT {
 }
 
 /// C function: D_FindWADByName
-pub fn d_find_wad_by_name(filename: &str) -> *mut i8 {
+pub fn d_find_wad_by_name(filename: &str) -> String {
     todo!("original: D_FindWADByName")
 }
 
 /// C function: D_TryFindWADByName
-pub fn d_try_find_wad_by_name(filename: *mut i8) -> *mut i8 {
+pub fn d_try_find_wad_by_name(filename: &str) -> String {
     todo!("original: D_TryFindWADByName")
 }
 
 /// C function: D_FindIWAD
-pub fn d_find_iwad(mask: i32, mission: &mut GameMissionT) -> *mut i8 {
+pub fn d_find_iwad(mask: i32, mission: &mut GameMissionT) -> String {
     todo!("original: D_FindIWAD")
 }
 
@@ -48,17 +49,17 @@ pub fn d_find_all_iwads(mask: i32) -> *const *const IwadT {
 }
 
 /// C function: D_SaveGameIWADName
-pub fn d_save_game_iwad_name(gamemission: GameMissionT) -> *mut i8 {
+pub fn d_save_game_iwad_name(gamemission: GameMissionT) -> Arc<Mutex<String>> {
     todo!("original: D_SaveGameIWADName")
 }
 
 /// C function: D_SuggestIWADName
-pub fn d_suggest_iwad_name(mission: GameMissionT, mode: GameModeT) -> *mut i8 {
+pub fn d_suggest_iwad_name(mission: GameMissionT, mode: GameModeT) -> Arc<Mutex<String>> {
     todo!("original: D_SuggestIWADName")
 }
 
 /// C function: D_SuggestGameName
-pub fn d_suggest_game_name(mission: GameMissionT, mode: GameModeT) -> *mut i8 {
+pub fn d_suggest_game_name(mission: GameMissionT, mode: GameModeT) -> Arc<Mutex<String>> {
     todo!("original: D_SuggestGameName")
 }
 

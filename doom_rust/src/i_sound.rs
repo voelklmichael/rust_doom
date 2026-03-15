@@ -2,6 +2,7 @@
 //! The not so system specific sound interface.
 
 use crate::doomtype::*;
+use std::sync::{Arc, Mutex};
 
 /// C typedef: sfxinfo_t
 #[repr(C)]
@@ -197,12 +198,12 @@ pub fn i_register_song(data: *mut core::ffi::c_void, len: i32) -> *mut core::ffi
 }
 
 /// C function: I_UnRegisterSong
-pub fn i_un_register_song(handle: *mut core::ffi::c_void) {
+pub fn i_un_register_song(handle: Arc<Mutex<Vec<u8>>>) {
     todo!("original: I_UnRegisterSong")
 }
 
 /// C function: I_PlaySong
-pub fn i_play_song(handle: *mut core::ffi::c_void, looping: Boolean) {
+pub fn i_play_song(handle: Arc<Mutex<Vec<u8>>>, looping: Boolean) {
     todo!("original: I_PlaySong")
 }
 

@@ -4,6 +4,7 @@
 use crate::i_video::*;
 use crate::m_fixed::*;
 use crate::r_defs::*;
+use std::sync::{Arc, Mutex};
 
 pub static mut lastopening: *mut i16 = std::ptr::null_mut();
 
@@ -50,11 +51,11 @@ pub fn r_find_plane(
     height: FixedT,
     picnum: i32,
     lightlevel: i32,
-) -> *mut VisplaneT {
+) -> Arc<Mutex<VisplaneT>> {
     todo!("original: R_FindPlane")
 }
 
 /// C function: R_CheckPlane
-pub fn r_check_plane(pl: &mut VisplaneT, start: i32, stop: i32) -> *mut VisplaneT {
+pub fn r_check_plane(pl: &mut VisplaneT, start: i32, stop: i32) -> Arc<Mutex<VisplaneT>> {
     todo!("original: R_CheckPlane")
 }

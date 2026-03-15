@@ -2,6 +2,7 @@
 //! WAD I/O functions.
 
 use crate::doomtype::*;
+use std::sync::{Arc, Mutex};
 
 /// C typedef: wad_file_t
 #[repr(C)]
@@ -22,7 +23,7 @@ pub struct WadFileClassT {
 }
 
 /// C function: W_OpenFile
-pub fn w_open_file(path: &str) -> *mut WadFileT {
+pub fn w_open_file(path: &str) -> Arc<Mutex<WadFileT>> {
     todo!("original: W_OpenFile")
 }
 

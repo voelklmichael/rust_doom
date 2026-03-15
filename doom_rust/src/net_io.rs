@@ -3,6 +3,7 @@
 
 use crate::doomtype::*;
 use crate::net_defs::*;
+use std::sync::{Arc, Mutex};
 
 pub static mut net_broadcast_addr: NetAddrT = NetAddrT {
     module: core::ptr::null_mut(),
@@ -10,7 +11,7 @@ pub static mut net_broadcast_addr: NetAddrT = NetAddrT {
 };
 
 /// C function: NET_NewContext
-pub fn net_new_context() -> *mut NetContextT {
+pub fn net_new_context() -> Arc<Mutex<NetContextT>> {
     todo!("original: NET_NewContext")
 }
 
@@ -49,6 +50,6 @@ pub fn net_free_address(addr: &mut NetAddrT) {
 }
 
 /// C function: NET_ResolveAddress
-pub fn net_resolve_address(context: &mut NetContextT, address: &str) -> *mut NetAddrT {
+pub fn net_resolve_address(context: &mut NetContextT, address: &str) -> Arc<Mutex<NetAddrT>> {
     todo!("original: NET_ResolveAddress")
 }

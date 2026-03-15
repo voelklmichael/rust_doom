@@ -2,6 +2,7 @@
 //! Miscellaneous utilities.
 
 use crate::doomtype::*;
+use std::sync::{Arc, Mutex};
 
 /// C function: M_WriteFile
 pub fn m_write_file(name: &str, source: &mut [u8], length: i32) -> Boolean {
@@ -19,7 +20,7 @@ pub fn m_make_directory(dir: &str) {
 }
 
 /// C function: M_TempFile
-pub fn m_temp_file(s: &mut [u8]) -> *mut i8 {
+pub fn m_temp_file(s: &mut [u8]) -> String {
     todo!("original: M_TempFile")
 }
 
@@ -54,7 +55,7 @@ pub fn m_str_case_str(haystack: &str, needle: &str) -> *mut i8 {
 }
 
 /// C function: M_StringDuplicate
-pub fn m_string_duplicate(orig: *const i8) -> *mut i8 {
+pub fn m_string_duplicate(orig: &str) -> String {
     todo!("original: M_StringDuplicate")
 }
 
@@ -69,11 +70,7 @@ pub fn m_string_concat(dest: &mut [u8], src: &str, dest_size: usize) -> Boolean 
 }
 
 /// C function: M_StringReplace
-pub fn m_string_replace(
-    haystack: *const i8,
-    needle: *const i8,
-    replacement: *const i8,
-) -> *mut i8 {
+pub fn m_string_replace(haystack: &str, needle: &str, replacement: &str) -> String {
     todo!("original: M_StringReplace")
 }
 
@@ -103,6 +100,6 @@ pub fn m_snprintf(_buf: &mut [u8], _buf_len: usize, _s: &str) -> i32 {
 }
 
 /// C function: M_OEMToUTF8
-pub fn m_oem_to_utf8(ansi: *const i8) -> *mut i8 {
+pub fn m_oem_to_utf8(ansi: &str) -> String {
     todo!("original: M_OEMToUTF8")
 }

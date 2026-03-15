@@ -3,14 +3,15 @@
 
 use crate::doomtype::*;
 use crate::net_defs::*;
+use std::sync::{Arc, Mutex};
 
 /// C function: NET_NewPacket
-pub fn net_new_packet(initial_size: i32) -> *mut NetPacketT {
+pub fn net_new_packet(initial_size: i32) -> Arc<Mutex<NetPacketT>> {
     todo!("original: NET_NewPacket")
 }
 
 /// C function: NET_PacketDup
-pub fn net_packet_dup(packet: &mut NetPacketT) -> *mut NetPacketT {
+pub fn net_packet_dup(packet: &mut NetPacketT) -> Arc<Mutex<NetPacketT>> {
     todo!("original: NET_PacketDup")
 }
 

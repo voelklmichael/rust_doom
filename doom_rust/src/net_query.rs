@@ -3,6 +3,7 @@
 
 use crate::doomtype::*;
 use crate::net_defs::*;
+use std::sync::{Arc, Mutex};
 
 /// C typedef: net_query_callback_t
 pub type NetQueryCallbackT =
@@ -44,7 +45,7 @@ pub fn net_query_poll(callback: NetQueryCallbackT, user_data: &mut [u8]) -> i32 
 }
 
 /// C function: NET_Query_ResolveMaster
-pub fn net_query_resolve_master(context: &mut NetContextT) -> *mut NetAddrT {
+pub fn net_query_resolve_master(context: &mut NetContextT) -> Arc<Mutex<NetAddrT>> {
     todo!("original: NET_Query_ResolveMaster")
 }
 

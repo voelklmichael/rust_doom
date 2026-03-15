@@ -7,12 +7,12 @@ use crate::doomtype::*;
 pub const SAVESTRINGSIZE: usize = 24;
 
 /// C function: P_TempSaveGameFile
-pub fn p_temp_save_game_file() -> *mut i8 {
+pub fn p_temp_save_game_file() -> String {
     todo!("original: P_TempSaveGameFile")
 }
 
 /// C function: P_SaveGameFile
-pub fn p_save_game_file(slot: i32) -> *mut i8 {
+pub fn p_save_game_file(slot: i32) -> String {
     todo!("original: P_SaveGameFile")
 }
 

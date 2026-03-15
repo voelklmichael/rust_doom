@@ -11,6 +11,7 @@ use crate::m_fixed::*;
 use crate::p_mobj::*;
 use crate::p_spec::*;
 use crate::r_defs::*;
+use std::sync::{Arc, Mutex};
 
 /// C #define: FLOATSPEED
 pub const FLOATSPEED: FixedT = FRACUNIT * 4;
@@ -188,7 +189,7 @@ pub fn p_respawn_specials() {
 }
 
 /// C function: P_SpawnMobj
-pub fn p_spawn_mobj(x: FixedT, y: FixedT, z: FixedT, type_: MobjtypeT) -> *mut MobjT {
+pub fn p_spawn_mobj(x: FixedT, y: FixedT, z: FixedT, type_: MobjtypeT) -> Arc<Mutex<MobjT>> {
     todo!("original: P_SpawnMobj")
 }
 
@@ -198,7 +199,7 @@ pub fn p_remove_mobj(th: &mut MobjT) {
 }
 
 /// C function: P_SubstNullMobj
-pub fn p_subst_null_mobj(th: &mut MobjT) -> *mut MobjT {
+pub fn p_subst_null_mobj(th: &mut MobjT) -> Arc<Mutex<MobjT>> {
     todo!("original: P_SubstNullMobj")
 }
 
@@ -223,7 +224,7 @@ pub fn p_spawn_blood(x: FixedT, y: FixedT, z: FixedT, damage: i32) {
 }
 
 /// C function: P_SpawnMissile
-pub fn p_spawn_missile(source: &mut MobjT, dest: &mut MobjT, type_: MobjtypeT) -> *mut MobjT {
+pub fn p_spawn_missile(source: &mut MobjT, dest: &mut MobjT, type_: MobjtypeT) -> Arc<Mutex<MobjT>> {
     todo!("original: P_SpawnMissile")
 }
 

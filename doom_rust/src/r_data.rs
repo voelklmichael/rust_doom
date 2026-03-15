@@ -2,10 +2,11 @@
 //! Refresh module, data I/O, caching, retrieval of graphics by name.
 
 use crate::doomtype::*;
+use std::sync::{Arc, Mutex};
 
 /// R_GetColumn - retrieve column data for span blitting
 /// C function: R_GetColumn
-pub fn r_get_column(tex: i32, col: i32) -> *mut byte {
+pub fn r_get_column(tex: i32, col: i32) -> Arc<Mutex<Vec<u8>>> {
     todo!("original: R_GetColumn")
 }
 

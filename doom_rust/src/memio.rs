@@ -1,6 +1,8 @@
 //! Rust translation of doomgeneric/memio.h
 //! Memory file I/O (in-memory FILE-like interface).
 
+use std::sync::{Arc, Mutex};
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// C typedef: mem_rel_t
@@ -15,7 +17,7 @@ pub enum MemRelT {
 pub struct Memfile;
 
 /// C function: mem_fopen_read
-pub fn mem_fopen_read(buf: &mut [u8], buflen: usize) -> *mut Memfile {
+pub fn mem_fopen_read(buf: &mut [u8], buflen: usize) -> Arc<Mutex<Memfile>> {
     todo!("original: mem_fopen_read")
 }
 
@@ -25,7 +27,7 @@ pub fn mem_fread(buf: &mut [u8], size: usize, nmemb: usize, stream: &mut Memfile
 }
 
 /// C function: mem_fopen_write
-pub fn mem_fopen_write() -> *mut Memfile {
+pub fn mem_fopen_write() -> Arc<Mutex<Memfile>> {
     todo!("original: mem_fopen_write")
 }
 

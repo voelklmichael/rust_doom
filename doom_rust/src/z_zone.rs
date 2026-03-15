@@ -1,6 +1,8 @@
 //! Rust translation of doomgeneric/z_zone.h
 //! Zone Memory Allocation.
 
+use std::sync::{Arc, Mutex};
+
 /// C enum: PU_STATIC
 pub const PU_STATIC: i32 = 1;
 /// C enum: PU_SOUND
@@ -26,7 +28,7 @@ pub fn z_init() {
 }
 
 /// C function: Z_Malloc
-pub fn z_malloc(size: i32, tag: i32, ptr: Option<&mut [u8]>) -> *mut std::ffi::c_void {
+pub fn z_malloc(size: i32, tag: i32, ptr: Option<&mut [u8]>) -> Arc<Mutex<Vec<u8>>> {
     todo!("original: Z_Malloc")
 }
 

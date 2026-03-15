@@ -4,6 +4,7 @@
 use crate::doomtype::*;
 use crate::d_mode::*;
 use crate::w_file::*;
+use std::sync::{Arc, Mutex};
 
 /// lumpinfo_t
 #[repr(C)]
@@ -46,12 +47,12 @@ pub fn w_read_lump(lump: u32, dest: &mut [u8]) {
 }
 
 /// C function: W_CacheLumpNum
-pub fn w_cache_lump_num(lump: i32, tag: i32) -> *mut std::ffi::c_void {
+pub fn w_cache_lump_num(lump: i32, tag: i32) -> Arc<Mutex<Vec<u8>>> {
     todo!("original: W_CacheLumpNum")
 }
 
 /// C function: W_CacheLumpName
-pub fn w_cache_lump_name(name: &str, tag: i32) -> *mut std::ffi::c_void {
+pub fn w_cache_lump_name(name: &str, tag: i32) -> Arc<Mutex<Vec<u8>>> {
     todo!("original: W_CacheLumpName")
 }
 

@@ -3,7 +3,7 @@
 
 #[cfg(feature = "dehacked")]
 /// C function: DEH_String
-pub fn deh_string(s: &str) -> *mut i8 {
+pub fn deh_string(s: &str) -> String {
     todo!("original: DEH_String")
 }
 

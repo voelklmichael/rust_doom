@@ -29,6 +29,6 @@ pub fn m_parm_exists(check: &str) -> boolean {
 }
 
 /// C function: M_GetExecutableName
-pub fn m_get_executable_name() -> *mut i8 {
+pub fn m_get_executable_name() -> String {
     todo!("original: M_GetExecutableName")
 }

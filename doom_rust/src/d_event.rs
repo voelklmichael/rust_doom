@@ -2,6 +2,7 @@
 //! Event handling.
 
 use crate::doomtype::*;
+use std::sync::{Arc, Mutex};
 
 /// C typedef: evtype_t
 #[repr(C)]
@@ -73,7 +74,7 @@ pub fn d_post_event(ev: &mut EventT) {
 }
 
 /// C function: D_PopEvent
-pub fn d_pop_event() -> *mut EventT {
+pub fn d_pop_event() -> Arc<Mutex<EventT>> {
     todo!("original: D_PopEvent")
 }
 
