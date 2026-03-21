@@ -58,12 +58,6 @@ impl DoomgenericState {
         d_main_state.d_doom_main();
     }
 
-    // Original: doomgeneric_Tick
-    // Main loop tick - calls I_StartFrame, TryRunTics, S_UpdateSounds, D_Display when wired
-    pub fn doomgeneric_tick(&self) {
-        todo!("doomgeneric_Tick - wire to i_system, d_main, s_sound, r_main when migrated")
-    }
-
     // Original: DG_Init
     // Platform hook - implement for your platform
     pub fn dg_init(&self) {
