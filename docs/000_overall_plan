@@ -164,107 +164,36 @@ Add a comment: `// Original: extern type variable_name;`
 
 ## 8. Migration Order (Dependency-First)
 
-Migrate modules in dependency order so that types and functions are available when needed:
+Migrate modules in the order below, derived from `#include` dependencies in `*.h` and `*.c` files. Dependencies appear before dependents where the graph allows.
 
-### Phase 1 — Leaf modules (no or minimal internal includes)
-- `doomtype` (base types, boolean, byte)
-- `config`
-- `i_swap`
-- `i_timer`
-- `sha1`
-- `memio`
-- `doomdata`
-- `doomfeatures`
+**Note:** 61 of the 96 headers form a strongly connected component (circular includes via `p_local.h`, `r_local.h`, etc.). Within that SCC, a strict dependency order is impossible; the order below sorts the condensation DAG, with SCC members listed alphabetically.
 
-### Phase 2 — Core types and data
-- `m_fixed`
-- `m_bbox`
-- `m_random`
-- `d_mode`
-- `d_event`
-- `d_think`
-- `d_ticcmd`
-- `doomdef`
-- `doomstat`
-- `d_items`
-- `d_player`
-- `d_iwad`
-- `d_englsh`
-- `dstrings`
-- `d_textur`
-
-### Phase 3 — Low-level I/O and WAD
-- `w_file`
-- `w_merge`
-- `w_checksum`
-- `w_wad`
-- `w_main`
-- `z_zone`
-- `tables`
-
-### Phase 4 — Rendering data structures
-- `r_defs`
-- `r_data`
-- `r_local`
-- `r_state`
-- `v_patch`
-- `v_video`
-- `r_draw`
-- `r_sky`
-- `r_plane`
-- `r_bsp`
-- `r_segs`
-- `r_things`
-- `r_main`
-
-### Phase 5 — Game logic
-- `info`
-- `p_mobj`
-- `p_local`
-- `p_setup`
-- `p_spec`
-- `p_tick`
-- `p_saveg`
-- `p_pspr`
-- `p_inter`
-- `g_game`
-
-### Phase 6 — UI, sound, system
-- `sounds`
-- `s_sound`
-- `m_config`
-- `m_controls`
-- `m_argv`
-- `m_misc`
-- `m_menu`
-- `m_cheat`
-- `st_lib`
-- `st_stuff`
-- `hu_lib`
-- `hu_stuff`
-- `am_map`
-- `wi_stuff`
-- `f_finale`
-- `f_wipe`
-
-### Phase 7 — System and platform
-- `i_system`
-- `i_video`
-- `i_sound`
-- `i_scale`
-- `i_joystick`
-- `i_cdmus`
-- `i_endoom`
-- `doomgeneric`
-- `d_main`
-- `d_loop`
-
-### Phase 8 — Optional / networking / dehacked
-- `net_*` modules
-- `deh_main`, `deh_str`, `deh_misc`
-- `gusconf`
-- `mus2mid`
-- `statdump`
+| # | Module | # | Module | # | Module | # | Module |
+|---|--------|---|--------|---|--------|---|--------|
+| 1 | config | 25 | net_io | 49 | i_joystick | 73 | r_defs |
+| 2 | d_englsh | 26 | net_loop | 50 | i_sound | 74 | r_draw |
+| 3 | dstrings | 27 | deh_main | 51 | i_sound | 75 | r_local |
+| 4 | d_think | 28 | net_dedicated | 52 | i_system | 76 | r_main |
+| 5 | doom | 29 | net_server | 53 | i_timer | 77 | r_plane |
+| 6 | doomfeatures | 30 | v_patch | 54 | i_video | 78 | r_segs |
+| 7 | deh_misc | 31 | w_merge | 55 | info | 79 | r_sky |
+| 8 | deh_str | 32 | am_map | 56 | m_argv | 80 | r_state |
+| 9 | doomkeys | 33 | d_items | 57 | m_bbox | 81 | r_things |
+| 10 | doomtype | 34 | d_iwad | 58 | m_config | 82 | s_sound |
+| 11 | d_event | 35 | d_loop | 59 | m_controls | 83 | sounds |
+| 12 | d_mode | 36 | d_main | 60 | m_fixed | 84 | st_lib |
+| 13 | d_textur | 37 | d_player | 61 | m_menu | 85 | st_stuff |
+| 14 | d_ticcmd | 38 | doomdata | 62 | m_misc | 86 | statdump |
+| 15 | net_gui | 39 | doomdef | 63 | p_inter | 87 | tables |
+| 16 | i_cdmus | 40 | doomgeneric | 64 | p_local | 88 | v_video |
+| 17 | m_random | 41 | doomstat | 65 | p_mobj | 89 | w_file |
+| 18 | m_cheat | 42 | f_finale | 66 | p_pspr | 90 | w_main |
+| 19 | i_swap | 43 | f_wipe | 67 | p_saveg | 91 | w_wad |
+| 20 | sha1 | 44 | g_game | 68 | p_setup | 92 | wi_stuff |
+| 21 | net_defs | 45 | gusconf | 69 | p_spec | 93 | z_zone |
+| 22 | net_client | 46 | hu_lib | 70 | p_tick | 94 | i_scale |
+| 23 | net_query | 47 | hu_stuff | 71 | r_bsp | 95 | w_checksum |
+| 24 | net_packet | 48 | i_endoom | 72 | r_data | 96 | memio, mus2mid |
 
 ---
 

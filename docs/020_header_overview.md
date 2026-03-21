@@ -10,14 +10,14 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 
 | Header | Module | Status |
 |--------|--------|--------|
-| doom.h | doom | not started |
+| doom.h | doom | done |
 | doomdata.h | doomdata | not started |
 | doomdef.h | doomdef | not started |
-| doomfeatures.h | doomfeatures | not started |
+| doomfeatures.h | doomfeatures | done |
 | doomgeneric.h | doomgeneric | done |
-| doomkeys.h | doomkeys | not started |
+| doomkeys.h | doomkeys | done |
 | doomstat.h | doomstat | not started |
-| doomtype.h | doomtype | stubbed |
+| doomtype.h | doomtype | done |
 
 ---
 
@@ -25,14 +25,14 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 
 | Header | Module | Status |
 |--------|--------|--------|
-| d_englsh.h | d_englsh | not started |
+| d_englsh.h | d_englsh | done |
 | d_event.h | d_event | not started |
 | d_items.h | d_items | not started |
 | d_loop.h | d_loop | not started |
 | d_main.h | d_main | stubbed |
 | d_mode.h | d_mode | not started |
 | d_player.h | d_player | not started |
-| d_think.h | d_think | not started |
+| d_think.h | d_think | done |
 | d_ticcmd.h | d_ticcmd | not started |
 | d_textur.h | d_textur | not started |
 | d_iwad.h | d_iwad | not started |
@@ -58,7 +58,7 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 | r_sky.h | r_sky | not started |
 | r_state.h | r_state | not started |
 | r_things.h | r_things | not started |
-| v_patch.h | v_patch | not started |
+| v_patch.h | v_patch | done |
 | v_video.h | v_video | not started |
 
 ---
@@ -110,7 +110,7 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 | i_joystick.h | i_joystick | not started |
 | i_scale.h | i_scale | not started |
 | i_sound.h | i_sound | not started |
-| i_swap.h | i_swap | not started |
+| i_swap.h | i_swap | done |
 | i_system.h | i_system | not started |
 | i_timer.h | i_timer | not started |
 | i_video.h | i_video | not started |
@@ -124,7 +124,7 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 | w_checksum.h | w_checksum | not started |
 | w_file.h | w_file | not started |
 | w_main.h | w_main | not started |
-| w_merge.h | w_merge | not started |
+| w_merge.h | w_merge | done |
 | w_wad.h | w_wad | not started |
 
 ---
@@ -134,14 +134,14 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 | Header | Module | Status |
 |--------|--------|--------|
 | net_client.h | net_client | not started |
-| net_dedicated.h | net_dedicated | not started |
+| net_dedicated.h | net_dedicated | done |
 | net_defs.h | net_defs | not started |
 | net_gui.h | net_gui | not started |
 | net_io.h | net_io | not started |
 | net_loop.h | net_loop | not started |
 | net_packet.h | net_packet | not started |
 | net_query.h | net_query | not started |
-| net_server.h | net_server | not started |
+| net_server.h | net_server | done |
 
 ---
 
@@ -159,7 +159,7 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 
 | Header | Module | Status |
 |--------|--------|--------|
-| config.h | config | not started |
+| config.h | config | done |
 | gusconf.h | gusconf | not started |
 | memio.h | memio | not started |
 | mus2mid.h | mus2mid | not started |
@@ -176,8 +176,8 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 
 | Status | Count |
 |--------|-------|
-| not started | 92 |
-| stubbed | 3 |
+| not started | 81 |
+| stubbed | 2 |
 | ongoing | 0 |
-| done | 1 |
+| done | 13 |
 | **Total** | **96** |
