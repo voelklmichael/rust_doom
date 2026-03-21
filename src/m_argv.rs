@@ -23,4 +23,10 @@ impl M_ArgvState {
     pub fn m_find_response_file(&self) {
         todo!("M_FindResponseFile")
     }
+
+    // Original: M_CheckParm
+    pub fn m_check_parm(&self, _check: &str) -> i32 {
+        let _ = _check;
+        0
+    }
 }

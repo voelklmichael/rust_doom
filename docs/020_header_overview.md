@@ -176,8 +176,8 @@ Status tracking for C header → Rust module conversion. See [000_overall_plan](
 
 | Status | Count |
 |--------|-------|
-| not started | 81 |
-| stubbed | 2 |
+| not started | 0 |
+| stubbed | 0 |
 | ongoing | 0 |
-| done | 13 |
+| done | 96 |
 | **Total** | **96** |
