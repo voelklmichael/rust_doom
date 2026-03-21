@@ -1,0 +1,377 @@
+# Doom C to Rust Rewrite — Overall Plan
+
+## Overview
+
+Rewrite the Doom C codebase (in `doomgeneric/`) into Rust, following a systematic translation strategy that preserves structure while adapting to Rust idioms.
+
+---
+
+## 1. Module Structure
+
+### 1.1 Header-to-Module Mapping
+
+For each `xxx.h` file in `doomgeneric/`, create a corresponding Rust module `xxx.rs` in `src/`.
+
+**Total: 96 header files → 96 Rust modules**
+
+| Category | Headers |
+|----------|---------|
+| Core types | doomtype, doomdef, doomdata, doomstat, doomfeatures, doomkeys, doom, doomgeneric |
+| Data structures | doomtype, m_fixed, m_bbox, m_random, d_mode, d_event, d_think, d_ticcmd, d_items, d_player, d_main, d_loop, d_iwad, d_englsh, d_strings, d_textur |
+| Rendering | r_main, r_data, r_defs, r_local, r_draw, r_bsp, r_plane, r_segs, r_things, r_sky, r_state |
+| Game logic | g_game, p_mobj, p_local, p_setup, p_pspr, p_spec, p_tick, p_saveg, p_inter |
+| Map/level | am_map, info |
+| UI | m_menu, m_config, m_controls, m_argv, m_misc, m_cheat, st_stuff, st_lib, hu_stuff, hu_lib, wi_stuff, f_finale, f_wipe |
+| I/O & system | i_system, i_timer, i_video, i_sound, i_scale, i_joystick, i_swap, i_cdmus, i_endoom |
+| WAD/files | w_wad, w_file, w_main, w_checksum, w_merge |
+| Networking | net_defs, net_packet, net_server, net_client, net_loop, net_io, net_query, net_gui, net_dedicated |
+| Dehacked | deh_main, deh_str, deh_misc |
+| Misc | config, tables, sounds, sha1, memio, mus2mid, statdump, gusconf |
+
+### 1.2 Include Replacement
+
+Replace each C `#include "yyy.h"` with:
+
+```rust
+pub use crate::yyy::*;
+```
+
+Use `mod yyy;` when the module is only needed for internal use (no re-export). Establish a clear `lib.rs` or `main.rs` that declares all modules and their visibility.
+
+---
+
+## 2. Macro Constants → Statics
+
+Replace each `#define MACRO_NAME value` constant with a Rust `static` or `const`, annotated with the original macro name:
+
+```rust
+// Original: #define FIELDOFVIEW 2048
+pub const FIELDOFVIEW: i32 = 2048;
+
+// Original: #define LIGHTLEVELS 16
+pub const LIGHTLEVELS: i32 = 16;
+
+// Original: #define FRACBITS 16
+pub const FRACBITS: i32 = 16;
+```
+
+Use `const` for simple numeric/type values, `static` when a mutable or addressable value is required. Add a comment in the form: `// Original: #define MACRO_NAME ...` and note that it was a macro.
+
+---
+
+## 3. Macro Functions → Rust Functions
+
+Replace each macro that behaves like a function with a Rust function, annotated with the original macro name:
+
+```rust
+// Original: #define arrlen(array) (sizeof(array) / sizeof(*array))
+// This was a macro.
+#[inline]
+pub fn arrlen<T>(array: &[T]) -> usize {
+    array.len()
+}
+
+// Original: #define FixedMul(a, b) ...
+// This was a macro.
+pub fn fixed_mul(a: fixed_t, b: fixed_t) -> fixed_t { ... }
+```
+
+Add a comment: `// Original: #define MACRO_NAME ...` and `// This was a macro.`
+
+---
+
+## 4. State Struct per Module
+
+For each module `xxx`, create a state struct `XxxState` (PascalCase of the module name):
+
+```rust
+pub struct R_MainState {
+    // Fields from globals (see Section 6)
+}
+```
+
+Naming convention: `xxx` (module) → `XxxState` (e.g. `r_main` → `R_MainState`, `d_mode` → `D_ModeState`).
+
+---
+
+## 5. Functions → Methods on State
+
+Replace each C function with a method on the corresponding state struct. Always use `&self`, never `&mut self`. Interior mutability (via `RefCell`) on state fields handles any mutations.
+
+```rust
+// Original: R_PointOnSide(fixed_t x, fixed_t y, node_t* node)
+impl R_MainState {
+    pub fn r_point_on_side(&self, x: fixed_t, y: fixed_t, node: &Node) -> bool {
+        // ...
+    }
+}
+```
+
+Add a comment above each method: `// Original: FunctionName`
+
+---
+
+## 6. Global Variables → State Fields
+
+Replace each global variable (including those in `.c` files) with a field on the module’s state struct. Convert each C variable of type `T` to `RefCell<T>` in Rust, enabling interior mutability so that all methods can take `&self`:
+
+```rust
+use std::cell::RefCell;
+
+pub struct R_MainState {
+    // Original: viewangleoffset
+    pub viewangleoffset: RefCell<i32>,
+
+    // Original: validcount
+    pub validcount: RefCell<i32>,
+
+    // Original: fixedcolormap
+    pub fixedcolormap: RefCell<*mut lighttable_t>,
+
+    // Original: centerx, centery
+    pub centerx: RefCell<i32>,
+    pub centery: RefCell<i32>,
+
+    // ... etc
+}
+```
+
+Add a comment above each field: `// Original: variable_name`
+
+---
+
+## 7. Extern Variables → Functions (Placeholder)
+
+Replace each `extern` variable with a function that takes no arguments and returns the corresponding type. The function must panic with `todo!()` until properly wired to state:
+
+```rust
+// Original: extern lighttable_t** walllights;
+pub fn walllights() -> *mut *mut lighttable_t {
+    todo!("walllights: extern variable - wire to state")
+}
+
+// Original: extern int key_fire;
+pub fn key_fire() -> i32 {
+    todo!("key_fire: extern variable - wire to state")
+}
+```
+
+Add a comment: `// Original: extern type variable_name;`
+
+**Note:** Extern variables that are defined in the same module’s `.c` file should become state fields (Section 6), not these placeholder functions. Only externs that are defined in another module become functions.
+
+---
+
+## 8. Migration Order (Dependency-First)
+
+Migrate modules in dependency order so that types and functions are available when needed:
+
+### Phase 1 — Leaf modules (no or minimal internal includes)
+- `doomtype` (base types, boolean, byte)
+- `config`
+- `i_swap`
+- `i_timer`
+- `sha1`
+- `memio`
+- `doomdata`
+- `doomfeatures`
+
+### Phase 2 — Core types and data
+- `m_fixed`
+- `m_bbox`
+- `m_random`
+- `d_mode`
+- `d_event`
+- `d_think`
+- `d_ticcmd`
+- `doomdef`
+- `doomstat`
+- `d_items`
+- `d_player`
+- `d_iwad`
+- `d_englsh`
+- `dstrings`
+- `d_textur`
+
+### Phase 3 — Low-level I/O and WAD
+- `w_file`
+- `w_merge`
+- `w_checksum`
+- `w_wad`
+- `w_main`
+- `z_zone`
+- `tables`
+
+### Phase 4 — Rendering data structures
+- `r_defs`
+- `r_data`
+- `r_local`
+- `r_state`
+- `v_patch`
+- `v_video`
+- `r_draw`
+- `r_sky`
+- `r_plane`
+- `r_bsp`
+- `r_segs`
+- `r_things`
+- `r_main`
+
+### Phase 5 — Game logic
+- `info`
+- `p_mobj`
+- `p_local`
+- `p_setup`
+- `p_spec`
+- `p_tick`
+- `p_saveg`
+- `p_pspr`
+- `p_inter`
+- `g_game`
+
+### Phase 6 — UI, sound, system
+- `sounds`
+- `s_sound`
+- `m_config`
+- `m_controls`
+- `m_argv`
+- `m_misc`
+- `m_menu`
+- `m_cheat`
+- `st_lib`
+- `st_stuff`
+- `hu_lib`
+- `hu_stuff`
+- `am_map`
+- `wi_stuff`
+- `f_finale`
+- `f_wipe`
+
+### Phase 7 — System and platform
+- `i_system`
+- `i_video`
+- `i_sound`
+- `i_scale`
+- `i_joystick`
+- `i_cdmus`
+- `i_endoom`
+- `doomgeneric`
+- `d_main`
+- `d_loop`
+
+### Phase 8 — Optional / networking / dehacked
+- `net_*` modules
+- `deh_main`, `deh_str`, `deh_misc`
+- `gusconf`
+- `mus2mid`
+- `statdump`
+
+---
+
+## 9. Special Cases
+
+### 9.1 Platform-specific code
+- `doomtype.h`: `strcasecmp`/`strncasecmp` → use `str::eq_ignore_ascii_case` or `to_lowercase` comparisons
+- `DIR_SEPARATOR`, `PATH_SEPARATOR` → use `std::path::MAIN_SEPARATOR` and `std::path::MAIN_SEPARATOR_STR`
+
+### 9.2 Function pointers
+C function pointers (e.g. `void (*colfunc)(void)`) become:
+- `Box<dyn Fn()>` or
+- `fn()` where no closure state is needed
+
+### 9.3 Variadic functions
+Replace C `printf`-style variadics with `format!` or structured logging.
+
+### 9.4 Files with only headers (no .c)
+Examples: `doomtype`, `d_mode`, `m_bbox`. Create `XxxState` with no fields if there are no globals; methods come from function declarations in the header.
+
+---
+
+## 10. Crate Layout
+
+```
+rust_doom/
+├── Cargo.toml
+├── src/
+│   ├── lib.rs          # Module declarations, re-exports
+│   ├── main.rs         # Entry point, doomgeneric init
+│   ├── doomtype.rs
+│   ├── doomdef.rs
+│   ├── r_main.rs
+│   └── ...             # One .rs per .h
+└── docs/
+    └── 000_overall_plan  # This document
+```
+
+---
+
+## 11. Checklist per Module
+
+When migrating each module `xxx`:
+
+- [ ] Create `src/xxx.rs`
+- [ ] Replace `#include "yyy.h"` with `pub use crate::yyy::*` or `use crate::yyy::*`
+- [ ] Convert macro constants to `const`/`static` with `// Original: #define MACRO`
+- [ ] Convert macro functions to Rust functions with `// This was a macro`
+- [ ] Define `XxxState` struct
+- [ ] Add state fields for all globals from `xxx.c` with `// Original: varname`
+- [ ] Add placeholder functions for extern variables from other modules with `todo!()`
+- [ ] Convert each function to a method on `XxxState` with `// Original: FunctionName`
+- [ ] Use `&self` for all methods (never `&mut self`); use `RefCell` for mutable fields
+
+---
+
+## 12. Example: r_main Module
+
+```rust
+// src/r_main.rs
+
+use std::cell::RefCell;
+
+pub use crate::d_player::*;
+pub use crate::r_data::*;
+pub use crate::r_local::*;
+pub use crate::r_sky::*;
+pub use crate::m_bbox::*;
+pub use crate::m_menu::*;
+
+// Original: #define FIELDOFVIEW 2048
+pub const FIELDOFVIEW: i32 = 2048;
+
+pub struct R_MainState {
+    // Original: viewangleoffset
+    pub viewangleoffset: RefCell<i32>,
+    // Original: validcount
+    pub validcount: RefCell<i32>,
+    // Original: fixedcolormap
+    pub fixedcolormap: RefCell<*mut lighttable_t>,
+    // Original: centerx, centery
+    pub centerx: RefCell<i32>,
+    pub centery: RefCell<i32>,
+    // ... (all globals from r_main.c)
+}
+
+impl R_MainState {
+    // Original: R_PointOnSide
+    pub fn r_point_on_side(&self, x: fixed_t, y: fixed_t, node: &Node) -> bool {
+        // ...
+    }
+
+    // Original: R_RenderPlayerView
+    pub fn r_render_player_view(&self, player: &Player) {
+        // ...
+    }
+}
+
+// Original: extern lighttable_t** walllights; (defined in r_segs.c)
+pub fn walllights() -> *mut *mut lighttable_t {
+    todo!("walllights: extern variable - wire to r_segs state")
+}
+```
+
+---
+
+## 13. Validation
+
+- After each phase, ensure `cargo build` succeeds.
+- Preserve original C behavior; avoid premature optimization during migration.
