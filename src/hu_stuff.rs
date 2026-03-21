@@ -35,6 +35,7 @@ pub const HU_MSGTIMEOUT: i32 = 4 * crate::i_timer::TICRATE;
 
 #[allow(non_camel_case_types)]
 pub struct Hu_StuffState {
+    // Original: chat_macros
     pub chat_macros: RefCell<[*mut c_char; 10]>,
 }
 
@@ -45,30 +46,37 @@ impl Hu_StuffState {
         }
     }
 
+    // Original: HU_Init
     pub fn hu_init(&self) {
         todo!("HU_Init");
     }
 
+    // Original: HU_Start
     pub fn hu_start(&self) {
         todo!("HU_Start");
     }
 
+    // Original: HU_Responder
     pub fn hu_responder(&self, _ev: *mut EventT) -> crate::doomtype::Boolean {
         todo!("HU_Responder");
     }
 
+    // Original: HU_Ticker
     pub fn hu_ticker(&self) {
         todo!("HU_Ticker");
     }
 
+    // Original: HU_Drawer
     pub fn hu_drawer(&self) {
         todo!("HU_Drawer");
     }
 
+    // Original: HU_dequeueChatChar
     pub fn hu_dequeue_chat_char(&self) -> c_char {
         todo!("HU_dequeueChatChar");
     }
 
+    // Original: HU_Erase
     pub fn hu_erase(&self) {
         todo!("HU_Erase");
     }

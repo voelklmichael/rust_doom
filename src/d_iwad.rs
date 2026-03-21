@@ -19,9 +19,13 @@ pub const IWAD_MASK_STRIFE: i32 = 1 << GameMissionT::Strife as i32;
 /// Original: typedef struct { char *name; GameMission_t mission; ... } iwad_t
 #[repr(C)]
 pub struct IwadT {
+    // Original: name
     pub name: *mut c_char,
+    // Original: mission
     pub mission: GameMissionT,
+    // Original: mode
     pub mode: GameModeT,
+    // Original: description
     pub description: *mut c_char,
 }
 

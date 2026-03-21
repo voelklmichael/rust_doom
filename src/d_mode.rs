@@ -61,15 +61,21 @@ pub enum SkillT {
 
 #[derive(Clone, Copy)]
 struct ValidMode {
+    // Original: mission
     mission: GameMissionT,
+    // Original: mode
     mode: GameModeT,
+    // Original: episode
     episode: i32,
+    // Original: map
     map: i32,
 }
 
 #[derive(Clone, Copy)]
 struct ValidVersion {
+    // Original: mission
     mission: GameMissionT,
+    // Original: version
     version: GameVersionT,
 }
 

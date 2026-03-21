@@ -15,8 +15,11 @@ pub type ActionfP2 = unsafe extern "C" fn(*mut c_void, *mut c_void);
 // Original: typedef union { actionf_v acv; actionf_p1 acp1; actionf_p2 acp2; } actionf_t
 #[repr(C)]
 pub union ActionfT {
+    // Original: acv
     pub acv: ActionfV,
+    // Original: acp1
     pub acp1: ActionfP1,
+    // Original: acp2
     pub acp2: ActionfP2,
 }
 
@@ -26,8 +29,11 @@ pub type ThinkT = ActionfT;
 // Original: struct thinker_s
 #[repr(C)]
 pub struct ThinkerS {
+    // Original: prev
     pub prev: *mut ThinkerS,
+    // Original: next
     pub next: *mut ThinkerS,
+    // Original: function
     pub function: ThinkT,
 }
 

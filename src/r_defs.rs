@@ -67,7 +67,9 @@ pub struct SpritedefT {
 /// Original: vertex_t
 #[repr(C)]
 pub struct VertexT {
+    // Original: x
     pub x: FixedT,
+    // Original: y
     pub y: FixedT,
 }
 

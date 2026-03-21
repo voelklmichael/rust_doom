@@ -8,17 +8,24 @@ pub use crate::doomdef::*;
 #[repr(C)]
 #[derive(Clone, Copy)]
 pub struct WeaponinfoT {
+    // Original: ammo
     pub ammo: AmmotypeT,
+    // Original: upstate
     pub upstate: i32,
+    // Original: downstate
     pub downstate: i32,
+    // Original: readystate
     pub readystate: i32,
+    // Original: atkstate
     pub atkstate: i32,
+    // Original: flashstate
     pub flashstate: i32,
 }
 
 /// Original: weaponinfo_t weaponinfo[NUMWEAPONS] (defined in d_items.c)
 #[allow(non_camel_case_types)]
 pub struct D_ItemsState {
+    // Original: weaponinfo
     pub weaponinfo: RefCell<Vec<WeaponinfoT>>,
 }
 
@@ -29,7 +36,7 @@ impl D_ItemsState {
         }
     }
 
-    /// Original: static initializer in d_items.c
+    // Original: static initializer in d_items.c
     pub fn init_weaponinfo_table(&self) {
         todo!("weaponinfo[] from d_items.c");
     }

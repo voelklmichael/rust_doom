@@ -20,6 +20,7 @@ impl Mus2midState {
         }
     }
 
+    // Original: mus2mid
     pub fn mus2mid(&self, _musinput: *mut Memfile, _midioutput: *mut Memfile) -> Boolean {
         todo!("mus2mid");
     }

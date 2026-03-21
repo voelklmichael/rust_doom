@@ -16,6 +16,7 @@ impl P_SetupState {
         }
     }
 
+    // Original: P_SetupLevel
     pub fn p_setup_level(
         &self,
         _episode: i32,
@@ -26,6 +27,7 @@ impl P_SetupState {
         todo!("P_SetupLevel");
     }
 
+    // Original: P_Init
     pub fn p_init(&self) {
         todo!("P_Init");
     }

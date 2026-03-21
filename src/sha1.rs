@@ -11,13 +11,21 @@ pub type Sha1DigestT = [Byte; 20];
 #[derive(Clone)]
 #[allow(non_camel_case_types)]
 pub struct Sha1ContextT {
+    // Original: h0
     pub h0: u32,
+    // Original: h1
     pub h1: u32,
+    // Original: h2
     pub h2: u32,
+    // Original: h3
     pub h3: u32,
+    // Original: h4
     pub h4: u32,
+    // Original: nblocks
     pub nblocks: u32,
+    // Original: buf
     pub buf: [Byte; 64],
+    // Original: count
     pub count: i32,
 }
 

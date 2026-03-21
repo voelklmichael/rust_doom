@@ -11,11 +11,17 @@ use std::os::raw::c_void;
 // Original: typedef struct lumpinfo_s
 #[allow(non_camel_case_types)]
 pub struct LumpinfoT {
+    // Original: name
     pub name: [u8; 8],
+    // Original: wad_file
     pub wad_file: *mut WadFileT,
+    // Original: position
     pub position: i32,
+    // Original: size
     pub size: i32,
+    // Original: cache
     pub cache: *mut c_void,
+    // Original: next
     pub next: *mut LumpinfoT,
 }
 

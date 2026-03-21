@@ -46,6 +46,7 @@ pub fn doom_swap_s(x: u16) -> i16 {
 }
 
 #[inline]
+// Original: doom_wtohs
 pub fn doom_wtohs(x: u16) -> i16 {
     #[cfg(target_endian = "little")]
     return x as i16;

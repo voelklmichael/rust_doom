@@ -41,42 +41,75 @@ pub mod mobjflag {
 /// Original: typedef struct mobj_s { ... } mobj_t
 #[repr(C)]
 pub struct MobjT {
+    // Original: thinker
     pub thinker: ThinkerT,
+    // Original: x
     pub x: FixedT,
+    // Original: y
     pub y: FixedT,
+    // Original: z
     pub z: FixedT,
+    // Original: snext
     pub snext: *mut MobjT,
+    // Original: sprev
     pub sprev: *mut MobjT,
+    // Original: angle
     pub angle: AngleT,
+    // Original: sprite
     pub sprite: SpritenumT,
+    // Original: frame
     pub frame: i32,
+    // Original: bnext
     pub bnext: *mut MobjT,
+    // Original: bprev
     pub bprev: *mut MobjT,
     /// Original: subsector_s* — stub opaque until r_ / p_ modules
     pub subsector: *mut std::ffi::c_void,
+    // Original: floorz
     pub floorz: FixedT,
+    // Original: ceilingz
     pub ceilingz: FixedT,
+    // Original: radius
     pub radius: FixedT,
+    // Original: height
     pub height: FixedT,
+    // Original: momx
     pub momx: FixedT,
+    // Original: momy
     pub momy: FixedT,
+    // Original: momz
     pub momz: FixedT,
+    // Original: validcount
     pub validcount: i32,
+    // Original: type
     pub type_: MobjtypeT,
+    // Original: info
     pub info: *mut MobjinfoT,
+    // Original: tics
     pub tics: i32,
+    // Original: state
     pub state: *mut StateT,
+    // Original: flags
     pub flags: i32,
+    // Original: health
     pub health: i32,
+    // Original: movedir
     pub movedir: i32,
+    // Original: movecount
     pub movecount: i32,
+    // Original: target
     pub target: *mut MobjT,
+    // Original: reactiontime
     pub reactiontime: i32,
+    // Original: threshold
     pub threshold: i32,
     /// Original: player_s* — avoid cycle with d_player
     pub player: *mut std::ffi::c_void,
+    // Original: lastlook
     pub lastlook: i32,
+    // Original: spawnpoint
     pub spawnpoint: MapthingT,
+    // Original: tracer
     pub tracer: *mut MobjT,
 }
 

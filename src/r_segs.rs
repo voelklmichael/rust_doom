@@ -16,6 +16,7 @@ impl R_SegsState {
         }
     }
 
+    // Original: R_RenderMaskedSegRange
     pub fn r_render_masked_seg_range(&self, _ds: *mut DrawsegT, _x1: i32, _x2: i32) {
         todo!("R_RenderMaskedSegRange");
     }

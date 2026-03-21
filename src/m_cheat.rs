@@ -11,11 +11,17 @@ pub const MAX_CHEAT_PARAMS: usize = 5;
 /// Original: cheatseq_t
 #[repr(C)]
 pub struct CheatseqT {
+    // Original: sequence
     pub sequence: [i8; MAX_CHEAT_LEN],
+    // Original: sequence_len
     pub sequence_len: usize,
+    // Original: parameter_chars
     pub parameter_chars: i32,
+    // Original: chars_read
     pub chars_read: usize,
+    // Original: param_chars_read
     pub param_chars_read: i32,
+    // Original: parameter_buf
     pub parameter_buf: [i8; MAX_CHEAT_PARAMS],
 }
 

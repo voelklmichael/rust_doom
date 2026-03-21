@@ -18,6 +18,7 @@ impl I_EndoomState {
         }
     }
 
+    // Original: I_Endoom
     pub fn i_endoom(&self, _data: *mut Byte) {
         todo!("I_Endoom");
     }

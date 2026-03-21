@@ -14,6 +14,7 @@ impl R_SkyState {
         }
     }
 
+    // Original: R_InitSkyMap
     pub fn r_init_sky_map(&self) {
         todo!("R_InitSkyMap");
     }

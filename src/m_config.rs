@@ -9,6 +9,7 @@ pub use crate::doomtype::*;
 /// Original: extern char *configdir
 #[allow(non_camel_case_types)]
 pub struct M_ConfigState {
+    // Original: configdir
     pub configdir: RefCell<Option<CString>>,
 }
 

@@ -28,7 +28,9 @@ use std::cell::RefCell;
 
 #[allow(non_camel_case_types)]
 pub struct M_MenuState {
+    // Original: detail_level
     pub detail_level: RefCell<i32>,
+    // Original: screenblocks
     pub screenblocks: RefCell<i32>,
 }
 
@@ -40,22 +42,27 @@ impl M_MenuState {
         }
     }
 
+    // Original: M_Responder
     pub fn m_responder(&self, _ev: *mut EventT) -> Boolean {
         todo!("M_Responder");
     }
 
+    // Original: M_Ticker
     pub fn m_ticker(&self) {
         todo!("M_Ticker");
     }
 
+    // Original: M_Drawer
     pub fn m_drawer(&self) {
         todo!("M_Drawer");
     }
 
+    // Original: M_Init
     pub fn m_init(&self) {
         todo!("M_Init");
     }
 
+    // Original: M_StartControlPanel
     pub fn m_start_control_panel(&self) {
         todo!("M_StartControlPanel");
     }

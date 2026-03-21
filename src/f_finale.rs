@@ -31,18 +31,22 @@ impl F_FinaleState {
         }
     }
 
+    // Original: F_Responder
     pub fn f_responder(&self, _ev: *mut EventT) -> Boolean {
         todo!("F_Responder");
     }
 
+    // Original: F_Ticker
     pub fn f_ticker(&self) {
         todo!("F_Ticker");
     }
 
+    // Original: F_Drawer
     pub fn f_drawer(&self) {
         todo!("F_Drawer");
     }
 
+    // Original: F_StartFinale
     pub fn f_start_finale(&self) {
         todo!("F_StartFinale");
     }

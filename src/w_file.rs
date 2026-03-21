@@ -15,8 +15,11 @@ pub struct WadFileClassT {
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct WadFileT {
+    // Original: file_class
     pub file_class: *mut WadFileClassT,
+    // Original: mapped
     pub mapped: *mut Byte,
+    // Original: length
     pub length: u32,
 }
 

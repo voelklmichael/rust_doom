@@ -23,9 +23,13 @@ pub const NUMPSPRITES: usize = PsprnumT::NUMPSPRITES as usize;
 /// Original: typedef struct { state_t *state; int tics; fixed_t sx, sy; } pspdef_t
 #[repr(C)]
 pub struct PspdefT {
+    // Original: state
     pub state: *mut StateT,
+    // Original: tics
     pub tics: i32,
+    // Original: sx
     pub sx: FixedT,
+    // Original: sy
     pub sy: FixedT,
 }
 

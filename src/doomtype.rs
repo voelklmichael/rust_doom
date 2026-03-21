@@ -14,12 +14,14 @@ pub enum Boolean {
 }
 
 impl From<bool> for Boolean {
+    // Original: (Rust From<bool> for Boolean)
     fn from(b: bool) -> Self {
         if b { Boolean::True } else { Boolean::False }
     }
 }
 
 impl From<Boolean> for bool {
+    // Original: (Rust From<Boolean> for bool)
     fn from(b: Boolean) -> Self {
         matches!(b, Boolean::True)
     }

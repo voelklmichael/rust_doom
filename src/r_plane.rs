@@ -16,14 +16,17 @@ impl R_PlaneState {
         }
     }
 
+    // Original: R_InitPlanes
     pub fn r_init_planes(&self) {
         todo!("R_InitPlanes");
     }
 
+    // Original: R_ClearPlanes
     pub fn r_clear_planes(&self) {
         todo!("R_ClearPlanes");
     }
 
+    // Original: R_DrawPlanes
     pub fn r_draw_planes(&self) {
         todo!("R_DrawPlanes");
     }

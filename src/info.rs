@@ -16,12 +16,19 @@ pub const NUMMOBJTYPES: i32 = MobjtypeT::NUMMOBJTYPES as i32;
 /// Original: typedef struct { ... } state_t
 #[repr(C)]
 pub struct StateT {
+    // Original: sprite
     pub sprite: SpritenumT,
+    // Original: frame
     pub frame: i32,
+    // Original: tics
     pub tics: i32,
+    // Original: action
     pub action: ActionfT,
+    // Original: nextstate
     pub nextstate: StatenumT,
+    // Original: misc1
     pub misc1: i32,
+    // Original: misc2
     pub misc2: i32,
 }
 
@@ -29,28 +36,51 @@ pub struct StateT {
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct MobjinfoT {
+    // Original: doomednum
     pub doomednum: i32,
+    // Original: spawnstate
     pub spawnstate: i32,
+    // Original: spawnhealth
     pub spawnhealth: i32,
+    // Original: seestate
     pub seestate: i32,
+    // Original: seesound
     pub seesound: i32,
+    // Original: reactiontime
     pub reactiontime: i32,
+    // Original: attacksound
     pub attacksound: i32,
+    // Original: painstate
     pub painstate: i32,
+    // Original: painchance
     pub painchance: i32,
+    // Original: painsound
     pub painsound: i32,
+    // Original: meleestate
     pub meleestate: i32,
+    // Original: missilestate
     pub missilestate: i32,
+    // Original: deathstate
     pub deathstate: i32,
+    // Original: xdeathstate
     pub xdeathstate: i32,
+    // Original: deathsound
     pub deathsound: i32,
+    // Original: speed
     pub speed: i32,
+    // Original: radius
     pub radius: i32,
+    // Original: height
     pub height: i32,
+    // Original: mass
     pub mass: i32,
+    // Original: damage
     pub damage: i32,
+    // Original: activesound
     pub activesound: i32,
+    // Original: flags
     pub flags: i32,
+    // Original: raisestate
     pub raisestate: i32,
 }
 
@@ -75,6 +105,7 @@ impl InfoState {
     }
 
     /// Populating `states` / `mobjinfo` belongs in info.c translation (>10 lines).
+    // Original: init_from_info_c — table data from info.c
     pub fn init_from_info_c(&self) {
         todo!("init_from_info_c — table data from info.c");
     }

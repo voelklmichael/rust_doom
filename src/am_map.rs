@@ -26,6 +26,7 @@ pub const AM_MSGEXITED: i32 = AM_MSGHEADER | (b'x' as i32) << 8;
 
 #[allow(non_camel_case_types)]
 pub struct Am_MapState {
+    // Original: cheat_amap
     pub cheat_amap: RefCell<CheatseqT>,
 }
 
@@ -43,18 +44,22 @@ impl Am_MapState {
         }
     }
 
+    // Original: AM_Responder
     pub fn am_responder(&self, _ev: *mut EventT) -> crate::doomtype::Boolean {
         todo!("AM_Responder");
     }
 
+    // Original: AM_Ticker
     pub fn am_ticker(&self) {
         todo!("AM_Ticker");
     }
 
+    // Original: AM_Drawer
     pub fn am_drawer(&self) {
         todo!("AM_Drawer");
     }
 
+    // Original: AM_Stop
     pub fn am_stop(&self) {
         todo!("AM_Stop");
     }

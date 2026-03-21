@@ -23,19 +23,28 @@ pub type GrabmouseCallbackT = unsafe extern "C" fn() -> Boolean;
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
 pub struct VideoColor {
+    // Original: b
     pub b: u8,
+    // Original: g
     pub g: u8,
+    // Original: r
     pub r: u8,
+    // Original: a
     pub a: u8,
 }
 
 /// Original: typedef struct { ... } screen_mode_t
 #[repr(C)]
 pub struct ScreenModeT {
+    // Original: width
     pub width: i32,
+    // Original: height
     pub height: i32,
+    // Original: init_mode
     pub init_mode: Option<unsafe extern "C" fn(*mut Byte)>,
+    // Original: draw_screen
     pub draw_screen: Option<unsafe extern "C" fn(i32, i32, i32, i32) -> Boolean>,
+    // Original: poor_quality
     pub poor_quality: Boolean,
 }
 
@@ -59,12 +68,17 @@ pub struct I_VideoState {
     pub i_video_buffer: RefCell<*mut Byte>,
     /// Original: int screen_width, screen_height, screen_bpp, fullscreen, aspect_ratio_correct
     pub screen_width: RefCell<i32>,
+    // Original: screen_height
     pub screen_height: RefCell<i32>,
+    // Original: screen_bpp
     pub screen_bpp: RefCell<i32>,
+    // Original: fullscreen
     pub fullscreen: RefCell<i32>,
+    // Original: aspect_ratio_correct
     pub aspect_ratio_correct: RefCell<i32>,
     /// Original: int show_diskicon, diskicon_readbytes
     pub show_diskicon: RefCell<i32>,
+    // Original: diskicon_readbytes
     pub diskicon_readbytes: RefCell<i32>,
     /// Original: boolean palette_changed (CMAP256)
     pub palette_changed: RefCell<Boolean>,

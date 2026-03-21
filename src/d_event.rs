@@ -20,10 +20,15 @@ pub enum EvtypeT {
 #[derive(Clone, Copy)]
 #[repr(C)]
 pub struct EventT {
+    // Original: ev_type
     pub ev_type: EvtypeT,
+    // Original: data1
     pub data1: i32,
+    // Original: data2
     pub data2: i32,
+    // Original: data3
     pub data3: i32,
+    // Original: data4
     pub data4: i32,
 }
 

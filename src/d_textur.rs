@@ -5,8 +5,11 @@ pub use crate::doomtype::*;
 /// Original: pic_t
 #[repr(C)]
 pub struct PicT {
+    // Original: width
     pub width: u8,
+    // Original: height
     pub height: u8,
+    // Original: data
     pub data: u8,
 }
 

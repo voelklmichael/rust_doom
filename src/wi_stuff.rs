@@ -38,18 +38,22 @@ impl Wi_StuffState {
         }
     }
 
+    // Original: WI_Ticker
     pub fn wi_ticker(&self) {
         todo!("WI_Ticker");
     }
 
+    // Original: WI_Drawer
     pub fn wi_drawer(&self) {
         todo!("WI_Drawer");
     }
 
+    // Original: WI_Start
     pub fn wi_start(&self, _wbstartstruct: *mut WbstartstructT) {
         todo!("WI_Start");
     }
 
+    // Original: WI_End
     pub fn wi_end(&self) {
         todo!("WI_End");
     }

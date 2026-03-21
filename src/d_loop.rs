@@ -12,9 +12,13 @@ pub type NetgameStartupCallbackT = fn(i32, i32) -> Boolean;
 /// Original: typedef struct { ... } loop_interface_t
 #[derive(Clone, Copy)]
 pub struct LoopInterfaceT {
+    // Original: process_events
     pub process_events: Option<fn()>,
+    // Original: build_ticcmd
     pub build_ticcmd: Option<fn(*mut TiccmdT, i32)>,
+    // Original: run_tic
     pub run_tic: Option<fn(*mut TiccmdT, *mut Boolean)>,
+    // Original: run_menu
     pub run_menu: Option<fn()>,
 }
 
@@ -24,7 +28,9 @@ pub struct D_LoopState {
     pub singletics: RefCell<Boolean>,
     /// Original: extern int gametic, ticdup
     pub gametic: RefCell<i32>,
+    // Original: ticdup
     pub ticdup: RefCell<i32>,
+    // Original: loop_interface
     pub loop_interface: RefCell<Option<LoopInterfaceT>>,
 }
 

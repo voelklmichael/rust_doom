@@ -18,10 +18,12 @@ impl StatdumpState {
         }
     }
 
+    // Original: StatCopy
     pub fn stat_copy(&self, _stats: *mut WbstartstructT) {
         todo!("StatCopy");
     }
 
+    // Original: StatDump
     pub fn stat_dump(&self) {
         todo!("StatDump");
     }

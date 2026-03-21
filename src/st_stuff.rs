@@ -32,6 +32,7 @@ pub const ST_HEIGHT: i32 = 32;
 pub const ST_WIDTH: i32 = crate::i_video::SCREENWIDTH;
 pub const ST_Y: i32 = crate::i_video::SCREENHEIGHT - ST_HEIGHT;
 
+// Original: (zero-init cheatseq_t)
 fn empty_cheat() -> CheatseqT {
     CheatseqT {
         sequence: [0; MAX_CHEAT_LEN],
@@ -60,16 +61,27 @@ pub enum StChatstateenumT {
 
 #[allow(non_camel_case_types)]
 pub struct St_StuffState {
+    // Original: st_backing_screen
     pub st_backing_screen: RefCell<*mut Byte>,
+    // Original: cheat_mus
     pub cheat_mus: RefCell<CheatseqT>,
+    // Original: cheat_god
     pub cheat_god: RefCell<CheatseqT>,
+    // Original: cheat_ammo
     pub cheat_ammo: RefCell<CheatseqT>,
+    // Original: cheat_ammonokey
     pub cheat_ammonokey: RefCell<CheatseqT>,
+    // Original: cheat_noclip
     pub cheat_noclip: RefCell<CheatseqT>,
+    // Original: cheat_commercial_noclip
     pub cheat_commercial_noclip: RefCell<CheatseqT>,
+    // Original: cheat_powerup
     pub cheat_powerup: RefCell<[CheatseqT; 7]>,
+    // Original: cheat_choppers
     pub cheat_choppers: RefCell<CheatseqT>,
+    // Original: cheat_clev
     pub cheat_clev: RefCell<CheatseqT>,
+    // Original: cheat_mypos
     pub cheat_mypos: RefCell<CheatseqT>,
 }
 
@@ -90,22 +102,27 @@ impl St_StuffState {
         }
     }
 
+    // Original: ST_Responder
     pub fn st_responder(&self, _ev: *mut EventT) -> Boolean {
         todo!("ST_Responder");
     }
 
+    // Original: ST_Ticker
     pub fn st_ticker(&self) {
         todo!("ST_Ticker");
     }
 
+    // Original: ST_Drawer
     pub fn st_drawer(&self, _fullscreen: Boolean, _refresh: Boolean) {
         todo!("ST_Drawer");
     }
 
+    // Original: ST_Start
     pub fn st_start(&self) {
         todo!("ST_Start");
     }
 
+    // Original: ST_Init
     pub fn st_init(&self) {
         todo!("ST_Init");
     }

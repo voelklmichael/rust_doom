@@ -30,14 +30,17 @@ impl F_WipeState {
         }
     }
 
+    // Original: wipe_StartScreen
     pub fn wipe_start_screen(&self, _x: i32, _y: i32, _width: i32, _height: i32) -> i32 {
         todo!("wipe_StartScreen");
     }
 
+    // Original: wipe_EndScreen
     pub fn wipe_end_screen(&self, _x: i32, _y: i32, _width: i32, _height: i32) -> i32 {
         todo!("wipe_EndScreen");
     }
 
+    // Original: wipe_ScreenWipe
     pub fn wipe_screen_wipe(
         &self,
         _wipeno: i32,

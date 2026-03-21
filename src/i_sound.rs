@@ -8,24 +8,38 @@ pub use crate::doomtype::*;
 /// Original: typedef struct sfxinfo_struct sfxinfo_t
 #[repr(C)]
 pub struct SfxinfoT {
+    // Original: tagname
     pub tagname: *mut c_char,
+    // Original: name
     pub name: [c_char; 9],
+    // Original: priority
     pub priority: i32,
+    // Original: link
     pub link: *mut SfxinfoT,
+    // Original: pitch
     pub pitch: i32,
+    // Original: volume
     pub volume: i32,
+    // Original: usefulness
     pub usefulness: i32,
+    // Original: lumpnum
     pub lumpnum: i32,
+    // Original: numchannels
     pub numchannels: i32,
+    // Original: driver_data
     pub driver_data: *mut std::ffi::c_void,
 }
 
 /// Original: typedef struct { ... } musicinfo_t
 #[repr(C)]
 pub struct MusicinfoT {
+    // Original: name
     pub name: *mut c_char,
+    // Original: lumpnum
     pub lumpnum: i32,
+    // Original: data
     pub data: *mut std::ffi::c_void,
+    // Original: handle
     pub handle: *mut std::ffi::c_void,
 }
 
@@ -49,51 +63,86 @@ pub enum SnddeviceT {
 /// Original: typedef struct { ... } sound_module_t
 #[repr(C)]
 pub struct SoundModuleT {
+    // Original: sound_devices
     pub sound_devices: *mut SnddeviceT,
+    // Original: num_sound_devices
     pub num_sound_devices: i32,
+    // Original: init
     pub init: Option<unsafe extern "C" fn(Boolean) -> Boolean>,
+    // Original: shutdown
     pub shutdown: Option<unsafe extern "C" fn()>,
+    // Original: get_sfx_lump_num
     pub get_sfx_lump_num: Option<unsafe extern "C" fn(*mut SfxinfoT) -> i32>,
+    // Original: update
     pub update: Option<unsafe extern "C" fn()>,
+    // Original: update_sound_params
     pub update_sound_params: Option<unsafe extern "C" fn(i32, i32, i32)>,
+    // Original: start_sound
     pub start_sound: Option<unsafe extern "C" fn(*mut SfxinfoT, i32, i32, i32) -> i32>,
+    // Original: stop_sound
     pub stop_sound: Option<unsafe extern "C" fn(i32)>,
+    // Original: sound_is_playing
     pub sound_is_playing: Option<unsafe extern "C" fn(i32) -> Boolean>,
+    // Original: cache_sounds
     pub cache_sounds: Option<unsafe extern "C" fn(*mut SfxinfoT, i32)>,
 }
 
 /// Original: typedef struct { ... } music_module_t
 #[repr(C)]
 pub struct MusicModuleT {
+    // Original: sound_devices
     pub sound_devices: *mut SnddeviceT,
+    // Original: num_sound_devices
     pub num_sound_devices: i32,
+    // Original: init
     pub init: Option<unsafe extern "C" fn() -> Boolean>,
+    // Original: shutdown
     pub shutdown: Option<unsafe extern "C" fn()>,
+    // Original: set_music_volume
     pub set_music_volume: Option<unsafe extern "C" fn(i32)>,
+    // Original: pause_music
     pub pause_music: Option<unsafe extern "C" fn()>,
+    // Original: resume_music
     pub resume_music: Option<unsafe extern "C" fn()>,
+    // Original: register_song
     pub register_song: Option<unsafe extern "C" fn(*mut std::ffi::c_void, i32) -> *mut std::ffi::c_void>,
+    // Original: un_register_song
     pub un_register_song: Option<unsafe extern "C" fn(*mut std::ffi::c_void)>,
+    // Original: play_song
     pub play_song: Option<unsafe extern "C" fn(*mut std::ffi::c_void, Boolean)>,
+    // Original: stop_song
     pub stop_song: Option<unsafe extern "C" fn()>,
+    // Original: music_is_playing
     pub music_is_playing: Option<unsafe extern "C" fn() -> Boolean>,
+    // Original: poll
     pub poll: Option<unsafe extern "C" fn()>,
 }
 
 #[allow(non_camel_case_types)]
 pub struct I_SoundState {
+    // Original: snd_sfxdevice
     pub snd_sfxdevice: RefCell<i32>,
+    // Original: snd_musicdevice
     pub snd_musicdevice: RefCell<i32>,
+    // Original: snd_samplerate
     pub snd_samplerate: RefCell<i32>,
+    // Original: snd_cachesize
     pub snd_cachesize: RefCell<i32>,
+    // Original: snd_maxslicetime_ms
     pub snd_maxslicetime_ms: RefCell<i32>,
+    // Original: snd_musiccmd
     pub snd_musiccmd: RefCell<*mut c_char>,
+    // Original: opl_io_port
     pub opl_io_port: RefCell<i32>,
+    // Original: timidity_cfg_path
     pub timidity_cfg_path: RefCell<*mut c_char>,
     /// Original: sound_module_t / music_module_t externs — not populated until drivers load
     pub dg_sound_module: RefCell<Option<SoundModuleT>>,
+    // Original: dg_music_module
     pub dg_music_module: RefCell<Option<MusicModuleT>>,
+    // Original: sound_pcsound_module
     pub sound_pcsound_module: RefCell<Option<SoundModuleT>>,
+    // Original: music_opl_module
     pub music_opl_module: RefCell<Option<MusicModuleT>>,
 }
 
