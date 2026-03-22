@@ -190,8 +190,7 @@ fn eval_preprocessor_expr(rest: &str) -> bool {
         let sym = inner.split_ascii_whitespace().next().unwrap_or("");
         return !is_symbol_defined(sym);
     }
-    if rest.starts_with('!') {
-        let inner = rest[1..].trim();
+    if let Some(inner) = rest.strip_prefix('!') {
         return !eval_preprocessor_expr(inner);
     }
     let sym = rest.split_ascii_whitespace().next().unwrap_or("");
@@ -440,8 +439,7 @@ fn read_line_with_continuation(content: &str, start: usize, i: &mut usize) -> St
         }
         // Trim trailing backslash and whitespace for continuation
         let trimmed = line.trim_end();
-        if trimmed.ends_with('\\') {
-            let without_bs = trimmed[..trimmed.len() - 1].trim_end();
+        if let Some(without_bs) = trimmed.strip_suffix('\\') {
             result.push_str(without_bs);
             // Continue to next line
             if *i >= bytes.len() {
