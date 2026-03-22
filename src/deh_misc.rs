@@ -1,0 +1,20 @@
+//! Dehacked misc (deh_misc.h) - FEATURE_DEHACKED unused, use defaults
+//! Original: deh_misc.h
+
+// #define DEH_DEFAULT_* when DEHACKED disabled
+pub const DEH_DEFAULT_INITIAL_HEALTH: i32 = 100;
+pub const DEH_DEFAULT_INITIAL_BULLETS: i32 = 50;
+pub const DEH_DEFAULT_MAX_HEALTH: i32 = 200;
+pub const DEH_DEFAULT_MAX_ARMOR: i32 = 200;
+pub const DEH_DEFAULT_GREEN_ARMOR_CLASS: i32 = 1;
+pub const DEH_DEFAULT_BLUE_ARMOR_CLASS: i32 = 2;
+pub const DEH_DEFAULT_MAX_SOULSPHERE: i32 = 200;
+pub const DEH_DEFAULT_SOULSPHERE_HEALTH: i32 = 100;
+pub const DEH_DEFAULT_MEGASPHERE_HEALTH: i32 = 200;
+pub const DEH_DEFAULT_GOD_MODE_HEALTH: i32 = 100;
+pub const DEH_DEFAULT_IDFA_ARMOR: i32 = 200;
+pub const DEH_DEFAULT_IDFA_ARMOR_CLASS: i32 = 2;
+pub const DEH_DEFAULT_IDKFA_ARMOR: i32 = 200;
+pub const DEH_DEFAULT_IDKFA_ARMOR_CLASS: i32 = 2;
+pub const DEH_DEFAULT_BFG_CELLS_PER_SHOT: i32 = 40;
+pub const DEH_DEFAULT_SPECIES_INFIGHTING: i32 = 0;
