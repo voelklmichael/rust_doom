@@ -1,6 +1,12 @@
-//! Main doom entry (doom.h)
+//! Main Doom entry (doom.h)
 //! Original: doom.h
 
-// D_DoomMain is implemented in d_main
-// Declared here for visibility
-// void D_DoomMain(void);
+pub struct DoomState;
+
+impl DoomState {
+    /// Original: void D_DoomMain(void)
+    pub fn d_doom_main(&self) {
+        // C body: (from d_main.c - main game loop entry)
+        todo!("Basic stage-0 stub")
+    }
+}

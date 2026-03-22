@@ -1,9 +1,9 @@
-//! Patch/texture structs (v_patch.h)
+//! Patch/sprite structures (v_patch.h)
 //! Original: v_patch.h
 
 use crate::doomtype::Byte;
 
-// typedef struct patch_t
+// typedef struct { short width, height, leftoffset, topoffset; int columnofs[8]; } PACKEDATTR patch_t
 #[repr(C, packed)]
 pub struct PatchT {
     // short width
@@ -18,7 +18,7 @@ pub struct PatchT {
     pub columnofs: [i32; 8],
 }
 
-// typedef struct post_t
+// typedef struct { byte topdelta; byte length; } PACKEDATTR post_t
 #[repr(C, packed)]
 pub struct PostT {
     // byte topdelta

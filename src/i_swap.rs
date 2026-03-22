@@ -1,6 +1,6 @@
 //! Endianness handling (i_swap.h)
 //! Original: i_swap.h
-//! Used: SYS_LITTLE_ENDIAN path only
+//! Plan §4.1: SYS_LITTLE_ENDIAN path only (remove big-endian)
 
 // static inline unsigned short swapLE16(unsigned short val)
 #[inline]

@@ -3,7 +3,8 @@
 
 use crate::doomtype::Byte;
 
-// typedef struct ticcmd_t
+// typedef struct { ... } ticcmd_t
+#[repr(C)]
 pub struct TiccmdT {
     // signed char forwardmove
     pub forwardmove: i8,
