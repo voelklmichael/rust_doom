@@ -1,6 +1,3 @@
-[package]
-name = "rust_doom"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
+[workspace]
+members = ["c_parser"]
+resolver = "3"

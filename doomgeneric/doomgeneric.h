@@ -4,13 +4,9 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#ifndef DOOMGENERIC_RESX
 #define DOOMGENERIC_RESX 640
-#endif  // DOOMGENERIC_RESX
 
-#ifndef DOOMGENERIC_RESY
 #define DOOMGENERIC_RESY 400
-#endif  // DOOMGENERIC_RESY
 
 
 #ifdef CMAP256
