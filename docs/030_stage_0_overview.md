@@ -13,11 +13,11 @@ Track migration status for each C module → Rust `x.rs`. See [010_basic_plan.md
 | Module | Status |
 |--------|--------|
 | config | done |
-| dstrings | not started |
+| dstrings | done |
 | d_think | done |
 | d_ticcmd | done |
 | d_textur | done |
-| deh_main | not started |
+| deh_main | done |
 | deh_misc | done |
 | deh_str | done |
 | doom | done |
@@ -30,12 +30,12 @@ Track migration status for each C module → Rust `x.rs`. See [010_basic_plan.md
 | m_bbox | done |
 | m_fixed | done |
 | m_random | done |
-| r_local | not started |
-| r_sky | not started |
-| r_state | not started |
+| r_local | done |
+| r_sky | done |
+| r_state | done |
 | v_patch | done |
-| w_checksum | not started |
-| w_file_stdc | not started |
+| w_checksum | done |
+| w_file_stdc | done |
 | w_merge | done |
 
 ## Tier 2 (150–350 lines)
