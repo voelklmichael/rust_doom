@@ -130,6 +130,77 @@ const INCLUDE_GUARD_LIST: &[&str] = &[
     "W_MERGE_H",
 ];
 
+fn is_include_guard_pattern(sym: &str) -> bool {
+    let s = sym.trim();
+    s.starts_with("__") && s.ends_with("__")
+}
+
+fn is_include_guard(sym: &str) -> bool {
+    let s = sym.trim();
+    INCLUDE_GUARD_LIST.contains(&s) || is_include_guard_pattern(s)
+}
+
+fn is_symbol_defined(sym: &str) -> bool {
+    let s = sym.trim();
+    FEATURE_WHITELIST.contains(&s) || FEATURE_BLACKLIST.contains(&s) || is_include_guard(s)
+}
+
+fn is_whitelisted(sym: &str) -> bool {
+    let s = sym.trim();
+    if FEATURE_BLACKLIST.contains(&s) {
+        return false;
+    }
+    FEATURE_WHITELIST.contains(&s) || is_include_guard(s)
+}
+
+fn ensure_symbol_defined(sym: &str) {
+    if !is_symbol_defined(sym) {
+        panic!(
+            "preprocessor symbol `{}` is not defined (add to FEATURE_WHITELIST, FEATURE_BLACKLIST, or INCLUDE_GUARD_LIST)",
+            sym.trim()
+        );
+    }
+}
+
+/// Evaluate #if / #elif expression for known symbols. Returns true/false.
+/// Handles: bare identifier, defined(X), literal 0/1. Unknown -> false.
+fn eval_preprocessor_expr(rest: &str) -> bool {
+    let rest = rest.trim();
+    if rest.is_empty() {
+        return false;
+    }
+    if rest == "0" {
+        return false;
+    }
+    if rest == "1" {
+        return true;
+    }
+    if let Some(inner) = rest.strip_prefix("defined(") {
+        let inner = inner.trim_end_matches(')').trim();
+        let sym = inner.split_ascii_whitespace().next().unwrap_or("");
+        return is_symbol_defined(sym);
+    }
+    if let Some(inner) = rest.strip_prefix("!defined(") {
+        let inner = inner.trim_end_matches(')').trim();
+        let sym = inner.split_ascii_whitespace().next().unwrap_or("");
+        return !is_symbol_defined(sym);
+    }
+    if let Some(inner) = rest.strip_prefix("! defined(") {
+        let inner = inner.trim_end_matches(')').trim();
+        let sym = inner.split_ascii_whitespace().next().unwrap_or("");
+        return !is_symbol_defined(sym);
+    }
+    if rest.starts_with('!') {
+        let inner = rest[1..].trim();
+        return !eval_preprocessor_expr(inner);
+    }
+    let sym = rest.split_ascii_whitespace().next().unwrap_or("");
+    if sym.is_empty() {
+        return false;
+    }
+    is_whitelisted(sym)
+}
+
 #[derive(PartialEq, Debug)]
 pub(crate) enum Stage110Preprocessor {
     Comment(String),
@@ -240,19 +311,16 @@ impl Stage110Preprocessor {
                             .next()
                             .unwrap_or("")
                             .to_string();
-                        if FEATURE_BLACKLIST.contains(&sym.trim()) {
-                            panic!("Skip to #endif, correct for nested ifs");
-                            continue;
-                        } else if !FEATURE_WHITELIST.contains(&sym.trim()) {
-                            panic!("Continue from the next line?")
-                        } else {
-                            panic!("Symbol {} is not defined in any list", sym.trim());
-                        }
-
+                        ensure_symbol_defined(&sym);
                         let (then_content, else_content, consumed) =
                             read_conditional_block(content, i);
                         i = consumed;
-                        let chosen = if include { then_content } else { else_content };
+                        let chosen = if is_whitelisted(&sym) {
+                            then_content
+                        } else {
+                            // Blacklisted: X not defined → take else branch
+                            else_content
+                        };
                         result.extend(Self::parse_content(&chosen));
                     }
                     "ifndef" => {
@@ -261,19 +329,25 @@ impl Stage110Preprocessor {
                             .next()
                             .unwrap_or("")
                             .to_string();
-                        if FEATURE_WHITELIST.contains(&sym.trim()) {
-                            panic!("Skip to #endif, correct for nested ifs");
-                            continue;
-                        } else if !FEATURE_BLACKLIST.contains(&sym.trim()) {
-                            panic!("Continue from the next line?")
+                        ensure_symbol_defined(&sym);
+                        let (then_content, else_content, consumed) =
+                            read_conditional_block(content, i);
+                        i = consumed;
+                        let chosen = if is_whitelisted(&sym) {
+                            // Whitelisted: X defined → #ifndef false → take else branch
+                            else_content
                         } else {
-                            panic!("Symbol {} is not defined in any list", sym.trim());
-                        }
+                            // Blacklisted: X not defined → #ifndef true → take then branch
+                            then_content
+                        };
+                        result.extend(Self::parse_content(&chosen));
                     }
                     "if" | "elif" => {
-                        // For #if expr, we don't evaluate - treat as excluded (empty)
-                        let (_then, _else, consumed) = read_conditional_block(content, i);
+                        // Evaluate #if/#elif exprs (known symbols, defined(), 0/1)
+                        let (branch_content, consumed) =
+                            read_conditional_block_evaluated(content, i);
                         i = consumed;
+                        result.extend(Self::parse_content(&branch_content));
                     }
                     "else" | "endif" => {
                         // Orphaned #else/#endif - skip
@@ -444,16 +518,54 @@ fn read_conditional_block(content: &str, start: usize) -> (String, String, usize
         let directive = std::str::from_utf8(&bytes[dir_start..i]).unwrap_or("");
 
         match directive {
-            "ifdef" | "ifndef" | "if" => depth += 1,
-            "endif" => {
-                depth -= 1;
-                if depth == 0 {
+            "ifdef" | "ifndef" | "if" => {
+                depth += 1;
+                if depth > 1 {
+                    let mut j = line_start;
+                    while j < bytes.len() && bytes[j] != b'\n' {
+                        j += 1;
+                    }
+                    let line = std::str::from_utf8(&bytes[line_start..j]).unwrap_or("");
+                    let line_with_nl = format!("{line}\n");
+                    if in_else {
+                        else_content.push_str(&line_with_nl);
+                    } else {
+                        then_content.push_str(&line_with_nl);
+                    }
+                    i = j;
+                    if i < bytes.len() {
+                        i += 1;
+                    }
+                } else {
                     while i < bytes.len() && bytes[i] != b'\n' {
                         i += 1;
                     }
                     if i < bytes.len() {
                         i += 1;
                     }
+                }
+            }
+            "endif" => {
+                depth -= 1;
+                if depth >= 1 {
+                    let mut j = line_start;
+                    while j < bytes.len() && bytes[j] != b'\n' {
+                        j += 1;
+                    }
+                    let line = std::str::from_utf8(&bytes[line_start..j]).unwrap_or("");
+                    let line_with_nl = format!("{line}\n");
+                    if in_else {
+                        else_content.push_str(&line_with_nl);
+                    } else {
+                        then_content.push_str(&line_with_nl);
+                    }
+                    i = j;
+                }
+                while i < bytes.len() && bytes[i] != b'\n' {
+                    i += 1;
+                }
+                if i < bytes.len() {
+                    i += 1;
                 }
             }
             "else" | "elif" if depth == 1 => {
@@ -465,7 +577,38 @@ fn read_conditional_block(content: &str, start: usize) -> (String, String, usize
                     i += 1;
                 }
             }
+            "else" | "elif" if depth > 1 => {
+                let mut j = line_start;
+                while j < bytes.len() && bytes[j] != b'\n' {
+                    j += 1;
+                }
+                let line = std::str::from_utf8(&bytes[line_start..j]).unwrap_or("");
+                let line_with_nl = format!("{line}\n");
+                if in_else {
+                    else_content.push_str(&line_with_nl);
+                } else {
+                    then_content.push_str(&line_with_nl);
+                }
+                i = j;
+                if i < bytes.len() {
+                    i += 1;
+                }
+            }
             _ => {
+                if depth > 1 {
+                    let mut j = i;
+                    while j < bytes.len() && bytes[j] != b'\n' {
+                        j += 1;
+                    }
+                    let line = std::str::from_utf8(&bytes[line_start..j]).unwrap_or("");
+                    let line_with_nl = format!("{line}\n");
+                    if in_else {
+                        else_content.push_str(&line_with_nl);
+                    } else {
+                        then_content.push_str(&line_with_nl);
+                    }
+                    i = j;
+                }
                 while i < bytes.len() && bytes[i] != b'\n' {
                     i += 1;
                 }
@@ -479,28 +622,382 @@ fn read_conditional_block(content: &str, start: usize) -> (String, String, usize
     (then_content, else_content, i)
 }
 
-#[test]
-fn test_parse_multiline_define() {
-    let content = r#"
+/// For #if/#elif: evaluate each condition and return the first matching branch.
+/// If none match, returns the #else branch (or empty if no #else).
+fn read_conditional_block_evaluated(content: &str, start: usize) -> (String, usize) {
+    let bytes = content.as_bytes();
+    let mut i = start;
+    let mut depth = 1u32;
+    let mut result_content = String::new();
+    let mut collecting = false;
+
+    while i < bytes.len() && depth > 0 {
+        let line_start = i;
+        while i < bytes.len() && matches!(bytes[i], b' ' | b'\t') {
+            i += 1;
+        }
+        if i >= bytes.len() {
+            break;
+        }
+        if bytes[i] != b'#' {
+            if collecting && depth >= 1 {
+                let mut j = i;
+                while j < bytes.len() && bytes[j] != b'\n' {
+                    j += 1;
+                }
+                let line = std::str::from_utf8(&bytes[line_start..j]).unwrap_or("");
+                result_content.push_str(&format!("{line}\n"));
+                i = j;
+                if i < bytes.len() {
+                    i += 1;
+                }
+            } else {
+                while i < bytes.len() && bytes[i] != b'\n' {
+                    i += 1;
+                }
+                if i < bytes.len() {
+                    i += 1;
+                }
+            }
+            continue;
+        }
+
+        i += 1;
+        while i < bytes.len() && matches!(bytes[i], b' ' | b'\t') {
+            i += 1;
+        }
+        let dir_start = i;
+        while i < bytes.len() && bytes[i].is_ascii_alphabetic() {
+            i += 1;
+        }
+        let directive = std::str::from_utf8(&bytes[dir_start..i]).unwrap_or("");
+        while i < bytes.len() && matches!(bytes[i], b' ' | b'\t') {
+            i += 1;
+        }
+        let rest_start = i;
+        while i < bytes.len() && bytes[i] != b'\n' {
+            i += 1;
+        }
+        let rest = std::str::from_utf8(&bytes[rest_start..i]).unwrap_or("");
+        if i < bytes.len() {
+            i += 1;
+        }
+
+        match directive {
+            "if" if depth == 1 => {
+                if eval_preprocessor_expr(rest) {
+                    collecting = true;
+                }
+            }
+            "elif" if depth == 1 => {
+                if !collecting && eval_preprocessor_expr(rest) {
+                    collecting = true;
+                }
+            }
+            "else" if depth == 1 => {
+                collecting = !collecting;
+            }
+            "endif" if depth == 1 => break,
+            "ifdef" | "ifndef" | "if" => {
+                depth += 1;
+                if collecting && depth > 1 {
+                    let mut j = line_start;
+                    while j < bytes.len() && bytes[j] != b'\n' {
+                        j += 1;
+                    }
+                    result_content.push_str(&format!(
+                        "{}\n",
+                        std::str::from_utf8(&bytes[line_start..j]).unwrap_or("")
+                    ));
+                    i = line_start;
+                    while i < bytes.len() && bytes[i] != b'\n' {
+                        i += 1;
+                    }
+                    if i < bytes.len() {
+                        i += 1;
+                    }
+                }
+            }
+            "endif" => {
+                depth -= 1;
+                if collecting && depth >= 1 {
+                    let mut j = line_start;
+                    while j < bytes.len() && bytes[j] != b'\n' {
+                        j += 1;
+                    }
+                    result_content.push_str(&format!(
+                        "{}\n",
+                        std::str::from_utf8(&bytes[line_start..j]).unwrap_or("")
+                    ));
+                    i = j;
+                    if i < bytes.len() {
+                        i += 1;
+                    }
+                }
+            }
+            "else" | "elif" if depth > 1 => {
+                if collecting {
+                    let mut j = line_start;
+                    while j < bytes.len() && bytes[j] != b'\n' {
+                        j += 1;
+                    }
+                    result_content.push_str(&format!(
+                        "{}\n",
+                        std::str::from_utf8(&bytes[line_start..j]).unwrap_or("")
+                    ));
+                    i = j;
+                    if i < bytes.len() {
+                        i += 1;
+                    }
+                }
+            }
+            _ => {
+                if collecting && depth > 1 {
+                    let mut j = line_start;
+                    while j < bytes.len() && bytes[j] != b'\n' {
+                        j += 1;
+                    }
+                    result_content.push_str(&format!(
+                        "{}\n",
+                        std::str::from_utf8(&bytes[line_start..j]).unwrap_or("")
+                    ));
+                    i = j;
+                    if i < bytes.len() {
+                        i += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    (result_content, i)
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_parse_multiline_define() {
+        let content = r#"
         #define NEWGAME	\
         "you can't start a new game\n"\
         "while in a network game.\n\n"PRESSKEY   "#;
-    let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
-    let result = Stage110Preprocessor::parse(stage100);
-    dbg!(&result);
-    assert_eq!(result.len(), 1);
-    let Stage110Preprocessor::Define {
-        name,
-        params,
-        value,
-        ..
-    } = &result[0]
-    else {
-        panic!("expected Define, got {:?}", result[0]);
-    };
-    assert_eq!(name, "NEWGAME");
-    assert_eq!(params, &None);
-    assert!(value.contains("you can't start a new game"));
-    assert!(value.contains("while in a network game"));
-    assert!(value.contains("PRESSKEY"));
+        let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
+        let result = Stage110Preprocessor::parse(stage100);
+        dbg!(&result);
+        assert_eq!(result.len(), 1);
+        let Stage110Preprocessor::Define {
+            name,
+            params,
+            value,
+            ..
+        } = &result[0]
+        else {
+            panic!("expected Define, got {:?}", result[0]);
+        };
+        assert_eq!(name, "NEWGAME");
+        assert_eq!(params, &None);
+        assert!(value.contains("you can't start a new game"));
+        assert!(value.contains("while in a network game"));
+        assert!(value.contains("PRESSKEY"));
+    }
+
+    fn parse_conditionals(content: &str) -> Vec<Stage110Preprocessor> {
+        let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
+        Stage110Preprocessor::parse(stage100)
+    }
+
+    fn emitted_code(result: &[Stage110Preprocessor]) -> String {
+        result
+            .iter()
+            .filter_map(|r| match r {
+                Stage110Preprocessor::Code(c) => Some(c.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("")
+    }
+
+    #[test]
+    fn test_ifdef_blacklisted_takes_else() {
+        let content = r#"#ifdef FEATURE_SOUND
+sound_then
+#else
+sound_else
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(!code.contains("sound_then"), "blacklisted should take else");
+        assert!(code.contains("sound_else"), "blacklisted should take else");
+    }
+
+    #[test]
+    fn test_ifdef_whitelisted_takes_then() {
+        let content = r#"#ifdef DOOM_GENERIC
+doom_then
+#else
+doom_else
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(code.contains("doom_then"), "whitelisted should take then");
+        assert!(!code.contains("doom_else"), "whitelisted should take then");
+    }
+
+    #[test]
+    fn test_ifndef_blacklisted_takes_then() {
+        let content = r#"#ifndef FEATURE_SOUND
+no_sound_then
+#else
+no_sound_else
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(
+            code.contains("no_sound_then"),
+            "blacklisted = not defined, #ifndef true -> then"
+        );
+        assert!(!code.contains("no_sound_else"), "blacklisted = not defined");
+    }
+
+    #[test]
+    fn test_ifndef_whitelisted_takes_else() {
+        let content = r#"#ifndef DOOM_GENERIC
+doom_not_then
+#else
+doom_not_else
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(
+            !code.contains("doom_not_then"),
+            "whitelisted = defined, #ifndef false"
+        );
+        assert!(
+            code.contains("doom_not_else"),
+            "whitelisted should take else"
+        );
+    }
+
+    #[test]
+    fn test_if_unevaluated_takes_else() {
+        let content = r#"#if FEATURE_SOUND
+if_then
+#else
+if_else
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(
+            !code.contains("if_then"),
+            "#if unevaluated -> false -> else"
+        );
+        assert!(
+            code.contains("if_else"),
+            "#if unevaluated takes else branch"
+        );
+    }
+
+    #[test]
+    fn test_elif_evaluates_known_symbols() {
+        // #if FEATURE_SOUND: blacklisted (false) -> skip
+        // #elif DOOM_GENERIC: whitelisted (true) -> take this branch
+        let content = r#"#if FEATURE_SOUND
+aaa_if_then
+#elif DOOM_GENERIC
+bbb_elif_then
+#else
+ccc_else_only
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(!code.contains("aaa_if_then"), "FEATURE_SOUND blacklisted");
+        assert!(
+            code.contains("bbb_elif_then"),
+            "DOOM_GENERIC is defined -> take #elif branch"
+        );
+        assert!(
+            !code.contains("ccc_else_only"),
+            "skip #else when #elif matches"
+        );
+    }
+
+    #[test]
+    fn test_if_elif_elif_else_only_final() {
+        // Multiple #elif -> take ONLY the final #else
+        let content = r#"#if A
+branch_a
+#elif B
+branch_b
+#elif C
+branch_c
+#else
+branch_final
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(!code.contains("branch_a"));
+        assert!(!code.contains("branch_b"));
+        assert!(!code.contains("branch_c"));
+        assert!(code.contains("branch_final"), "only final #else");
+    }
+
+    #[test]
+    fn test_nested_ifdef_outer_blacklisted() {
+        let content = r#"#ifdef FEATURE_SOUND
+outer_then
+#else
+#ifdef DOOM_GENERIC
+inner_then
+#else
+inner_else
+#endif
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(!code.contains("outer_then"), "outer blacklisted -> else");
+        assert!(
+            code.contains("inner_then"),
+            "nested: inner whitelisted -> then"
+        );
+        assert!(!code.contains("inner_else"), "nested: inner whitelisted");
+    }
+
+    #[test]
+    fn test_nested_ifdef_both_blacklisted() {
+        let content = r#"#ifdef FEATURE_SOUND
+outer_then
+#else
+#ifdef FEATURE_DEHACKED
+inner_then
+#else
+inner_else
+#endif
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(!code.contains("outer_then"));
+        assert!(!code.contains("inner_then"));
+        assert!(
+            code.contains("inner_else"),
+            "both blacklisted -> else of outer, else of inner"
+        );
+    }
+
+    #[test]
+    fn test_nested_ifdef_outer_whitelisted_inner_blacklisted() {
+        let content = r#"#ifdef DOOM_GENERIC
+#ifdef FEATURE_SOUND
+inner_then
+#else
+inner_else
+#endif
+#else
+outer_else
+#endif"#;
+        let result = parse_conditionals(content);
+        let code = emitted_code(&result);
+        assert!(!code.contains("outer_else"), "outer whitelisted");
+        assert!(!code.contains("inner_then"), "inner blacklisted");
+        assert!(code.contains("inner_else"), "inner blacklisted -> else");
+    }
 }

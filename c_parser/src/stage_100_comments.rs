@@ -78,9 +78,7 @@ impl Stage100Comments {
                 }
             }
             if start < i {
-                result.push(Stage100Comments::NonComment(
-                    content[start..i].to_string(),
-                ));
+                result.push(Stage100Comments::NonComment(content[start..i].to_string()));
             }
         }
 
