@@ -110,29 +110,29 @@ Track migration status for each C module → Rust `x.rs`. See [010_basic_plan.md
 
 | Module | Status |
 |--------|--------|
-| am_map | not started |
-| d_main | not started |
-| g_game | not started |
-| i_scale | not started |
-| m_config | not started |
-| m_menu | not started |
-| p_enemy | not started |
-| p_map | not started |
-| p_mobj | not started |
-| p_saveg | not started |
-| p_spec | not started |
-| r_draw | not started |
-| r_main | not started |
-| r_things | not started |
-| st_stuff | not started |
-| tables | not started |
-| wi_stuff | not started |
+| am_map | done |
+| d_main | done |
+| g_game | done |
+| i_scale | done |
+| m_config | done |
+| m_menu | done |
+| p_enemy | done |
+| p_map | done |
+| p_mobj | done |
+| p_saveg | done |
+| p_spec | done |
+| r_draw | done |
+| r_main | done |
+| r_things | done |
+| st_stuff | done |
+| tables | done |
+| wi_stuff | done |
 
 ## Tier 6 (2500+ lines)
 
 | Module | Status |
 |--------|--------|
-| info | not started |
+| info | done |
 
 ---
 
