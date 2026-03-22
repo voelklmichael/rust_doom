@@ -463,12 +463,25 @@ i_system.c:      _WIN32, ORIGCODE, __MACOSX__
 
 ## 5. Suggested Migration Order
 
-1. **Foundation**: `doomtype`, `doomdef`, `doomdata`, `m_fixed`, `i_swap`, `tables`
-2. **Core data**: `info`, `r_defs`, `r_state`, `d_think`, `p_mobj`, `d_player`
-3. **Low-level I/O**: `z_zone`, `w_wad`, `w_file`, `memio`
-4. **Video**: `v_video`, `v_patch`, `i_video`, `r_draw`, `r_main`
-5. **Game logic**: `p_*`, `g_game`, `d_main`
-6. **Menu**: last (sound and networking excluded)
+Order by total module size (shortest first). Sound and networking excluded. Add stub references as needed until dependencies are migrated.
+
+**Tier 1 (shortest, &lt;150 lines)**  
+`doomfeatures`, `doom`, `d_textur`, `w_merge`, `r_local`, `deh_str`, `deh_main`, `v_patch`, `dummy`, `d_ticcmd`, `d_think`, `i_swap`, `doomgeneric`, `deh_misc`, `r_sky`, `w_file_stdc`, `doomkeys`, `config`, `m_bbox`, `m_fixed`, `doomtype`, `m_random`, `dstrings`, `w_checksum`, `r_state`
+
+**Tier 2 (150–350 lines)**  
+`i_endoom`, `p_telept`, `i_timer`, `m_cheat`, `d_items`, `doomdef`, `d_event`, `d_player`, `doomdata`, `w_file`, `p_tick`, `w_main`, `memio`
+
+**Tier 3 (350–600 lines)**  
+`icon`, `p_local`, `p_plats`, `d_mode`, `m_argv`, `doomstat`, `p_ceilng`, `i_input`, `p_lights`, `p_sight`, `f_wipe`, `sha1`, `p_user`
+
+**Tier 4 (600–1100 lines)**  
+`i_joystick`, `statdump`, `r_defs`, `st_lib`, `r_plane`, `hu_lib`, `p_floor`, `z_zone`, `m_controls`, `m_misc`, `r_bsp`, `p_switch`, `i_system`, `i_video`, `w_wad`, `d_englsh`, `hu_stuff`, `mus2mid`, `f_finale`, `r_segs`, `p_doors`, `p_setup`, `d_iwad`, `p_inter`, `p_pspr`, `r_data`, `p_maputl`, `v_video`
+
+**Tier 5 (1100–2500 lines)**  
+`r_things`, `r_main`, `r_draw`, `p_mobj`, `am_map`, `p_map`, `i_scale`, `st_stuff`, `wi_stuff`, `d_main`, `p_saveg`, `p_enemy`, `p_spec`, `m_config`, `m_menu`, `tables`, `g_game`
+
+**Tier 6 (2500+ lines)**  
+`info`
 
 ---
 
