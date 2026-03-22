@@ -23,8 +23,8 @@ fn main() {
 mod stage_100_comments;
 
 fn lex_parse(content: &str) {
-    let content = stage_100_comments::Stage100_Comments::parse(content);
-    let content = stage_110_preprocessor::Stage110_Preprocessor::parse(content);
+    let content = stage_100_comments::Stage100Comments::parse(content);
+    let content = stage_110_preprocessor::Stage110Preprocessor::parse(content);
 }
 
 mod stage_110_preprocessor;

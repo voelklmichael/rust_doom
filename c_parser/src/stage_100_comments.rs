@@ -1,9 +1,9 @@
-pub(crate) enum Stage100_Comments {
+pub(crate) enum Stage100Comments {
     Comment(String),
     NonComment(String),
 }
 
-impl Stage100_Comments {
+impl Stage100Comments {
     pub fn parse(content: &str) -> Vec<Self> {
         let mut result = Vec::new();
         let mut i = 0;
@@ -22,7 +22,7 @@ impl Stage100_Comments {
                         if i < bytes.len() {
                             i += 1; // include the newline
                         }
-                        result.push(Stage100_Comments::Comment(content[start..i].to_string()));
+                        result.push(Stage100Comments::Comment(content[start..i].to_string()));
                         continue;
                     }
                     b'*' => {
@@ -35,7 +35,7 @@ impl Stage100_Comments {
                             }
                             i += 1;
                         }
-                        result.push(Stage100_Comments::Comment(content[start..i].to_string()));
+                        result.push(Stage100Comments::Comment(content[start..i].to_string()));
                         continue;
                     }
                     _ => {}
@@ -78,7 +78,7 @@ impl Stage100_Comments {
                 }
             }
             if start < i {
-                result.push(Stage100_Comments::NonComment(
+                result.push(Stage100Comments::NonComment(
                     content[start..i].to_string(),
                 ));
             }

@@ -1,4 +1,4 @@
-use super::stage_100_comments::Stage100_Comments;
+use super::stage_100_comments::Stage100Comments;
 
 /// Features from the migration plan that should be included (code kept).
 const FEATURE_WHITELIST: &[&str] = &[
@@ -31,35 +31,107 @@ const FEATURE_BLACKLIST: &[&str] = &[
 ];
 
 /// Include guards to always take the "then" branch (header content).
+/// One entry per header file in doomgeneric/ (config.h has no include guard).
 const INCLUDE_GUARD_LIST: &[&str] = &[
+    "__AMMAP_H__",
+    "DOOM_GENERIC", // doomgeneric.h
     "__D_ENGLSH__",
+    "__D_EVENT__",
+    "__D_ITEMS__",
+    "__D_IWAD__",
+    "__D_LOOP__",
+    "__D_MAIN__",
+    "__D_MODE__",
+    "__D_PLAYER__",
+    "__D_STATE__",
+    "__DSTRINGS__",
+    "__D_TICCMD__",
+    "__D_TEXTUR__",
     "__D_THINK__",
+    "__DOOMDATA__",
+    "__DOOMDEF__",
+    "__DOOMKEYS__",
     "__DOOMTYPE__",
+    "__F_FINALE__",
+    "__F_WIPE_H__",
+    "__G_GAME__",
+    "__GUSCONF_H__",
+    "__HULIB__",
+    "__HU_STUFF_H__",
+    "__I_ENDOOM__",
+    "__I_JOYSTICK__",
+    "__I_SCALE__",
+    "__I_SOUND__",
+    "__I_SYSTEM__",
+    "__I_TIMER__",
+    "__I_VIDEO__",
+    "__I_SWAP__",
+    "__ICDMUS__",
+    "__INFO__",
+    "__M_ARGV__",
     "__M_BBOX__",
+    "__M_CHEAT__",
+    "__M_CONFIG__",
+    "__M_CONTROLS_H__",
+    "__M_FIXED__",
+    "__M_MENU__",
+    "__M_MISC__",
+    "__M_RANDOM__",
+    "__P_INTER__",
+    "__P_MOBJ__",
+    "__P_PSPR__",
+    "__P_SAVEG__", // p_saveg.h
     "__P_SETUP__",
+    "__P_SPEC__",
+    "__P_TICK__",
+    "__P_LOCAL__",
+    "__R_BSP__",
+    "__R_DATA__",
+    "__R_DEFS__",
+    "__R_DRAW__",
+    "__R_LOCAL__",
+    "__R_MAIN__",
+    "__R_PLANE__",
+    "__R_SEGS__",
+    "__R_SKY__",
+    "__R_STATE__",
+    "__R_THINGS__",
+    "__S_SOUND__",
+    "__SHA1_H__",
+    "__SOUNDS__",
+    "__STLIB__",
+    "__STSTUFF_H__",
+    "__TABLES__",
+    "__V_VIDEO__",
+    "__W_FILE__",
+    "__W_WAD__",
+    "__WI_STUFF__",
+    "__Z_ZONE__",
+    "DEH_MAIN_H",
+    "DEH_MISC_H",
+    "DEH_STR_H",
+    "DOOM_FEATURES_H",
+    "DOOM_STATDUMP_H",
+    "MEMIO_H",
+    "MUS2MID_H",
+    "NET_CLIENT_H",
+    "NET_DEDICATED_H",
+    "NET_DEFS_H",
+    "NET_GUI_H",
+    "NET_IO_H",
+    "NET_LOOP_H",
+    "NET_PACKET_H",
+    "NET_QUERY_H",
+    "NET_SERVER_H",
+    "SRC_CHOCDOOM_DOOM_H_",
+    "V_PATCH_H",
+    "W_CHECKSUM_H",
+    "W_MAIN_H",
+    "W_MERGE_H",
 ];
 
-/// Check if symbol matches include guard pattern (__X__ or __X_H__).
-fn is_include_guard_pattern(sym: &str) -> bool {
-    let s = sym.trim();
-    s.starts_with("__") && s.ends_with("__")
-}
-
-fn is_include_guard(sym: &str) -> bool {
-    let s = sym.trim();
-    INCLUDE_GUARD_LIST.contains(&s) || is_include_guard_pattern(s)
-}
-
-fn is_whitelisted(sym: &str) -> bool {
-    let s = sym.trim();
-    if FEATURE_BLACKLIST.contains(&s) {
-        return false;
-    }
-    FEATURE_WHITELIST.contains(&s) || is_include_guard(s)
-}
-
 #[derive(PartialEq, Debug)]
-pub(crate) enum Stage110_Preprocessor {
+pub(crate) enum Stage110Preprocessor {
     Comment(String),
     Code(String),
     Include {
@@ -76,8 +148,8 @@ pub(crate) enum Stage110_Preprocessor {
     },
 }
 
-impl Stage110_Preprocessor {
-    pub fn parse(previous: Vec<Stage100_Comments>) -> Vec<Self> {
+impl Stage110Preprocessor {
+    pub fn parse(previous: Vec<Stage100Comments>) -> Vec<Self> {
         let mut output = Vec::new();
         for item in previous {
             output.extend(Self::parse_single(item));
@@ -85,10 +157,10 @@ impl Stage110_Preprocessor {
         output
     }
 
-    fn parse_single(previous: Stage100_Comments) -> Vec<Self> {
+    fn parse_single(previous: Stage100Comments) -> Vec<Self> {
         match previous {
-            Stage100_Comments::Comment(x) => vec![Self::Comment(x)],
-            Stage100_Comments::NonComment(x) => Self::parse_content(&x),
+            Stage100Comments::Comment(x) => vec![Self::Comment(x)],
+            Stage100Comments::NonComment(x) => Self::parse_content(&x),
         }
     }
 
@@ -142,6 +214,12 @@ impl Stage110_Preprocessor {
                     }
                     "define" => {
                         let (name, params, value) = parse_define_rest(&rest);
+                        if params.is_none()
+                            && value.is_empty()
+                            && !INCLUDE_GUARD_LIST.contains(&name.trim())
+                        {
+                            continue;
+                        }
                         result.push(Self::Define {
                             name,
                             params,
@@ -162,10 +240,18 @@ impl Stage110_Preprocessor {
                             .next()
                             .unwrap_or("")
                             .to_string();
+                        if FEATURE_BLACKLIST.contains(&sym.trim()) {
+                            panic!("Skip to #endif, correct for nested ifs");
+                            continue;
+                        } else if !FEATURE_WHITELIST.contains(&sym.trim()) {
+                            panic!("Continue from the next line?")
+                        } else {
+                            panic!("Symbol {} is not defined in any list", sym.trim());
+                        }
+
                         let (then_content, else_content, consumed) =
                             read_conditional_block(content, i);
                         i = consumed;
-                        let include = is_whitelisted(&sym);
                         let chosen = if include { then_content } else { else_content };
                         result.extend(Self::parse_content(&chosen));
                     }
@@ -175,13 +261,14 @@ impl Stage110_Preprocessor {
                             .next()
                             .unwrap_or("")
                             .to_string();
-                        let (then_content, else_content, consumed) =
-                            read_conditional_block(content, i);
-                        i = consumed;
-                        let include = is_whitelisted(&sym);
-                        // #ifndef X: then=when not defined. Include guards want then (content).
-                        let chosen = if include { then_content } else { else_content };
-                        result.extend(Self::parse_content(&chosen));
+                        if FEATURE_WHITELIST.contains(&sym.trim()) {
+                            panic!("Skip to #endif, correct for nested ifs");
+                            continue;
+                        } else if !FEATURE_BLACKLIST.contains(&sym.trim()) {
+                            panic!("Continue from the next line?")
+                        } else {
+                            panic!("Symbol {} is not defined in any list", sym.trim());
+                        }
                     }
                     "if" | "elif" => {
                         // For #if expr, we don't evaluate - treat as excluded (empty)
@@ -398,11 +485,11 @@ fn test_parse_multiline_define() {
         #define NEWGAME	\
         "you can't start a new game\n"\
         "while in a network game.\n\n"PRESSKEY   "#;
-    let stage100 = crate::stage_100_comments::Stage100_Comments::parse(content);
-    let result = Stage110_Preprocessor::parse(stage100);
+    let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
+    let result = Stage110Preprocessor::parse(stage100);
     dbg!(&result);
     assert_eq!(result.len(), 1);
-    let Stage110_Preprocessor::Define {
+    let Stage110Preprocessor::Define {
         name,
         params,
         value,
