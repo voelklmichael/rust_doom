@@ -63,6 +63,22 @@ fn test_typedef_struct_anonymous() {
 }
 
 #[test]
+fn test_struct_def_forward() {
+    let code = r#"struct foo;"#;
+    let ast = parse_code_to_ast(code);
+    let structs: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::StructDef { name, body } => Some((name, body)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(structs.len(), 1);
+    assert_eq!(structs[0].0, "foo");
+    assert!(structs[0].1.is_empty());
+}
+
+#[test]
 fn test_struct_def_simple() {
     let code = r#"struct foo { int x; };"#;
     let ast = parse_code_to_ast(code);
@@ -79,6 +95,38 @@ fn test_struct_def_simple() {
 }
 
 #[test]
+fn test_typedef_union_forward() {
+    let code = r#"typedef union uinfo_s uinfo_t;"#;
+    let ast = parse_code_to_ast(code);
+    let unions: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::TypedefUnion { name, body } => Some((name, body)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(unions.len(), 1);
+    assert_eq!(unions[0].0, "uinfo_t");
+    assert!(unions[0].1.is_empty());
+}
+
+#[test]
+fn test_typedef_union_with_tag() {
+    let code = r#"typedef union memblock_s { int x; } memblock_t;"#;
+    let ast = parse_code_to_ast(code);
+    let unions: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::TypedefUnion { name, body } => Some((name, body)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(unions.len(), 1);
+    assert_eq!(unions[0].0, "memblock_t");
+    assert!(body_chunks_contain(&unions[0].1, "int x"));
+}
+
+#[test]
 fn test_typedef_union() {
     let code = r#"typedef union { int i; float f; } num_t;"#;
     let ast = parse_code_to_ast(code);
@@ -92,6 +140,22 @@ fn test_typedef_union() {
     assert_eq!(unions.len(), 1);
     assert_eq!(unions[0].0, "num_t");
     assert!(body_chunks_contain(&unions[0].1, "int i"));
+}
+
+#[test]
+fn test_typedef_simple_multiword() {
+    let code = r#"typedef unsigned long size_t;"#;
+    let ast = parse_code_to_ast(code);
+    let simples: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::TypedefSimple { base_type, name } => Some((base_type, name)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(simples.len(), 1);
+    assert_eq!(simples[0].0, "unsigned long");
+    assert_eq!(simples[0].1, "size_t");
 }
 
 #[test]
@@ -250,6 +314,47 @@ fn test_enum_def_forward() {
 
 // --- function (FunctionDecl / FunctionDef) ---
 #[test]
+fn test_function_decl_void_params() {
+    let code = r#"void foo(void);"#;
+    let ast = parse_code_to_ast(code);
+    let funcs: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::FunctionDecl {
+                return_type,
+                name,
+                params,
+            } => Some((return_type, name, params)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(funcs.len(), 1);
+    assert_eq!(funcs[0].0, "void");
+    assert_eq!(funcs[0].1, "foo");
+    assert!(funcs[0].2.contains("void"));
+}
+
+#[test]
+fn test_static_function_decl() {
+    let code = r#"static void helper(void);"#;
+    let ast = parse_code_to_ast(code);
+    let funcs: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::FunctionDecl {
+                return_type,
+                name,
+                ..
+            } => Some((return_type, name)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(funcs.len(), 1);
+    assert_eq!(funcs[0].0, "static void");
+    assert_eq!(funcs[0].1, "helper");
+}
+
+#[test]
 fn test_function_decl() {
     let code = r#"void foo(int x);"#;
     let ast = parse_code_to_ast(code);
@@ -327,4 +432,51 @@ fn test_extern_decl() {
     assert_eq!(others.len(), 1);
     assert!(others[0].contains("bar"));
     assert!(others[0].contains("void"));
+}
+
+#[test]
+fn test_other_decl_variable() {
+    let code = r#"int global_var;"#;
+    let ast = parse_code_to_ast(code);
+    let others: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::OtherDecl(s) => Some(s),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(others.len(), 1);
+    assert!(others[0].contains("global_var"));
+}
+
+// --- Unparsed ---
+#[test]
+fn test_unparsed() {
+    let code = r#";"#;
+    let ast = parse_code_to_ast(code);
+    let unparsed: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::Unparsed(s) => Some(s),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(unparsed.len(), 1);
+}
+
+// --- typedef_union additional variants ---
+#[test]
+fn test_typedef_union_anonymous() {
+    let code = r#"typedef union { short s; long l; } u;"#;
+    let ast = parse_code_to_ast(code);
+    let unions: Vec<_> = ast
+        .iter()
+        .filter_map(|n| match n {
+            Stage200Ast::TypedefUnion { name, body } => Some((name, body)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(unions.len(), 1);
+    assert_eq!(unions[0].0, "u");
+    assert!(body_chunks_contain(&unions[0].1, "short s"));
 }

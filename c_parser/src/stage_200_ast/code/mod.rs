@@ -71,7 +71,7 @@ fn parse_one_declaration_with_stream(
     if match_prefix(bytes, i, "typedef") {
         *i = skip_whitespace(bytes, *i);
         if match_prefix(bytes, i, "enum") {
-            return typedef_enum::parse(bytes, i);
+            return typedef_enum::parse(bytes, i, stream);
         }
         if match_prefix(bytes, i, "struct") {
             return typedef_struct::parse(code, bytes, i, stream);

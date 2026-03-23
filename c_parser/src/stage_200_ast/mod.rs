@@ -106,6 +106,19 @@ impl TokenStream {
         self.token_idx += n;
     }
 
+    /// Advance to the next Code token, skipping Comments. Returns the code string.
+    /// Leaves stream positioned at that Code token. Caller must advance past it when done.
+    pub(super) fn advance_to_next_code(&mut self) -> Option<String> {
+        self.advance();
+        while let Some(Stage110Preprocessor::Comment(_)) = self.current() {
+            self.advance();
+        }
+        match self.current() {
+            Some(Stage110Preprocessor::Code(c)) => Some(c.clone()),
+            _ => None,
+        }
+    }
+
     /// Read balanced braces from current position. Consumes tokens as needed.
     /// Returns (chunks, tokens_consumed) or None. tokens_consumed includes the current Code.
     pub(super) fn read_balanced_block(
