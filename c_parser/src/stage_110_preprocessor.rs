@@ -244,7 +244,6 @@ impl Stage110Preprocessor {
 
         while i < bytes.len() {
             // Skip whitespace, but track line start for # detection
-            let line_start = i;
             while i < bytes.len() && matches!(bytes[i], b' ' | b'\t') {
                 i += 1;
             }
