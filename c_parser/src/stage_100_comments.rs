@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub(crate) enum Stage100Comments {
     Comment(String),
     NonComment(String),
@@ -78,10 +79,35 @@ impl Stage100Comments {
                 }
             }
             if start < i {
-                result.push(Stage100Comments::NonComment(content[start..i].to_string()));
+                let s = content[start..i].to_string();
+                if !s.trim().is_empty() {
+                    result.push(Stage100Comments::NonComment(s));
+                }
             }
         }
 
         result
     }
+}
+
+#[test]
+fn example_comments() {
+    let content = r#"
+    #ifndef __D_EVENT__
+    #define __D_EVENT__
+
+    #include "doomtype.h"
+
+    //
+    // Input event types.
+    
+    typedef enum
+    {
+        ev_keydown,
+        
+    } evtype_t;
+
+    "#;
+    let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
+    dbg!(&stage100);
 }

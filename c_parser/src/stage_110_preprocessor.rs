@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod tests;
+
 use super::stage_100_comments::Stage100Comments;
 
 /// Features from the migration plan that should be included (code kept).
@@ -284,10 +287,7 @@ impl Stage110Preprocessor {
                     }
                     "define" => {
                         let (name, params, value) = parse_define_rest(&rest);
-                        if params.is_none()
-                            && value.is_empty()
-                            && !INCLUDE_GUARD_LIST.contains(&name.trim())
-                        {
+                        if params.is_none() && value.is_empty() && is_include_guard(&name) {
                             continue;
                         }
                         result.push(Self::Define {
@@ -332,7 +332,10 @@ impl Stage110Preprocessor {
                         let (then_content, else_content, consumed) =
                             read_conditional_block(content, i);
                         i = consumed;
-                        let chosen = if is_whitelisted(&sym) {
+                        let chosen = if is_include_guard_pattern(&sym) {
+                            // Header include guards (__X__) always take then branch
+                            then_content
+                        } else if is_whitelisted(&sym) {
                             // Whitelisted: X defined → #ifndef false → take else branch
                             else_content
                         } else {
@@ -352,11 +355,7 @@ impl Stage110Preprocessor {
                         // Orphaned #else/#endif - skip
                     }
                     _ => {
-                        result.push(Self::Code(format!(
-                            "#{}\n",
-                            std::str::from_utf8(&bytes[line_start..i.min(content.len())])
-                                .unwrap_or("")
-                        )));
+                        panic!("unknown directive: {}", directive);
                     }
                 }
             } else {
@@ -382,7 +381,7 @@ impl Stage110Preprocessor {
                     .unwrap_or("")
                     .to_string();
                 if !chunk.trim().is_empty() {
-                    result.push(Self::Code(chunk));
+                    result.push(Self::Code(chunk.trim().to_string()));
                 }
             }
         }
@@ -593,23 +592,19 @@ fn read_conditional_block(content: &str, start: usize) -> (String, String, usize
                 }
             }
             _ => {
-                if depth > 1 {
-                    let mut j = i;
-                    while j < bytes.len() && bytes[j] != b'\n' {
-                        j += 1;
-                    }
-                    let line = std::str::from_utf8(&bytes[line_start..j]).unwrap_or("");
-                    let line_with_nl = format!("{line}\n");
-                    if in_else {
-                        else_content.push_str(&line_with_nl);
-                    } else {
-                        then_content.push_str(&line_with_nl);
-                    }
-                    i = j;
+                // Include all directives (#define, #include, etc.) in the branch content
+                let mut j = line_start;
+                while j < bytes.len() && bytes[j] != b'\n' {
+                    j += 1;
                 }
-                while i < bytes.len() && bytes[i] != b'\n' {
-                    i += 1;
+                let line = std::str::from_utf8(&bytes[line_start..j]).unwrap_or("");
+                let line_with_nl = format!("{line}\n");
+                if in_else {
+                    else_content.push_str(&line_with_nl);
+                } else {
+                    then_content.push_str(&line_with_nl);
                 }
+                i = j;
                 if i < bytes.len() {
                     i += 1;
                 }
@@ -771,231 +766,47 @@ fn read_conditional_block_evaluated(content: &str, start: usize) -> (String, usi
     (result_content, i)
 }
 
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn test_parse_multiline_define() {
-        let content = r#"
-        #define NEWGAME	\
-        "you can't start a new game\n"\
-        "while in a network game.\n\n"PRESSKEY   "#;
-        let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
-        let result = Stage110Preprocessor::parse(stage100);
-        dbg!(&result);
-        assert_eq!(result.len(), 1);
-        let Stage110Preprocessor::Define {
-            name,
-            params,
-            value,
-            ..
-        } = &result[0]
-        else {
-            panic!("expected Define, got {:?}", result[0]);
-        };
-        assert_eq!(name, "NEWGAME");
-        assert_eq!(params, &None);
-        assert!(value.contains("you can't start a new game"));
-        assert!(value.contains("while in a network game"));
-        assert!(value.contains("PRESSKEY"));
-    }
+#[test]
+fn example_preprocessor1() {
+    let content = r#"
+    #ifndef __D_EVENT__
+    #define __D_EVENT__
 
-    fn parse_conditionals(content: &str) -> Vec<Stage110Preprocessor> {
-        let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
-        Stage110Preprocessor::parse(stage100)
-    }
+    #include "doomtype.h"
 
-    fn emitted_code(result: &[Stage110Preprocessor]) -> String {
-        result
-            .iter()
-            .filter_map(|r| match r {
-                Stage110Preprocessor::Code(c) => Some(c.as_str()),
-                _ => None,
-            })
-            .collect::<Vec<_>>()
-            .join("")
-    }
+    //
+    // Input event types.
+    
+    typedef enum
+    {
+        ev_keydown,
+        
+    } evtype_t;
 
-    #[test]
-    fn test_ifdef_blacklisted_takes_else() {
-        let content = r#"#ifdef FEATURE_SOUND
-sound_then
-#else
-sound_else
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(!code.contains("sound_then"), "blacklisted should take else");
-        assert!(code.contains("sound_else"), "blacklisted should take else");
-    }
+    #endif
+    "#;
+    let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
+    let result = Stage110Preprocessor::parse(stage100);
+    dbg!(&result);
+}
 
-    #[test]
-    fn test_ifdef_whitelisted_takes_then() {
-        let content = r#"#ifdef DOOM_GENERIC
-doom_then
-#else
-doom_else
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(code.contains("doom_then"), "whitelisted should take then");
-        assert!(!code.contains("doom_else"), "whitelisted should take then");
-    }
-
-    #[test]
-    fn test_ifndef_blacklisted_takes_then() {
-        let content = r#"#ifndef FEATURE_SOUND
-no_sound_then
-#else
-no_sound_else
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(
-            code.contains("no_sound_then"),
-            "blacklisted = not defined, #ifndef true -> then"
-        );
-        assert!(!code.contains("no_sound_else"), "blacklisted = not defined");
-    }
-
-    #[test]
-    fn test_ifndef_whitelisted_takes_else() {
-        let content = r#"#ifndef DOOM_GENERIC
-doom_not_then
-#else
-doom_not_else
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(
-            !code.contains("doom_not_then"),
-            "whitelisted = defined, #ifndef false"
-        );
-        assert!(
-            code.contains("doom_not_else"),
-            "whitelisted should take else"
-        );
-    }
-
-    #[test]
-    fn test_if_unevaluated_takes_else() {
-        let content = r#"#if FEATURE_SOUND
-if_then
-#else
-if_else
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(
-            !code.contains("if_then"),
-            "#if unevaluated -> false -> else"
-        );
-        assert!(
-            code.contains("if_else"),
-            "#if unevaluated takes else branch"
-        );
-    }
-
-    #[test]
-    fn test_elif_evaluates_known_symbols() {
-        // #if FEATURE_SOUND: blacklisted (false) -> skip
-        // #elif DOOM_GENERIC: whitelisted (true) -> take this branch
-        let content = r#"#if FEATURE_SOUND
-aaa_if_then
-#elif DOOM_GENERIC
-bbb_elif_then
-#else
-ccc_else_only
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(!code.contains("aaa_if_then"), "FEATURE_SOUND blacklisted");
-        assert!(
-            code.contains("bbb_elif_then"),
-            "DOOM_GENERIC is defined -> take #elif branch"
-        );
-        assert!(
-            !code.contains("ccc_else_only"),
-            "skip #else when #elif matches"
-        );
-    }
-
-    #[test]
-    fn test_if_elif_elif_else_only_final() {
-        // Multiple #elif -> take ONLY the final #else
-        let content = r#"#if A
-branch_a
-#elif B
-branch_b
-#elif C
-branch_c
-#else
-branch_final
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(!code.contains("branch_a"));
-        assert!(!code.contains("branch_b"));
-        assert!(!code.contains("branch_c"));
-        assert!(code.contains("branch_final"), "only final #else");
-    }
-
-    #[test]
-    fn test_nested_ifdef_outer_blacklisted() {
-        let content = r#"#ifdef FEATURE_SOUND
-outer_then
-#else
-#ifdef DOOM_GENERIC
-inner_then
-#else
-inner_else
-#endif
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(!code.contains("outer_then"), "outer blacklisted -> else");
-        assert!(
-            code.contains("inner_then"),
-            "nested: inner whitelisted -> then"
-        );
-        assert!(!code.contains("inner_else"), "nested: inner whitelisted");
-    }
-
-    #[test]
-    fn test_nested_ifdef_both_blacklisted() {
-        let content = r#"#ifdef FEATURE_SOUND
-outer_then
-#else
-#ifdef FEATURE_DEHACKED
-inner_then
-#else
-inner_else
-#endif
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(!code.contains("outer_then"));
-        assert!(!code.contains("inner_then"));
-        assert!(
-            code.contains("inner_else"),
-            "both blacklisted -> else of outer, else of inner"
-        );
-    }
-
-    #[test]
-    fn test_nested_ifdef_outer_whitelisted_inner_blacklisted() {
-        let content = r#"#ifdef DOOM_GENERIC
-#ifdef FEATURE_SOUND
-inner_then
-#else
-inner_else
-#endif
-#else
-outer_else
-#endif"#;
-        let result = parse_conditionals(content);
-        let code = emitted_code(&result);
-        assert!(!code.contains("outer_else"), "outer whitelisted");
-        assert!(!code.contains("inner_then"), "inner blacklisted");
-        assert!(code.contains("inner_else"), "inner blacklisted -> else");
-    }
+#[test]
+fn example_preprocessor2() {
+    let content = r#"
+    int		dy;
+    
+    #define DOOUTCODE(oc, mx, my) \
+        (oc) = 0; \
+        if ((my) < 0) (oc) |= TOP; \
+        else if ((my) >= f_h) (oc) |= BOTTOM; \
+        if ((mx) < 0) (oc) |= LEFT; \
+        else if ((mx) >= f_w) (oc) |= RIGHT;
+    
+    // do trivial rejects and outcodes
+    if (ml->a.y > m_y2)
+	outcode1 = TOP;
+    "#;
+    let stage100 = crate::stage_100_comments::Stage100Comments::parse(content);
+    let result = Stage110Preprocessor::parse(stage100);
+    dbg!(&result);
 }
