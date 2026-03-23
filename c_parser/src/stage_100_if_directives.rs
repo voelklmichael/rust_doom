@@ -1,8 +1,10 @@
-/// AST node for preprocessor directives (#if, #ifdef, #ifndef, #elif, #else, #endif)
+// AST node for preprocessor directives (#if, #ifdef, #ifndef, #elif, #else, #endif)
 
 pub fn if_directives(content: &str) -> Vec<IncludeDirective> {
     let tokens = if_directives_lexing(content);
-    parse_tokens(&tokens).0
+    let (ast, remaining) = parse_tokens(&tokens);
+    assert!(remaining.is_empty());
+    ast
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -31,7 +33,7 @@ pub enum DirectiveToken {
     NonDirective(String),
     IfDirective {
         kind: IfDirectiveKind,
-        arguments: Option<String>,
+        arguments: String,
     },
 }
 
@@ -117,8 +119,7 @@ fn if_directives_lexing(content: &str) -> Vec<DirectiveToken> {
             "endif" => IfDirectiveKind::Endif,
             _ => continue,
         };
-        let arguments = parts.next();
-        assert!(parts.next().is_none());
+        let arguments = parts.collect::<Vec<_>>().join(" ");
 
         let previous = String::from_utf8(bytes[previous_start..directive_start - 1].to_vec())
             .unwrap()
@@ -127,10 +128,7 @@ fn if_directives_lexing(content: &str) -> Vec<DirectiveToken> {
         if !previous.is_empty() {
             tokens.push(DirectiveToken::NonDirective(previous));
         }
-        tokens.push(DirectiveToken::IfDirective {
-            kind,
-            arguments: arguments.map(|x| x.to_string()),
-        });
+        tokens.push(DirectiveToken::IfDirective { kind, arguments });
 
         if i < bytes.len() {
             i += 1;
@@ -157,14 +155,15 @@ fn parse_tokens(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Directiv
     while i < tokens.len() {
         match &tokens[i] {
             DirectiveToken::NonDirective(s) => {
-                if !s.trim().is_empty() {
-                    ast.push(IncludeDirective::NonDirective(s.clone()));
+                let s = s.trim();
+                if !s.is_empty() {
+                    ast.push(IncludeDirective::NonDirective(s.to_string()));
                 }
                 i += 1;
             }
             DirectiveToken::IfDirective { kind, arguments } => match kind {
                 IfDirectiveKind::If => {
-                    let cond = arguments.clone().unwrap_or_default();
+                    let cond = arguments.clone();
                     let (then_branch, rest) = parse_until_else_elif_endif(&tokens[i + 1..]);
                     let (elif_branches, else_branch, rest) = parse_elif_else_tail(rest);
                     ast.push(IncludeDirective::If {
@@ -176,7 +175,7 @@ fn parse_tokens(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Directiv
                     i = tokens.len() - rest.len();
                 }
                 IfDirectiveKind::IfDef => {
-                    let symbol = arguments.clone().unwrap_or_default();
+                    let symbol = arguments.clone();
                     let (then_branch, else_branch, rest) =
                         parse_conditional_block(&tokens[i + 1..]);
                     ast.push(IncludeDirective::IfDef {
@@ -187,7 +186,7 @@ fn parse_tokens(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Directiv
                     i = tokens.len() - rest.len();
                 }
                 IfDirectiveKind::IfNDef => {
-                    let symbol = arguments.clone().unwrap_or_default();
+                    let symbol = arguments.clone();
                     let (then_branch, else_branch, rest) =
                         parse_conditional_block(&tokens[i + 1..]);
                     ast.push(IncludeDirective::IfNDef {
@@ -198,6 +197,7 @@ fn parse_tokens(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Directiv
                     i = tokens.len() - rest.len();
                 }
                 IfDirectiveKind::Else | IfDirectiveKind::Elif | IfDirectiveKind::Endif => {
+                    i += 1;
                 }
             },
         }
@@ -206,8 +206,52 @@ fn parse_tokens(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Directiv
     (ast, &tokens[i..])
 }
 
+/// Parse a single #if/#ifdef/#ifndef block. Returns (ast_nodes, rest_after_endif).
+fn parse_nested_block(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[DirectiveToken]) {
+    match &tokens[0] {
+        DirectiveToken::IfDirective { kind, arguments } => match kind {
+            IfDirectiveKind::If => {
+                let cond = arguments.clone();
+                let (then_branch, rest) = parse_until_else_elif_endif(&tokens[1..]);
+                let (elif_branches, else_branch, rest) = parse_elif_else_tail(rest);
+                let directive = IncludeDirective::If {
+                    condition: cond,
+                    then_branch,
+                    elif_branches,
+                    else_branch,
+                };
+                (vec![directive], rest)
+            }
+            IfDirectiveKind::IfDef => {
+                let symbol = arguments.clone();
+                let (then_branch, else_branch, rest) = parse_conditional_block(&tokens[1..]);
+                let directive = IncludeDirective::IfDef {
+                    symbol,
+                    then_branch,
+                    else_branch,
+                };
+                (vec![directive], rest)
+            }
+            IfDirectiveKind::IfNDef => {
+                let symbol = arguments.clone();
+                let (then_branch, else_branch, rest) = parse_conditional_block(&tokens[1..]);
+                let directive = IncludeDirective::IfNDef {
+                    symbol,
+                    then_branch,
+                    else_branch,
+                };
+                (vec![directive], rest)
+            }
+            _ => (vec![], &tokens[1..]),
+        },
+        _ => (vec![], &tokens[1..]),
+    }
+}
+
 /// Parse tokens until #else, #elif, or #endif at depth 0. Returns (directives_in_branch, rest).
-fn parse_until_else_elif_endif(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[DirectiveToken]) {
+fn parse_until_else_elif_endif(
+    tokens: &[DirectiveToken],
+) -> (Vec<IncludeDirective>, &[DirectiveToken]) {
     let mut branch = Vec::new();
     let mut depth = 0;
     let mut i = 0;
@@ -223,10 +267,11 @@ fn parse_until_else_elif_endif(tokens: &[DirectiveToken]) -> (Vec<IncludeDirecti
             DirectiveToken::IfDirective { kind, .. } => match kind {
                 IfDirectiveKind::If | IfDirectiveKind::IfDef | IfDirectiveKind::IfNDef => {
                     depth += 1;
-                    let (sub, rest) = parse_tokens(&tokens[i..]);
+                    let (sub, rest) = parse_nested_block(&tokens[i..]);
                     branch.extend(sub);
                     let consumed = tokens.len() - i - rest.len();
                     i += consumed;
+                    depth -= 1;
                 }
                 IfDirectiveKind::Elif | IfDirectiveKind::Else if depth == 0 => {
                     return (branch, &tokens[i..]);
@@ -246,7 +291,14 @@ fn parse_until_else_elif_endif(tokens: &[DirectiveToken]) -> (Vec<IncludeDirecti
 }
 
 /// Parse #elif/#else/#endif tail. Returns (elif_branches, else_branch, rest_after_endif).
-fn parse_elif_else_tail(tokens: &[DirectiveToken]) -> (Vec<(String, Vec<IncludeDirective>)>, Option<Vec<IncludeDirective>>, &[DirectiveToken]) {
+#[allow(clippy::type_complexity)]
+fn parse_elif_else_tail(
+    tokens: &[DirectiveToken],
+) -> (
+    Vec<(String, Vec<IncludeDirective>)>,
+    Option<Vec<IncludeDirective>>,
+    &[DirectiveToken],
+) {
     let mut elif_branches = Vec::new();
     let mut rest = tokens;
 
@@ -257,7 +309,7 @@ fn parse_elif_else_tail(tokens: &[DirectiveToken]) -> (Vec<(String, Vec<IncludeD
         match &rest[0] {
             DirectiveToken::IfDirective { kind, arguments } => match kind {
                 IfDirectiveKind::Elif => {
-                    let cond = arguments.clone().unwrap_or_default();
+                    let cond = arguments.clone();
                     let (branch, next) = parse_until_else_elif_endif(&rest[1..]);
                     elif_branches.push((cond, branch));
                     rest = next;
@@ -293,10 +345,11 @@ fn parse_until_endif(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Dir
             DirectiveToken::IfDirective { kind, .. } => match kind {
                 IfDirectiveKind::If | IfDirectiveKind::IfDef | IfDirectiveKind::IfNDef => {
                     depth += 1;
-                    let (sub, rest) = parse_tokens(&tokens[i..]);
+                    let (sub, rest) = parse_nested_block(&tokens[i..]);
                     branch.extend(sub);
                     let consumed = tokens.len() - i - rest.len();
                     i += consumed;
+                    depth -= 1;
                 }
                 IfDirectiveKind::Endif if depth == 0 => {
                     return (branch, &tokens[i + 1..]);
@@ -313,21 +366,34 @@ fn parse_until_endif(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Dir
 }
 
 /// Parse #ifdef/#ifndef block (then branch, optional else, until #endif).
-fn parse_conditional_block(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, Option<Vec<IncludeDirective>>, &[DirectiveToken]) {
+fn parse_conditional_block(
+    tokens: &[DirectiveToken],
+) -> (
+    Vec<IncludeDirective>,
+    Option<Vec<IncludeDirective>>,
+    &[DirectiveToken],
+) {
     let (then_branch, rest) = parse_until_else_elif_endif(tokens);
 
     if rest.is_empty() {
         return (then_branch, None, rest);
     }
     match &rest[0] {
-        DirectiveToken::IfDirective { kind: IfDirectiveKind::Else, .. }
-        | DirectiveToken::IfDirective { kind: IfDirectiveKind::Elif, .. } => {
+        DirectiveToken::IfDirective {
+            kind: IfDirectiveKind::Else,
+            ..
+        }
+        | DirectiveToken::IfDirective {
+            kind: IfDirectiveKind::Elif,
+            ..
+        } => {
             let (else_branch, after) = parse_until_endif(&rest[1..]);
             (then_branch, Some(else_branch), after)
         }
-        DirectiveToken::IfDirective { kind: IfDirectiveKind::Endif, .. } => {
-            (then_branch, None, &rest[1..])
-        }
+        DirectiveToken::IfDirective {
+            kind: IfDirectiveKind::Endif,
+            ..
+        } => (then_branch, None, &rest[1..]),
         _ => (then_branch, None, rest),
     }
 }
