@@ -1,4 +1,5 @@
 mod stage_100_if_directives;
+mod stage_110_if_directives_whitelist;
 
 fn main() {
     let dir = std::path::Path::new("doomgeneric");
@@ -21,6 +22,9 @@ fn main() {
     dbg!(contents.len());
 }
 
-fn include_lex_parse(content: &str) -> Vec<stage_100_if_directives::IncludeDirective> {
-    stage_100_if_directives::if_directives(content)
+fn include_lex_parse(content: &str) -> String {
+    let if_directives_ast = stage_100_if_directives::if_directives(content);
+    let whitelisted_ast =
+        stage_110_if_directives_whitelist::if_directives_whitelist(if_directives_ast);
+    whitelisted_ast
 }
