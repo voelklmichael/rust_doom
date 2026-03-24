@@ -24,6 +24,9 @@ pub enum LexedToken {
     // Preprocessor
     Hash,
 
+    /// Physical newline (line boundary for `#define` / other preprocessor lines).
+    Newline,
+
     // Comments (with string content)
     LineComment(String),
     BlockComment(String),
@@ -114,8 +117,11 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
     let mut i = 0;
 
     while i < bytes.len() {
-        // Skip whitespace
+        // Whitespace; newlines are tokens so preprocessor lines can end at real line breaks.
         if bytes[i].is_ascii_whitespace() {
+            if bytes[i] == b'\n' {
+                tokens.push(LexedToken::Newline);
+            }
             i += 1;
             continue;
         }
@@ -465,6 +471,7 @@ mod tests {
                 LexedToken::Identifier("x".to_string()),
                 LexedToken::Punctuator(";".to_string()),
                 LexedToken::LineComment(" comment".to_string()),
+                LexedToken::Newline,
                 LexedToken::Keyword(Keyword::Return),
                 LexedToken::IntegerLiteral {
                     value: "0".to_string(),
