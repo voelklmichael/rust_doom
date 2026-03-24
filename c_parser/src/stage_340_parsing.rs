@@ -327,6 +327,42 @@ fn parse_struct_or_union(
     };
     Some((piece, i))
 }
+fn parse_struct_body_members(body: &[LexedToken]) -> Vec<StructMember> {
+    let mut members = Vec::new();
+    let mut start = 0usize;
+    let mut brace_depth = 0i32;
+    let mut i = 0usize;
+    while i < body.len() {
+        match &body[i] {
+            LexedToken::Punctuator(s) if s == "{" => brace_depth += 1,
+            LexedToken::Punctuator(s) if s == "}" => brace_depth -= 1,
+            LexedToken::Punctuator(s) if s == ";" && brace_depth == 0 => {
+                let seg = trim_trailing_trivia(&body[start..=i]);
+                let (leading_comments, rest) = collect_leading_member_comments(seg);
+                let decl_slice = trim_trailing_trivia(&seg[rest..]);
+                let m = if let Some(d) = parse_declaration(decl_slice) {
+                    StructMember::Declaration(Box::new(StructMemberDeclaration {
+                        leading_comments,
+                        declaration: d,
+                    }))
+                } else {
+                    StructMember::Unparsed(seg.to_vec())
+                };
+                members.push(m);
+                i += 1;
+                start = i;
+                continue;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    let tail = trim_trailing_trivia(&body[start..]);
+    if !tail.is_empty() {
+        members.push(StructMember::Unparsed(tail.to_vec()));
+    }
+    members
+}
 
 fn parse_enum_specifier(tokens: &[LexedToken], start: usize) -> Option<(SpecifierPiece, usize)> {
     let mut i = start + 1;
@@ -467,75 +503,6 @@ fn split_declarator_and_initializer(seg: &[LexedToken]) -> Option<DeclaratorWith
     }
 }
 
-/// Best-effort name introduced by a declarator (`*p` → `p`, `(*fp)` → `fp`).
-pub fn declarator_introduced_name(decl: &[LexedToken]) -> Option<String> {
-    if let Some(ast) = try_parse_declarator_ast(decl) {
-        return name_from_declarator_ast(&ast);
-    }
-    let mut last = None;
-    let mut paren = 0i32;
-    let mut bracket = 0i32;
-    let mut i = 0;
-    while i < decl.len() {
-        i = skip_trivia(decl, i);
-        if i >= decl.len() {
-            break;
-        }
-        match &decl[i] {
-            LexedToken::Punctuator(s) => match s.as_str() {
-                "(" => paren += 1,
-                ")" => paren -= 1,
-                "[" => bracket += 1,
-                "]" => bracket -= 1,
-                _ => {}
-            },
-            LexedToken::Identifier(s) if paren == 0 && bracket == 0 => {
-                last = Some(s.clone());
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    last
-}
-
-fn parse_struct_body_members(body: &[LexedToken]) -> Vec<StructMember> {
-    let mut members = Vec::new();
-    let mut start = 0usize;
-    let mut brace_depth = 0i32;
-    let mut i = 0usize;
-    while i < body.len() {
-        match &body[i] {
-            LexedToken::Punctuator(s) if s == "{" => brace_depth += 1,
-            LexedToken::Punctuator(s) if s == "}" => brace_depth -= 1,
-            LexedToken::Punctuator(s) if s == ";" && brace_depth == 0 => {
-                let seg = trim_trailing_trivia(&body[start..=i]);
-                let (leading_comments, rest) = collect_leading_member_comments(seg);
-                let decl_slice = trim_trailing_trivia(&seg[rest..]);
-                let m = if let Some(d) = parse_declaration(decl_slice) {
-                    StructMember::Declaration(Box::new(StructMemberDeclaration {
-                        leading_comments,
-                        declaration: d,
-                    }))
-                } else {
-                    StructMember::Unparsed(seg.to_vec())
-                };
-                members.push(m);
-                i += 1;
-                start = i;
-                continue;
-            }
-            _ => {}
-        }
-        i += 1;
-    }
-    let tail = trim_trailing_trivia(&body[start..]);
-    if !tail.is_empty() {
-        members.push(StructMember::Unparsed(tail.to_vec()));
-    }
-    members
-}
-
 fn parse_pointer_levels(tokens: &[LexedToken], mut i: usize) -> (Vec<Vec<Keyword>>, usize) {
     let mut levels = Vec::new();
     loop {
@@ -672,25 +639,57 @@ fn try_parse_declarator_ast(decl: &[LexedToken]) -> Option<DeclaratorAst> {
     Some(ast)
 }
 
-fn name_from_declarator_ast(ast: &DeclaratorAst) -> Option<String> {
-    name_from_direct(&ast.direct)
-}
-
-fn name_from_direct(d: &DirectDeclarator) -> Option<String> {
-    match d {
-        DirectDeclarator::Identifier(s) => Some(s.clone()),
-        DirectDeclarator::Parenthesized(inner) => name_from_declarator_ast(inner),
-        DirectDeclarator::Array { base, .. } => name_from_direct(base),
-        DirectDeclarator::Function { base, .. } => name_from_direct(base),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::stage_200_lexing::lexing;
     use crate::stage_300_parsing::parsing_stage_300;
     use crate::stage_320_parsing::parsing_stage_320;
+
+    fn name_from_declarator_ast(ast: &DeclaratorAst) -> Option<String> {
+        name_from_direct(&ast.direct)
+    }
+
+    fn name_from_direct(d: &DirectDeclarator) -> Option<String> {
+        match d {
+            DirectDeclarator::Identifier(s) => Some(s.clone()),
+            DirectDeclarator::Parenthesized(inner) => name_from_declarator_ast(inner),
+            DirectDeclarator::Array { base, .. } => name_from_direct(base),
+            DirectDeclarator::Function { base, .. } => name_from_direct(base),
+        }
+    }
+
+    /// Best-effort name introduced by a declarator (`*p` → `p`, `(*fp)` → `fp`).
+    pub fn declarator_introduced_name(decl: &[LexedToken]) -> Option<String> {
+        if let Some(ast) = try_parse_declarator_ast(decl) {
+            return name_from_declarator_ast(&ast);
+        }
+        let mut last = None;
+        let mut paren = 0i32;
+        let mut bracket = 0i32;
+        let mut i = 0;
+        while i < decl.len() {
+            i = skip_trivia(decl, i);
+            if i >= decl.len() {
+                break;
+            }
+            match &decl[i] {
+                LexedToken::Punctuator(s) => match s.as_str() {
+                    "(" => paren += 1,
+                    ")" => paren -= 1,
+                    "[" => bracket += 1,
+                    "]" => bracket -= 1,
+                    _ => {}
+                },
+                LexedToken::Identifier(s) if paren == 0 && bracket == 0 => {
+                    last = Some(s.clone());
+                }
+                _ => {}
+            }
+            i += 1;
+        }
+        last
+    }
 
     fn parse_decl_src(src: &str) -> Option<Declaration> {
         let tu = parsing_stage_320(parsing_stage_300(lexing(src.to_string())));
