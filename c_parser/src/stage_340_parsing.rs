@@ -100,8 +100,7 @@ pub struct TranslationUnit340(pub Vec<ExternalDecl340>);
 
 pub(crate) fn parsing_stage_340(tu: TranslationUnit320) -> TranslationUnit340 {
     TranslationUnit340(
-        tu.0
-            .into_iter()
+        tu.0.into_iter()
             .map(|d| match d {
                 ExternalDecl320::Preprocessor(p) => ExternalDecl340::Preprocessor(p),
                 ExternalDecl320::Declaration(tokens) => match parse_declaration(&tokens) {
@@ -239,7 +238,10 @@ fn starts_declarator(tokens: &[LexedToken], i: usize) -> bool {
     }
 }
 
-fn parse_declaration_specifiers(tokens: &[LexedToken], mut i: usize) -> Option<(Vec<SpecifierPiece>, usize)> {
+fn parse_declaration_specifiers(
+    tokens: &[LexedToken],
+    mut i: usize,
+) -> Option<(Vec<SpecifierPiece>, usize)> {
     let mut specifiers = Vec::new();
     loop {
         i = skip_trivia(tokens, i);
@@ -349,13 +351,7 @@ fn parse_enum_specifier(tokens: &[LexedToken], start: usize) -> Option<(Specifie
         i = close + 1;
     }
 
-    Some((
-        SpecifierPiece::Enum {
-            tag,
-            enumerators,
-        },
-        i,
-    ))
+    Some((SpecifierPiece::Enum { tag, enumerators }, i))
 }
 
 fn matching_brace_close(tokens: &[LexedToken], open: usize) -> Option<usize> {
@@ -377,7 +373,10 @@ fn matching_brace_close(tokens: &[LexedToken], open: usize) -> Option<usize> {
     None
 }
 
-fn parse_init_declarator_list(tokens: &[LexedToken], start: usize) -> Option<Vec<DeclaratorWithInit>> {
+fn parse_init_declarator_list(
+    tokens: &[LexedToken],
+    start: usize,
+) -> Option<Vec<DeclaratorWithInit>> {
     let mut out = Vec::new();
     let mut seg_start = start;
     let mut paren = 0i32;
@@ -628,11 +627,7 @@ fn parse_declarator_ast(tokens: &[LexedToken], start: usize) -> Option<(Declarat
             let close = matching_bracket_close_decl(tokens, i)?;
             let size = if close > i + 1 {
                 let s = trim_trailing_trivia(&tokens[i + 1..close]);
-                if s.is_empty() {
-                    None
-                } else {
-                    Some(s.to_vec())
-                }
+                if s.is_empty() { None } else { Some(s.to_vec()) }
             } else {
                 None
             };
@@ -709,7 +704,10 @@ mod tests {
     fn simple_int_x() {
         let d = parse_decl_src("int x;").expect("parse");
         assert_eq!(d.specifiers.len(), 1);
-        assert!(matches!(d.specifiers[0], SpecifierPiece::Type(Keyword::Int)));
+        assert!(matches!(
+            d.specifiers[0],
+            SpecifierPiece::Type(Keyword::Int)
+        ));
         assert_eq!(d.declarators.len(), 1);
         assert_eq!(
             declarator_introduced_name(&d.declarators[0].declarator),
@@ -763,10 +761,11 @@ mod tests {
     #[test]
     fn inline_specifier() {
         let d = parse_decl_src("static inline void foo(void);").expect("parse");
-        assert!(d
-            .specifiers
-            .iter()
-            .any(|s| matches!(s, SpecifierPiece::FunctionSpecifier(Keyword::Inline))));
+        assert!(
+            d.specifiers
+                .iter()
+                .any(|s| matches!(s, SpecifierPiece::FunctionSpecifier(Keyword::Inline)))
+        );
     }
 
     #[test]
@@ -819,10 +818,7 @@ mod tests {
             tu.0.first()
         );
         let Some(ExternalDecl340::Declaration(decl)) = tu.0.get(1) else {
-            panic!(
-                "expected Declaration after comment, got {:?}",
-                tu.0.get(1)
-            );
+            panic!("expected Declaration after comment, got {:?}", tu.0.get(1));
         };
         assert!(
             decl.declarators.is_empty(),
