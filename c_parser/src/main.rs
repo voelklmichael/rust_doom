@@ -36,7 +36,22 @@ fn include_lex_parse(content: &str) {
     //dbg!(&parsed);
     parsed.0.iter().for_each(|x| match x {
         stage_340_parsing::ExternalDecl340::UnparsedDeclaration(lexed_tokens) => {
-            dbg!(&lexed_tokens);
+            panic!("UnparsedDeclaration: {:?}", &lexed_tokens);
+        }
+        stage_340_parsing::ExternalDecl340::Declaration(declaration) => {
+            declaration.specifiers.iter().for_each(|x| {
+                let x = match x {
+                    stage_340_parsing::SpecifierPiece::Struct { tag: _, fields } => fields,
+                    stage_340_parsing::SpecifierPiece::Union { tag: _, fields } => fields,
+                    _ => &None,
+                };
+                let x = x.as_deref().unwrap_or_default();
+                x.iter().for_each(|x| {
+                    if let stage_340_parsing::StructMember::Unparsed(lexed_tokens) = x {
+                        panic!("UnparsedStructMember: {:?}", &lexed_tokens);
+                    }
+                });
+            });
         }
         _ => {}
     });
