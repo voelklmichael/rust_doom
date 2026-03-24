@@ -26,13 +26,18 @@ fn main() {
     dbg!(contents.len());
 }
 
-fn include_lex_parse(content: &str) -> stage_340_parsing::TranslationUnit340 {
+fn include_lex_parse(content: &str) {
     let if_directives_ast = stage_100_if_directives::if_directives(content);
     let whitelisted = stage_110_if_directives_whitelist::if_directives_whitelist(if_directives_ast);
     let lexed = stage_200_lexing::lexing(whitelisted);
     let tu = stage_300_parsing::parsing_stage_300(lexed);
     let tu320 = stage_320_parsing::parsing_stage_320(tu);
     let parsed = stage_340_parsing::parsing_stage_340(tu320);
-    dbg!(&parsed);
-    parsed
+    //dbg!(&parsed);
+    parsed.0.iter().for_each(|x| match x {
+        stage_340_parsing::ExternalDecl340::UnparsedDeclaration(lexed_tokens) => {
+            dbg!(&lexed_tokens);
+        }
+        _ => {}
+    });
 }

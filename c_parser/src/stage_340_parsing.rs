@@ -8,15 +8,17 @@ use crate::stage_320_parsing::{ExternalDecl320, PreprocessorDirective, Translati
 pub enum SpecifierPiece {
     Storage(Keyword),
     Qualifier(Keyword),
+    /// `inline` (C99 function specifier).
+    FunctionSpecifier(Keyword),
     Type(Keyword),
     Struct {
         tag: Option<String>,
-        /// Tokens between `{` and `}` when a definition is present.
-        fields: Option<Vec<LexedToken>>,
+        /// Parsed member declarations when possible; see [`StructMember`].
+        fields: Option<Vec<StructMember>>,
     },
     Union {
         tag: Option<String>,
-        fields: Option<Vec<LexedToken>>,
+        fields: Option<Vec<StructMember>>,
     },
     Enum {
         tag: Option<String>,
@@ -27,9 +29,49 @@ pub enum SpecifierPiece {
     TypedefName(String),
 }
 
+/// One declaration inside a `struct` / `union` body, with any `//` / `/* */` tokens before it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StructMemberDeclaration {
+    /// Bodies of line/block comment tokens before this member (newlines are not stored).
+    pub leading_comments: Vec<String>,
+    pub declaration: Declaration,
+}
+
+/// One declaration inside a `struct` / `union` body.
+#[derive(Debug, Clone, PartialEq)]
+pub enum StructMember {
+    Declaration(Box<StructMemberDeclaration>),
+    /// Bit-fields, nested edge cases, etc.
+    Unparsed(Vec<LexedToken>),
+}
+
+/// Parsed declarator: pointers, then direct declarator, then postfix `[]` / `()` chains.
+#[derive(Debug, Clone, PartialEq)]
+pub struct DeclaratorAst {
+    /// For each `*`, optional `const` / `volatile` immediately after that `*`.
+    pub pointer_levels: Vec<Vec<Keyword>>,
+    pub direct: DirectDeclarator,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum DirectDeclarator {
+    Identifier(String),
+    Parenthesized(Box<DeclaratorAst>),
+    Array {
+        base: Box<DirectDeclarator>,
+        size: Option<Vec<LexedToken>>,
+    },
+    Function {
+        base: Box<DirectDeclarator>,
+        parameters: Vec<LexedToken>,
+    },
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct DeclaratorWithInit {
     pub declarator: Vec<LexedToken>,
+    /// Filled when the declarator slice parses cleanly as a full [`DeclaratorAst`].
+    pub ast: Option<DeclaratorAst>,
     pub initializer: Option<Vec<LexedToken>>,
 }
 
@@ -91,6 +133,27 @@ fn skip_trivia(tokens: &[LexedToken], mut i: usize) -> usize {
         i += 1;
     }
     i
+}
+
+/// Consumes leading newlines and comment tokens; returns comment bodies in order.
+fn collect_leading_member_comments(tokens: &[LexedToken]) -> (Vec<String>, usize) {
+    let mut comments = Vec::new();
+    let mut i = 0usize;
+    while i < tokens.len() {
+        match &tokens[i] {
+            LexedToken::Newline => i += 1,
+            LexedToken::LineComment(s) => {
+                comments.push(s.clone());
+                i += 1;
+            }
+            LexedToken::BlockComment(s) => {
+                comments.push(s.clone());
+                i += 1;
+            }
+            _ => break,
+        }
+    }
+    (comments, i)
 }
 
 fn is_punct(t: &LexedToken, s: &str) -> bool {
@@ -192,6 +255,10 @@ fn parse_declaration_specifiers(tokens: &[LexedToken], mut i: usize) -> Option<(
                 specifiers.push(SpecifierPiece::Storage(*kw));
                 i += 1;
             }
+            LexedToken::Keyword(Keyword::Inline) => {
+                specifiers.push(SpecifierPiece::FunctionSpecifier(Keyword::Inline));
+                i += 1;
+            }
             LexedToken::Keyword(kw) if is_qualifier(*kw) => {
                 specifiers.push(SpecifierPiece::Qualifier(*kw));
                 i += 1;
@@ -247,7 +314,7 @@ fn parse_struct_or_union(
     let mut fields = None;
     if i < tokens.len() && is_punct(&tokens[i], "{") {
         let close = matching_brace_close(tokens, i)?;
-        fields = Some(tokens[i + 1..close].to_vec());
+        fields = Some(parse_struct_body_members(&tokens[i + 1..close]));
         i = close + 1;
     }
 
@@ -382,22 +449,30 @@ fn split_declarator_and_initializer(seg: &[LexedToken]) -> Option<DeclaratorWith
 
     if let Some(eq) = eq_at {
         let decl = trim_trailing_trivia(&seg[..eq]);
+        let ast = try_parse_declarator_ast(decl);
         let init_start = skip_trivia(seg, eq + 1);
         let init = seg[init_start..].to_vec();
         Some(DeclaratorWithInit {
             declarator: decl.to_vec(),
+            ast,
             initializer: Some(init),
         })
     } else {
+        let decl = trim_trailing_trivia(seg);
+        let ast = try_parse_declarator_ast(decl);
         Some(DeclaratorWithInit {
-            declarator: seg.to_vec(),
+            declarator: decl.to_vec(),
+            ast,
             initializer: None,
         })
     }
 }
 
-/// Best-effort name introduced by a declarator (`*p` → `p`, `a[]` → `a`).
+/// Best-effort name introduced by a declarator (`*p` → `p`, `(*fp)` → `fp`).
 pub fn declarator_introduced_name(decl: &[LexedToken]) -> Option<String> {
+    if let Some(ast) = try_parse_declarator_ast(decl) {
+        return name_from_declarator_ast(&ast);
+    }
     let mut last = None;
     let mut paren = 0i32;
     let mut bracket = 0i32;
@@ -423,6 +498,196 @@ pub fn declarator_introduced_name(decl: &[LexedToken]) -> Option<String> {
         i += 1;
     }
     last
+}
+
+fn parse_struct_body_members(body: &[LexedToken]) -> Vec<StructMember> {
+    let mut members = Vec::new();
+    let mut start = 0usize;
+    let mut brace_depth = 0i32;
+    let mut i = 0usize;
+    while i < body.len() {
+        match &body[i] {
+            LexedToken::Punctuator(s) if s == "{" => brace_depth += 1,
+            LexedToken::Punctuator(s) if s == "}" => brace_depth -= 1,
+            LexedToken::Punctuator(s) if s == ";" && brace_depth == 0 => {
+                let seg = trim_trailing_trivia(&body[start..=i]);
+                let (leading_comments, rest) = collect_leading_member_comments(seg);
+                let decl_slice = trim_trailing_trivia(&seg[rest..]);
+                let m = if let Some(d) = parse_declaration(decl_slice) {
+                    StructMember::Declaration(Box::new(StructMemberDeclaration {
+                        leading_comments,
+                        declaration: d,
+                    }))
+                } else {
+                    StructMember::Unparsed(seg.to_vec())
+                };
+                members.push(m);
+                i += 1;
+                start = i;
+                continue;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    let tail = trim_trailing_trivia(&body[start..]);
+    if !tail.is_empty() {
+        members.push(StructMember::Unparsed(tail.to_vec()));
+    }
+    members
+}
+
+fn parse_pointer_levels(tokens: &[LexedToken], mut i: usize) -> (Vec<Vec<Keyword>>, usize) {
+    let mut levels = Vec::new();
+    loop {
+        i = skip_trivia(tokens, i);
+        if i >= tokens.len() || !is_punct(&tokens[i], "*") {
+            break;
+        }
+        i += 1;
+        let mut quals = Vec::new();
+        loop {
+            i = skip_trivia(tokens, i);
+            match tokens.get(i) {
+                Some(LexedToken::Keyword(Keyword::Const)) => {
+                    quals.push(Keyword::Const);
+                    i += 1;
+                }
+                Some(LexedToken::Keyword(Keyword::Volatile)) => {
+                    quals.push(Keyword::Volatile);
+                    i += 1;
+                }
+                _ => break,
+            }
+        }
+        levels.push(quals);
+    }
+    (levels, i)
+}
+
+fn matching_paren_close_decl(tokens: &[LexedToken], open: usize) -> Option<usize> {
+    let mut depth = 1i32;
+    let mut j = open + 1;
+    while j < tokens.len() {
+        match &tokens[j] {
+            LexedToken::Punctuator(s) if s == "(" => depth += 1,
+            LexedToken::Punctuator(s) if s == ")" => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(j);
+                }
+            }
+            _ => {}
+        }
+        j += 1;
+    }
+    None
+}
+
+fn matching_bracket_close_decl(tokens: &[LexedToken], open: usize) -> Option<usize> {
+    let mut depth = 1i32;
+    let mut j = open + 1;
+    while j < tokens.len() {
+        match &tokens[j] {
+            LexedToken::Punctuator(s) if s == "[" => depth += 1,
+            LexedToken::Punctuator(s) if s == "]" => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(j);
+                }
+            }
+            _ => {}
+        }
+        j += 1;
+    }
+    None
+}
+
+fn parse_declarator_ast(tokens: &[LexedToken], start: usize) -> Option<(DeclaratorAst, usize)> {
+    let (pointer_levels, mut i) = parse_pointer_levels(tokens, start);
+    i = skip_trivia(tokens, i);
+    if i >= tokens.len() {
+        return None;
+    }
+    let (mut direct, mut i) = match &tokens[i] {
+        LexedToken::Identifier(s) => (DirectDeclarator::Identifier(s.clone()), i + 1),
+        LexedToken::Punctuator(p) if p == "(" => {
+            let close = matching_paren_close_decl(tokens, i)?;
+            let inner = &tokens[i + 1..close];
+            let inner_ast = try_parse_declarator_ast(inner)?;
+            (
+                DirectDeclarator::Parenthesized(Box::new(inner_ast)),
+                close + 1,
+            )
+        }
+        _ => return None,
+    };
+    loop {
+        i = skip_trivia(tokens, i);
+        if i < tokens.len() && is_punct(&tokens[i], "[") {
+            let close = matching_bracket_close_decl(tokens, i)?;
+            let size = if close > i + 1 {
+                let s = trim_trailing_trivia(&tokens[i + 1..close]);
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s.to_vec())
+                }
+            } else {
+                None
+            };
+            direct = DirectDeclarator::Array {
+                base: Box::new(direct),
+                size,
+            };
+            i = close + 1;
+            continue;
+        }
+        if i < tokens.len() && is_punct(&tokens[i], "(") {
+            let close = matching_paren_close_decl(tokens, i)?;
+            let params = tokens[i + 1..close].to_vec();
+            direct = DirectDeclarator::Function {
+                base: Box::new(direct),
+                parameters: params,
+            };
+            i = close + 1;
+            continue;
+        }
+        break;
+    }
+    Some((
+        DeclaratorAst {
+            pointer_levels,
+            direct,
+        },
+        i,
+    ))
+}
+
+fn try_parse_declarator_ast(decl: &[LexedToken]) -> Option<DeclaratorAst> {
+    let decl = trim_trailing_trivia(decl);
+    if decl.is_empty() {
+        return None;
+    }
+    let (ast, end) = parse_declarator_ast(decl, 0)?;
+    let end = skip_trivia(decl, end);
+    if end != decl.len() {
+        return None;
+    }
+    Some(ast)
+}
+
+fn name_from_declarator_ast(ast: &DeclaratorAst) -> Option<String> {
+    name_from_direct(&ast.direct)
+}
+
+fn name_from_direct(d: &DirectDeclarator) -> Option<String> {
+    match d {
+        DirectDeclarator::Identifier(s) => Some(s.clone()),
+        DirectDeclarator::Parenthesized(inner) => name_from_declarator_ast(inner),
+        DirectDeclarator::Array { base, .. } => name_from_direct(base),
+        DirectDeclarator::Function { base, .. } => name_from_direct(base),
+    }
 }
 
 #[cfg(test)]
@@ -473,8 +738,15 @@ mod tests {
             d.specifiers[0],
             SpecifierPiece::Struct {
                 tag: Some(ref t),
-                fields: Some(_)
+                fields: Some(ref members)
             } if t == "S"
+                && matches!(members.as_slice(), [StructMember::Declaration(m)]
+                    if m.leading_comments.is_empty()
+                        && m.declaration.specifiers.len() == 1
+                        && matches!(m.declaration.specifiers[0], SpecifierPiece::Type(Keyword::Int))
+                        && m.declaration.declarators.len() == 1
+                        && declarator_introduced_name(&m.declaration.declarators[0].declarator)
+                            == Some("x".to_string()))
         ));
         assert_eq!(
             declarator_introduced_name(&d.declarators[0].declarator),
@@ -486,5 +758,109 @@ mod tests {
     fn initializer_split() {
         let d = parse_decl_src("int z = 42;").expect("parse");
         assert!(d.declarators[0].initializer.is_some());
+    }
+
+    #[test]
+    fn inline_specifier() {
+        let d = parse_decl_src("static inline void foo(void);").expect("parse");
+        assert!(d
+            .specifiers
+            .iter()
+            .any(|s| matches!(s, SpecifierPiece::FunctionSpecifier(Keyword::Inline))));
+    }
+
+    #[test]
+    fn declarator_ast_pointer_and_function() {
+        let d = parse_decl_src("int (*fp)(void);").expect("parse");
+        let ast = d.declarators[0].ast.as_ref().expect("ast");
+        assert_eq!(ast.pointer_levels.len(), 0);
+        let DirectDeclarator::Function { base, .. } = &ast.direct else {
+            panic!("expected function declarator");
+        };
+        let DirectDeclarator::Parenthesized(inner) = base.as_ref() else {
+            panic!("expected parenthesized");
+        };
+        assert_eq!(inner.pointer_levels.len(), 1);
+        assert!(matches!(
+            &inner.direct,
+            DirectDeclarator::Identifier(s) if s == "fp"
+        ));
+    }
+
+    #[test]
+    fn declarator_ast_array() {
+        let d = parse_decl_src("int arr[10];").expect("parse");
+        let ast = d.declarators[0].ast.as_ref().expect("ast");
+        assert!(matches!(
+            ast.direct,
+            DirectDeclarator::Array {
+                ref base,
+                size: Some(_)
+            } if matches!(base.as_ref(), DirectDeclarator::Identifier(s) if s == "arr")
+        ));
+    }
+
+    /// Line comment above the `struct`, then line comments above each of two fields.
+    #[test]
+    fn struct_definition_with_comments_above_struct_and_fields() {
+        let src = "// header before struct\n\
+                    struct Point {\n\
+                        // x coordinate\n\
+                        int x;\n\
+                        // y coordinate\n\
+                        int y;\n\
+                    };\n";
+        let tu = parsing_stage_340(parsing_stage_320(parsing_stage_300(lexing(
+            src.to_string(),
+        ))));
+        assert!(
+            matches!(tu.0.first(), Some(ExternalDecl340::Comment(s)) if s == " header before struct"),
+            "expected top-level Comment before struct, got {:?}",
+            tu.0.first()
+        );
+        let Some(ExternalDecl340::Declaration(decl)) = tu.0.get(1) else {
+            panic!(
+                "expected Declaration after comment, got {:?}",
+                tu.0.get(1)
+            );
+        };
+        assert!(
+            decl.declarators.is_empty(),
+            "anonymous struct should have no trailing declarators"
+        );
+        let fields = match &decl.specifiers[0] {
+            SpecifierPiece::Struct {
+                tag: Some(t),
+                fields: Some(m),
+            } if t == "Point" => m,
+            other => panic!("expected struct Point with fields: {:?}", other),
+        };
+        assert_eq!(fields.len(), 2);
+
+        let StructMember::Declaration(f0) = &fields[0] else {
+            panic!("field 0: {:?}", fields[0]);
+        };
+        assert_eq!(f0.leading_comments, vec![" x coordinate".to_string()]);
+        assert!(matches!(
+            f0.declaration.specifiers[0],
+            SpecifierPiece::Type(Keyword::Int)
+        ));
+        assert_eq!(
+            declarator_introduced_name(&f0.declaration.declarators[0].declarator),
+            Some("x".to_string())
+        );
+
+        let StructMember::Declaration(f1) = &fields[1] else {
+            panic!("field 1: {:?}", fields[1]);
+        };
+        assert_eq!(f1.leading_comments, vec![" y coordinate".to_string()]);
+        assert!(matches!(
+            f1.declaration.specifiers[0],
+            SpecifierPiece::Type(Keyword::Int)
+        ));
+        assert_eq!(
+            declarator_introduced_name(&f1.declaration.declarators[0].declarator),
+            Some("y".to_string())
+        );
     }
 }
