@@ -38,6 +38,7 @@ pub enum ExternalDecl320 {
         signature_tokens: Vec<LexedToken>,
         body: FunctionBody,
     },
+    Comment(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -58,6 +59,7 @@ pub(crate) fn parsing_stage_320(tu: TranslationUnit) -> TranslationUnit320 {
                     signature_tokens,
                     body,
                 },
+                ExternalDecl::Comment(s) => ExternalDecl320::Comment(s),
             })
             .collect(),
     )

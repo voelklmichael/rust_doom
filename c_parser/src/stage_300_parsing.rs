@@ -17,6 +17,8 @@ pub enum ExternalDecl {
         signature_tokens: Vec<LexedToken>,
         body: FunctionBody,
     },
+    /// Top-level comment (`//` or `/* */` body text, same as lexer payloads).
+    Comment(String),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,13 +30,17 @@ pub(crate) fn parsing_stage_300(lexed: Vec<LexedToken>) -> TranslationUnit {
     let mut i = 0usize;
 
     while i < tokens.len() {
-        while i < tokens.len()
-            && (is_comment(&tokens[i]) || matches!(tokens[i], LexedToken::Newline))
-        {
+        while i < tokens.len() && matches!(tokens[i], LexedToken::Newline) {
             i += 1;
         }
         if i >= tokens.len() {
             break;
+        }
+
+        if let Some(text) = comment_payload(&tokens[i]) {
+            decls.push(ExternalDecl::Comment(text));
+            i += 1;
+            continue;
         }
 
         if matches!(tokens[i], LexedToken::Hash) {
@@ -213,6 +219,13 @@ fn is_comment(t: &LexedToken) -> bool {
     matches!(t, LexedToken::LineComment(_) | LexedToken::BlockComment(_))
 }
 
+fn comment_payload(t: &LexedToken) -> Option<String> {
+    match t {
+        LexedToken::LineComment(s) | LexedToken::BlockComment(s) => Some(s.clone()),
+        _ => None,
+    }
+}
+
 fn is_punct(t: &LexedToken, s: &str) -> bool {
     matches!(t, LexedToken::Punctuator(p) if p == s)
 }
@@ -383,5 +396,18 @@ mod tests {
         let tu = parsing_stage_300(tokens);
         assert_eq!(tu.0.len(), 1);
         assert!(matches!(tu.0[0], ExternalDecl::Declaration(_)));
+    }
+
+    #[test]
+    fn top_level_comment_before_decl() {
+        let src = "// header\nint x;";
+        let tokens = lexing(src.to_string());
+        let tu = parsing_stage_300(tokens);
+        assert_eq!(tu.0.len(), 2);
+        assert_eq!(
+            tu.0[0],
+            ExternalDecl::Comment(" header".to_string())
+        );
+        assert!(matches!(tu.0[1], ExternalDecl::Declaration(_)));
     }
 }
