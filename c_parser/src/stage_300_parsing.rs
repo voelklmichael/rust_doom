@@ -93,9 +93,10 @@ fn preprocessor_end_exclusive(tokens: &[LexedToken], start: usize) -> usize {
                     i += 1;
                     while i < tokens.len() {
                         if let LexedToken::Punctuator(p) = &tokens[i]
-                            && p == ">" {
-                                return i + 1;
-                            }
+                            && p == ">"
+                        {
+                            return i + 1;
+                        }
                         i += 1;
                     }
                     return tokens.len();
@@ -141,14 +142,16 @@ fn define_directive_end_exclusive(tokens: &[LexedToken], mut i: usize) -> usize 
     }
     i += 1;
     i = skip_pp_comments(tokens, i);
-    if i < tokens.len() && is_punct(&tokens[i], "(")
-        && let Some(close) = matching_paren_close_pp(tokens, i) {
-            let inner = &tokens[i + 1..close];
-            if define_parameter_list_ok(inner) {
-                i = close + 1;
-                i = skip_pp_comments(tokens, i);
-            }
+    if i < tokens.len()
+        && is_punct(&tokens[i], "(")
+        && let Some(close) = matching_paren_close_pp(tokens, i)
+    {
+        let inner = &tokens[i + 1..close];
+        if define_parameter_list_ok(inner) {
+            i = close + 1;
+            i = skip_pp_comments(tokens, i);
         }
+    }
     scan_pp_directive_line_tail(tokens, i)
 }
 
@@ -265,33 +268,39 @@ fn parse_declaration_or_function(tokens: &[LexedToken], start: usize) -> (Extern
         let t = &tokens[i];
 
         // Function definition: `) {` at depth 0 (after `)`), where `{` opens the body.
-        if is_punct(t, "{") && paren == 0 && brace == 0 && bracket == 0
+        if is_punct(t, "{")
+            && paren == 0
+            && brace == 0
+            && bracket == 0
             && let Some(pidx) = prev_significant(tokens, i.saturating_sub(1))
-                && is_punct(&tokens[pidx], ")") {
-                    let signature_tokens = tokens[start..i].to_vec();
-                    let (body, after_body) = extract_function_body(tokens, i);
-                    return (
-                        ExternalDecl::FunctionDefinition {
-                            signature_tokens,
-                            body,
-                        },
-                        after_body,
-                    );
-                }
+            && is_punct(&tokens[pidx], ")")
+        {
+            let signature_tokens = tokens[start..i].to_vec();
+            let (body, after_body) = extract_function_body(tokens, i);
+            return (
+                ExternalDecl::FunctionDefinition {
+                    signature_tokens,
+                    body,
+                },
+                after_body,
+            );
+        }
 
-        if let LexedToken::Punctuator(s) = t { match s.as_str() {
-            "(" => paren += 1,
-            ")" => paren -= 1,
-            "[" => bracket += 1,
-            "]" => bracket -= 1,
-            "{" => brace += 1,
-            "}" => brace -= 1,
-            ";" if paren == 0 && brace == 0 && bracket == 0 => {
-                let decl = tokens[start..=i].to_vec();
-                return (ExternalDecl::Declaration(decl), i + 1);
+        if let LexedToken::Punctuator(s) = t {
+            match s.as_str() {
+                "(" => paren += 1,
+                ")" => paren -= 1,
+                "[" => bracket += 1,
+                "]" => bracket -= 1,
+                "{" => brace += 1,
+                "}" => brace -= 1,
+                ";" if paren == 0 && brace == 0 && bracket == 0 => {
+                    let decl = tokens[start..=i].to_vec();
+                    return (ExternalDecl::Declaration(decl), i + 1);
+                }
+                _ => {}
             }
-            _ => {}
-        } }
+        }
 
         i += 1;
     }

@@ -3,7 +3,10 @@ use super::{IncludeDirective, if_directives};
 #[test]
 fn test_if_directives_no_directive() {
     let ast = if_directives(r#"int x = 1;"#);
-    assert_eq!(ast, vec![IncludeDirective::NonDirective("int x = 1;".to_string())]);
+    assert_eq!(
+        ast,
+        vec![IncludeDirective::NonDirective("int x = 1;".to_string())]
+    );
 }
 
 #[test]
@@ -49,7 +52,9 @@ inner_else
                 condition: "0".to_string(),
                 then_branch: vec![IncludeDirective::NonDirective("inner_false".to_string())],
                 elif_branches: vec![],
-                else_branch: Some(vec![IncludeDirective::NonDirective("inner_else".to_string())]),
+                else_branch: Some(vec![IncludeDirective::NonDirective(
+                    "inner_else".to_string(),
+                )]),
             },
         ],
         elif_branches: vec![],

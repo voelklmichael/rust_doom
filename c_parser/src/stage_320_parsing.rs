@@ -108,15 +108,16 @@ fn parse_include(tokens: &[LexedToken], mut i: usize) -> Option<PreprocessorDire
             i += 1;
             while i < tokens.len() {
                 if let LexedToken::Punctuator(p) = &tokens[i]
-                    && p == ">" {
-                        let path = parts.join("");
-                        if path.is_empty() {
-                            return None;
-                        }
-                        return Some(PreprocessorDirective::Include(IncludeDirective::System(
-                            path,
-                        )));
+                    && p == ">"
+                {
+                    let path = parts.join("");
+                    if path.is_empty() {
+                        return None;
                     }
+                    return Some(PreprocessorDirective::Include(IncludeDirective::System(
+                        path,
+                    )));
+                }
                 parts.push(token_to_path_fragment(&tokens[i])?);
                 i += 1;
             }
@@ -158,15 +159,17 @@ fn parse_define(tokens: &[LexedToken], mut i: usize) -> Option<PreprocessorDirec
     i += 1;
     i = skip_comments(tokens, i);
 
-    if i < tokens.len() && is_punct(&tokens[i], "(")
-        && let Some((params, after)) = try_parse_function_like_params(tokens, i) {
-            let replacement = tokens[after..].to_vec();
-            return Some(PreprocessorDirective::Define(DefineDirective {
-                name,
-                parameters: Some(params),
-                replacement,
-            }));
-        }
+    if i < tokens.len()
+        && is_punct(&tokens[i], "(")
+        && let Some((params, after)) = try_parse_function_like_params(tokens, i)
+    {
+        let replacement = tokens[after..].to_vec();
+        return Some(PreprocessorDirective::Define(DefineDirective {
+            name,
+            parameters: Some(params),
+            replacement,
+        }));
+    }
 
     let replacement = tokens[i..].to_vec();
     Some(PreprocessorDirective::Define(DefineDirective {
