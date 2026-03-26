@@ -4,6 +4,7 @@ mod stage_200_lexing;
 mod stage_300_parsing;
 mod stage_320_parsing;
 mod stage_340_parsing;
+mod stage_400_simplification;
 
 fn main() {
     let dir = std::path::Path::new("doomgeneric");
@@ -32,27 +33,7 @@ fn include_lex_parse(content: &str) {
     let lexed = stage_200_lexing::lexing(whitelisted);
     let tu = stage_300_parsing::parsing_stage_300(lexed);
     let tu320 = stage_320_parsing::parsing_stage_320(tu);
-    let parsed = stage_340_parsing::parsing_stage_340(tu320);
-    //dbg!(&parsed);
-    parsed.0.iter().for_each(|x| match x {
-        stage_340_parsing::ExternalDecl340::UnparsedDeclaration(lexed_tokens) => {
-            panic!("UnparsedDeclaration: {:?}", &lexed_tokens);
-        }
-        stage_340_parsing::ExternalDecl340::Declaration(declaration) => {
-            declaration.specifiers.iter().for_each(|x| {
-                let x = match x {
-                    stage_340_parsing::SpecifierPiece::Struct { tag: _, fields } => fields,
-                    stage_340_parsing::SpecifierPiece::Union { tag: _, fields } => fields,
-                    _ => &None,
-                };
-                let x = x.as_deref().unwrap_or_default();
-                x.iter().for_each(|x| {
-                    if let stage_340_parsing::StructMember::Unparsed(lexed_tokens) = x {
-                        panic!("UnparsedStructMember: {:?}", &lexed_tokens);
-                    }
-                });
-            });
-        }
-        _ => {}
-    });
+    let tu340 = stage_340_parsing::parsing_stage_340(tu320);
+    let simplified = stage_400_simplification::simplification(tu340);
+    //dbg!(&simplified);
 }

@@ -404,10 +404,7 @@ mod tests {
         let tokens = lexing(src.to_string());
         let tu = parsing_stage_300(tokens);
         assert_eq!(tu.0.len(), 2);
-        assert_eq!(
-            tu.0[0],
-            ExternalDecl::Comment(" header".to_string())
-        );
+        assert_eq!(tu.0[0], ExternalDecl::Comment(" header".to_string()));
         assert!(matches!(tu.0[1], ExternalDecl::Declaration(_)));
     }
 }

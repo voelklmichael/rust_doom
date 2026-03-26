@@ -8,8 +8,6 @@ use crate::stage_320_parsing::{ExternalDecl320, PreprocessorDirective, Translati
 pub enum SpecifierPiece {
     Storage(Keyword),
     Qualifier(Keyword),
-    /// `inline` (C99 function specifier).
-    FunctionSpecifier(Keyword),
     Type(Keyword),
     Struct {
         tag: Option<String>,
@@ -255,10 +253,6 @@ fn parse_declaration_specifiers(
         match &tokens[i] {
             LexedToken::Keyword(kw) if is_storage(*kw) => {
                 specifiers.push(SpecifierPiece::Storage(*kw));
-                i += 1;
-            }
-            LexedToken::Keyword(Keyword::Inline) => {
-                specifiers.push(SpecifierPiece::FunctionSpecifier(Keyword::Inline));
                 i += 1;
             }
             LexedToken::Keyword(kw) if is_qualifier(*kw) => {
