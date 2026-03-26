@@ -1,3 +1,5 @@
+use std::io::Write;
+
 pub use crate::stage_320_parsing::PreprocessorDirective;
 use crate::{
     stage_200_lexing::{Keyword, LexedToken},
@@ -378,28 +380,32 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                                             LexedToken::Identifier("ingame".into()),
                                                             LexedToken::Punctuator(")".into()),
                                                         ];
-                                                        let run_menu = [
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Punctuator("*".into()),
-                                                            LexedToken::Identifier("RunMenu".into()),
-                                                            LexedToken::Punctuator(")".into()),
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Punctuator(")".into()),
-                                                        ];
                                                         if declarator == cmds {
                                                         } else if declarator == ingame {
                                                         } else if declarator == process_events {
                                                         } else if declarator == build_ticcmd {
                                                         } else if declarator == run_tic {
-                                                        } else if declarator == run_menu {
                                                         } else {
                                                             match declarator.as_slice() {
                                                                 [] => panic!("Empty declarator"),
+                                                                [
+                                                                    LexedToken::Punctuator(open),
+                                                                    LexedToken::Punctuator(pointer),
+                                                                    LexedToken::Identifier(x),
+                                                                    LexedToken::Punctuator(close),
+                                                                    LexedToken::Punctuator(p3),
+                                                                    LexedToken::Punctuator(p4),
+                                                                ] if open == "(" && pointer == "*" && close == ")" && p3 == "(" && p4 == ")" => {}
                                                                 [LexedToken::Identifier(s)] => {}
                                                                 [LexedToken::Identifier(s1), LexedToken::Identifier(s2)] => {}
                                                                 [LexedToken::Punctuator(p), LexedToken::Identifier(s)] if p == "*" => {}
                                                                 [LexedToken::Identifier(t), LexedToken::Punctuator(p), LexedToken::Identifier(s)]
                                                                     if p == "*" => {}
+                                                                [
+                                                                    LexedToken::Punctuator(p1),
+                                                                    LexedToken::Punctuator(p2),
+                                                                    LexedToken::Identifier(s),
+                                                                ] if p1 == "*" && p2 == "*" => {}
                                                                 [
                                                                     LexedToken::Identifier(t),
                                                                     LexedToken::Punctuator(p1),
@@ -441,7 +447,24 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                                                     LexedToken::IntegerLiteral { value: v2, suffix: None },
                                                                     LexedToken::Punctuator(close2),
                                                                 ] if open == "[" && close == "]" && open2 == "[" && close2 == "]" => {}
-                                                                x => panic!("Unknown declarator: {x:?}"),
+                                                                [
+                                                                    LexedToken::Identifier(r#type),
+                                                                    LexedToken::Identifier(name),
+                                                                    LexedToken::Punctuator(colon),
+                                                                    LexedToken::IntegerLiteral { value: v, suffix: None },
+                                                                ] if colon == ":" => {}
+                                                                x => {
+                                                                    if !std::fs::exists("a.txt").unwrap() {
+                                                                        std::fs::File::create("a.txt").unwrap();
+                                                                    }
+                                                                    std::fs::OpenOptions::new()
+                                                                        .write(true)
+                                                                        .append(true)
+                                                                        .open("a.txt")
+                                                                        .unwrap()
+                                                                        .write(format!("Unknown declarator: {x:?}\n").as_bytes())
+                                                                        .unwrap();
+                                                                }
                                                             }
                                                         }
                                                     };
