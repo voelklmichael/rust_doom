@@ -1,9 +1,7 @@
 pub use crate::stage_320_parsing::PreprocessorDirective;
 use crate::{
     stage_200_lexing::{Keyword, LexedToken},
-    stage_340_parsing::{
-        Declaration, DeclaratorWithInit, ExternalDecl340, StructMember, StructMemberDeclaration, TranslationUnit340,
-    },
+    stage_340_parsing::{Declaration, DeclaratorWithInit, ExternalDecl340, StructMember, StructMemberDeclaration, TranslationUnit340},
 };
 #[derive(Debug, Clone, PartialEq)]
 pub struct TranslationUnit400(pub Vec<ExternalDecl400>);
@@ -20,19 +18,14 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                 Some(match d {
                     ExternalDecl340::Comment(s) => ExternalDecl400::Comment(s),
                     ExternalDecl340::Preprocessor(p) => match p {
-                        PreprocessorDirective::Include(include_directive) => {
-                            ExternalDecl400::PPInclude(include_directive)
-                        }
+                        PreprocessorDirective::Include(include_directive) => ExternalDecl400::PPInclude(include_directive),
                         PreprocessorDirective::Define(define_directive) => ExternalDecl400::PPDefine(define_directive),
                         PreprocessorDirective::Undef(_) => return None,
                         PreprocessorDirective::Other(lexed_tokens) => {
                             todo!("Other: {lexed_tokens:?}")
                         }
                     },
-                    ExternalDecl340::Declaration(Declaration {
-                        specifiers,
-                        declarators,
-                    }) => {
+                    ExternalDecl340::Declaration(Declaration { specifiers, declarators }) => {
                         enum Storage {
                             Static,
                             Extern,
@@ -199,152 +192,276 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                 }
                                 crate::stage_340_parsing::SpecifierPiece::Struct { tag, fields } => {
                                     assert!(kind.is_none());
-                                    let fields =
-                                        fields
-                                            .unwrap_or_default()
-                                            .into_iter()
-                                            .map(|x| match x {
-                                                StructMember::Declaration(declaration) => {
-                                                    let StructMemberDeclaration {
-                                                        leading_comments,
-                                                        declaration,
-                                                    } = *declaration;
-                                                    let Declaration {
-                                                        specifiers,
-                                                        declarators,
-                                                    } = declaration;
-                                                    let r#type =
-                                                        {
-                                                            let mut r#type = None;
-                                                            let mut is_signed = false;
-                                                            let mut is_unsigned = false;
-                                                            for specifier in specifiers {
-                                                                let t: TypeName = match specifier {
-                                                        crate::stage_340_parsing::SpecifierPiece::Type(keyword) => {
-                                                            match keyword {
-                                                                Keyword::Signed => {
-                                                                    assert!(!is_signed);
-                                                                    assert!(r#type.is_none());
-                                                                    is_signed = true;
-                                                                    continue;
-                                                                }
-                                                                Keyword::Unsigned => {
-                                                                    assert!(!is_unsigned);
-                                                                    assert!(r#type.is_none());
-                                                                    is_unsigned = true;
-                                                                    continue;
-                                                                }
-                                                                x => PrimitiveType::from_keyword(x, is_signed, false),
-                                                            }
-                                                        }
-                                                        .into(),
-                                                        crate::stage_340_parsing::SpecifierPiece::Struct {
-                                                            tag,
-                                                            fields,
-                                                        } => {
-                                                            let tag = tag.unwrap();
-                                                            assert!(fields.is_none());
-                                                            TypeName::Struct(tag)
-                                                        }
-                                                        // This happens exactly once
-                                                        crate::stage_340_parsing::SpecifierPiece::Union {
-                                                            tag,
-                                                            fields,
-                                                        } => {
-                                                            assert!(tag.is_none());
-                                                            let expected = vec![
-                                                                StructMember::Declaration(
-                                                                    StructMemberDeclaration {
-                                                                        leading_comments: [].into(),
-                                                                        declaration: Declaration {
-                                                                            specifiers: [].into(),
-                                                                            declarators: [DeclaratorWithInit {
-                                                                                declarator: [
-                                                                                    LexedToken::Identifier(
-                                                                                        "mobj_t".into(),
-                                                                                    ),
-                                                                                    LexedToken::Punctuator("*".into()),
-                                                                                    LexedToken::Identifier(
-                                                                                        "thing".into(),
-                                                                                    ),
-                                                                                ]
-                                                                                .into(),
-                                                                                ast: None,
-                                                                                initializer: None,
-                                                                            }]
-                                                                            .into(),
-                                                                        },
+                                    let fields = fields
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .map(|x| match x {
+                                            StructMember::Declaration(declaration) => {
+                                                let StructMemberDeclaration {
+                                                    leading_comments,
+                                                    declaration,
+                                                } = *declaration;
+                                                let Declaration { specifiers, mut declarators } = declaration;
+                                                let r#type = {
+                                                    let mut r#type = None;
+                                                    let mut is_signed = false;
+                                                    let mut is_unsigned = false;
+                                                    for specifier in specifiers {
+                                                        let t: TypeName = match specifier {
+                                                            crate::stage_340_parsing::SpecifierPiece::Type(keyword) => {
+                                                                match keyword {
+                                                                    Keyword::Signed => {
+                                                                        assert!(!is_signed);
+                                                                        assert!(r#type.is_none());
+                                                                        is_signed = true;
+                                                                        continue;
                                                                     }
-                                                                    .into(),
-                                                                ),
-                                                                StructMember::Declaration(
-                                                                    StructMemberDeclaration {
-                                                                        leading_comments: [].into(),
-                                                                        declaration: Declaration {
-                                                                            specifiers: [].into(),
-                                                                            declarators: [DeclaratorWithInit {
-                                                                                declarator: [
-                                                                                    LexedToken::Identifier(
-                                                                                        "line_t".into(),
-                                                                                    ),
-                                                                                    LexedToken::Punctuator("*".into()),
-                                                                                    LexedToken::Identifier(
-                                                                                        "line".into(),
-                                                                                    ),
-                                                                                ]
-                                                                                .into(),
-                                                                                ast: None,
-                                                                                initializer: None,
-                                                                            }]
-                                                                            .into(),
-                                                                        },
+                                                                    Keyword::Unsigned => {
+                                                                        assert!(!is_unsigned);
+                                                                        assert!(r#type.is_none());
+                                                                        is_unsigned = true;
+                                                                        continue;
                                                                     }
-                                                                    .into(),
-                                                                ),
-                                                            ];
-                                                            assert_eq!(fields, Some(expected));
-                                                            dbg!(TypeName::DefinedOnceInAllOfDoom(
-                                                                "union { mobj_t* thing; line_t* line;}"
-                                                                .to_string(),
-                                                            ))
-                                                        }
-                                                        x => panic!("Unknown specifier: {x:?}"),
-                                                    };
-                                                                assert!(r#type.is_none());
-                                                                r#type = Some(t);
+                                                                    x => PrimitiveType::from_keyword(x, is_signed, false),
+                                                                }
                                                             }
-                                                            if is_signed || is_unsigned {
-                                                                assert!(r#type.is_some());
+                                                            .into(),
+                                                            crate::stage_340_parsing::SpecifierPiece::Struct { tag, fields } => {
+                                                                let tag = tag.unwrap();
+                                                                assert!(fields.is_none());
+                                                                TypeName::Struct(tag)
                                                             }
-                                                            r#type
+                                                            // This happens exactly once
+                                                            crate::stage_340_parsing::SpecifierPiece::Union { tag, fields } => {
+                                                                assert!(tag.is_none());
+                                                                let expected = vec![
+                                                                    StructMember::Declaration(
+                                                                        StructMemberDeclaration {
+                                                                            leading_comments: [].into(),
+                                                                            declaration: Declaration {
+                                                                                specifiers: [].into(),
+                                                                                declarators: [DeclaratorWithInit {
+                                                                                    declarator: [
+                                                                                        LexedToken::Identifier("mobj_t".into()),
+                                                                                        LexedToken::Punctuator("*".into()),
+                                                                                        LexedToken::Identifier("thing".into()),
+                                                                                    ]
+                                                                                    .into(),
+                                                                                    ast: None,
+                                                                                    initializer: None,
+                                                                                }]
+                                                                                .into(),
+                                                                            },
+                                                                        }
+                                                                        .into(),
+                                                                    ),
+                                                                    StructMember::Declaration(
+                                                                        StructMemberDeclaration {
+                                                                            leading_comments: [].into(),
+                                                                            declaration: Declaration {
+                                                                                specifiers: [].into(),
+                                                                                declarators: [DeclaratorWithInit {
+                                                                                    declarator: [
+                                                                                        LexedToken::Identifier("line_t".into()),
+                                                                                        LexedToken::Punctuator("*".into()),
+                                                                                        LexedToken::Identifier("line".into()),
+                                                                                    ]
+                                                                                    .into(),
+                                                                                    ast: None,
+                                                                                    initializer: None,
+                                                                                }]
+                                                                                .into(),
+                                                                            },
+                                                                        }
+                                                                        .into(),
+                                                                    ),
+                                                                ];
+                                                                assert_eq!(fields, Some(expected));
+                                                                TypeName::DefinedOnceInAllOfDoom("union { mobj_t* thing; line_t* line;}".to_string())
+                                                            }
+                                                            x => panic!("Unknown specifier: {x:?}"),
                                                         };
-                                                    let declarators = {
+                                                        assert!(r#type.is_none());
+                                                        r#type = Some(t);
+                                                    }
+                                                    if is_signed || is_unsigned {
+                                                        assert!(r#type.is_some());
+                                                    }
+                                                    r#type
+                                                };
+                                                let declarators = {
+                                                    let declarators = if declarators.len() > 1 {
                                                         for DeclaratorWithInit {
                                                             declarator,
                                                             ast,
                                                             initializer,
                                                         } in declarators
                                                         {
-                                                            dbg!(&declarator);
+                                                            assert!(initializer.is_none());
+                                                            let declarators = declarator
+                                                                .into_iter()
+                                                                .map(|x| match x {
+                                                                    LexedToken::Identifier(s) => s,
+                                                                    _ => panic!("Unknown declarator: {x:?}"),
+                                                                })
+                                                                .collect::<Vec<_>>();
+                                                            if let Some(ast) = ast {
+                                                                assert!(ast.pointer_levels.is_empty());
+                                                                match ast.direct {
+                                                                    crate::stage_340_parsing::DirectDeclarator::Identifier(s) => {
+                                                                        assert_eq!(&declarators, &[s]);
+                                                                    }
+                                                                    _ => panic!("Unknown direct declarator: {ast:?}"),
+                                                                }
+                                                            } else {
+                                                            };
+
+                                                            //assert!(ast.is_some());
+                                                        }
+                                                    } else if let Some(DeclaratorWithInit {
+                                                        declarator,
+                                                        ast,
+                                                        initializer,
+                                                    }) = declarators.pop()
+                                                    {
+                                                        assert!(initializer.is_none());
+                                                        dbg!(&ast);
+                                                        dbg!(&declarator);
+                                                        let cmds = [
+                                                            LexedToken::Identifier("ticcmd_t".into()),
+                                                            LexedToken::Identifier("cmds".into()),
+                                                            LexedToken::Punctuator("[".into()),
+                                                            LexedToken::Identifier("NET_MAXPLAYERS".into()),
+                                                            LexedToken::Punctuator("]".into()),
+                                                        ];
+                                                        let ingame = [
+                                                            LexedToken::Identifier("boolean".into()),
+                                                            LexedToken::Identifier("ingame".into()),
+                                                            LexedToken::Punctuator("[".into()),
+                                                            LexedToken::Identifier("NET_MAXPLAYERS".into()),
+                                                            LexedToken::Punctuator("]".into()),
+                                                        ];
+                                                        let process_events = [
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Punctuator("*".into()),
+                                                            LexedToken::Identifier("ProcessEvents".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                        ];
+                                                        let build_ticcmd = [
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Punctuator("*".into()),
+                                                            LexedToken::Identifier("BuildTiccmd".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Identifier("ticcmd_t".into()),
+                                                            LexedToken::Punctuator("*".into()),
+                                                            LexedToken::Identifier("cmd".into()),
+                                                            LexedToken::Punctuator(",".into()),
+                                                            LexedToken::Keyword(Keyword::Int),
+                                                            LexedToken::Identifier("maketic".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                        ];
+                                                        let run_tic = [
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Punctuator("*".into()),
+                                                            LexedToken::Identifier("RunTic".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Identifier("ticcmd_t".into()),
+                                                            LexedToken::Punctuator("*".into()),
+                                                            LexedToken::Identifier("cmds".into()),
+                                                            LexedToken::Punctuator(",".into()),
+                                                            LexedToken::Identifier("boolean".into()),
+                                                            LexedToken::Punctuator("*".into()),
+                                                            LexedToken::Identifier("ingame".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                        ];
+                                                        let run_menu = [
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Punctuator("*".into()),
+                                                            LexedToken::Identifier("RunMenu".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                            LexedToken::Punctuator("(".into()),
+                                                            LexedToken::Punctuator(")".into()),
+                                                        ];
+                                                        if declarator == cmds {
+                                                        } else if declarator == ingame {
+                                                        } else if declarator == process_events {
+                                                        } else if declarator == build_ticcmd {
+                                                        } else if declarator == run_tic {
+                                                        } else if declarator == run_menu {
+                                                        } else {
+                                                            match declarator.as_slice() {
+                                                                [] => panic!("Empty declarator"),
+                                                                [LexedToken::Identifier(s)] => {}
+                                                                [LexedToken::Identifier(s1), LexedToken::Identifier(s2)] => {}
+                                                                [LexedToken::Punctuator(p), LexedToken::Identifier(s)] if p == "*" => {}
+                                                                [LexedToken::Identifier(t), LexedToken::Punctuator(p), LexedToken::Identifier(s)]
+                                                                    if p == "*" => {}
+                                                                [
+                                                                    LexedToken::Identifier(t),
+                                                                    LexedToken::Punctuator(p1),
+                                                                    LexedToken::Punctuator(p2),
+                                                                    LexedToken::Identifier(s),
+                                                                ] if p1 == "*" && p2 == "*" => {}
+                                                                [
+                                                                    LexedToken::Identifier(array),
+                                                                    LexedToken::Punctuator(open),
+                                                                    LexedToken::Identifier(length),
+                                                                    LexedToken::Punctuator(close),
+                                                                ] if open == "[" && close == "]" => {}
+                                                                [
+                                                                    LexedToken::Identifier(r#type),
+                                                                    LexedToken::Identifier(array),
+                                                                    LexedToken::Punctuator(open),
+                                                                    LexedToken::Identifier(length),
+                                                                    LexedToken::Punctuator(close),
+                                                                ] if open == "[" && close == "]" => {}
+                                                                [
+                                                                    LexedToken::Identifier(array),
+                                                                    LexedToken::Punctuator(open),
+                                                                    LexedToken::IntegerLiteral { value, suffix: None },
+                                                                    LexedToken::Punctuator(close),
+                                                                ] if open == "[" && close == "]" => {}
+                                                                [
+                                                                    LexedToken::Punctuator(p),
+                                                                    LexedToken::Identifier(array),
+                                                                    LexedToken::Punctuator(open),
+                                                                    LexedToken::Identifier(length),
+                                                                    LexedToken::Punctuator(close),
+                                                                ] if p == "*" && open == "[" && close == "]" => {}
+                                                                [
+                                                                    LexedToken::Identifier(array),
+                                                                    LexedToken::Punctuator(open),
+                                                                    LexedToken::IntegerLiteral { value: v1, suffix: None },
+                                                                    LexedToken::Punctuator(close),
+                                                                    LexedToken::Punctuator(open2),
+                                                                    LexedToken::IntegerLiteral { value: v2, suffix: None },
+                                                                    LexedToken::Punctuator(close2),
+                                                                ] if open == "[" && close == "]" && open2 == "[" && close2 == "]" => {}
+                                                                x => panic!("Unknown declarator: {x:?}"),
+                                                            }
                                                         }
                                                     };
+                                                };
 
-                                                    if r#type.is_none() {
-                                                        dbg!(&tag);
-                                                        panic!("r#type is none");
-                                                    }
+                                                if r#type.is_none() {
+                                                    //dbg!(&tag);
+                                                }
 
-                                                    //dbg!(&declarators);
-                                                    StructFields {
-                                                        comments: leading_comments,
-                                                        r#type, //declaration,
-                                                    }
+                                                //dbg!(&declarators);
+                                                StructFields {
+                                                    comments: leading_comments,
+                                                    r#type, //declaration,
                                                 }
-                                                StructMember::Unparsed(tokens) => {
-                                                    panic!("Unparsed: {tokens:?}")
-                                                }
-                                            })
-                                            .collect::<Vec<_>>();
+                                            }
+                                            StructMember::Unparsed(tokens) => {
+                                                panic!("Unparsed: {tokens:?}")
+                                            }
+                                        })
+                                        .collect::<Vec<_>>();
 
                                     kind = Some(Kind::Struct {
                                         global_variable_name: tag,
