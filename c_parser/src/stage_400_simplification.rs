@@ -245,7 +245,7 @@ enum Kind {
 
 fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFields {
     let StructMemberDeclaration {
-        leading_comments,
+        mut leading_comments,
         declaration,
     } = *declaration;
     let Declaration { specifiers, mut declarators } = declaration;
@@ -489,7 +489,7 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
             DH2::Identifier { name } => (r#type, vec![name]),
             DH2::Pointer { name } => (TypeName::Pointer(Box::new(r#type)), vec![name]),
             DH2::TypedPointer { r#type, name } => todo!(),
-            DH2::DoublePointer2 { name } => todo!(),
+            DH2::DoublePointer2 { name } => (TypeName::Pointer(Box::new(TypeName::Pointer(Box::new(r#type)))), vec![name]),
             DH2::TypeDoublePointer { r#type, name } => todo!(),
             DH2::Array { array, length } => (TypeName::Array(Box::new(r#type), ArrayLength::String(length)), vec![array]),
             DH2::TypedArray { r#type, array, length } => todo!(),
@@ -515,7 +515,7 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
                     .collect::<Vec<_>>();
                 (r#type, field_names)
             }
-            DeclaratorHelper2::Unparsed(lexed_tokens) => (
+            DH2::Unparsed(lexed_tokens) => (
                 TypeName::Unparsed {
                     r#type: Some(Box::new(r#type)),
                     lexed_tokens,
@@ -531,7 +531,10 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
             DH2::Pointer { name } => todo!(),
             DH2::TypedPointer { r#type, name } => (TypeName::Pointer(Box::new(TypeName::Defined(r#type))), vec![name]),
             DH2::DoublePointer2 { name } => todo!(),
-            DH2::TypeDoublePointer { r#type, name } => todo!(),
+            DH2::TypeDoublePointer { r#type, name } => (
+                TypeName::Pointer(Box::new(TypeName::Pointer(Box::new(TypeName::Defined(r#type))))),
+                vec![name],
+            ),
             DH2::Array { array, length } => todo!(),
             DH2::TypedArray { r#type, array, length } => (
                 TypeName::Array(Box::new(TypeName::Defined(r#type)), ArrayLength::String(length)),
@@ -539,7 +542,10 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
             ),
             DH2::ArrayInteger { array, value } => todo!(),
             DH2::ArrayOfArrayInteger { array, length1, length2 } => todo!(),
-            DH2::BitField { r#type, name, value } => todo!(),
+            DH2::BitField { r#type, name, value } => {
+                leading_comments.push(format!("bit field: {} {name}:{value}", r#type));
+                (TypeName::Defined(r#type), vec![name])
+            }
             DH2::ArrayPointer { array, length } => todo!(),
             DH2::MultipleNamesPossibleWithType(mut items) => {
                 dbg!(&items);
@@ -552,7 +558,7 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
                 field_names.push(field);
                 (TypeName::Defined(r#type), field_names)
             }
-            DH2::Unparsed(lexed_tokens) => todo!(),
+            DH2::Unparsed(lexed_tokens) => (TypeName::Unparsed { r#type: None, lexed_tokens }, vec![]),
         }
     };
 
