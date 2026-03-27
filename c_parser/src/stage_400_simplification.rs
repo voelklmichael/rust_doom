@@ -2,7 +2,7 @@ use std::io::Write;
 
 pub use crate::stage_320_parsing::PreprocessorDirective;
 use crate::{
-    stage_200_lexing::{Keyword, LexedToken},
+    stage_200_lexing::{Keyword, LexedToken as LT, Punctuator as Pr},
     stage_340_parsing::{Declaration, DeclaratorWithInit, ExternalDecl340, StructMember, StructMemberDeclaration, TranslationUnit340},
 };
 #[derive(Debug, Clone, PartialEq)]
@@ -244,9 +244,9 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                                                                 specifiers: [].into(),
                                                                                 declarators: [DeclaratorWithInit {
                                                                                     declarator: [
-                                                                                        LexedToken::Identifier("mobj_t".into()),
-                                                                                        LexedToken::Punctuator("*".into()),
-                                                                                        LexedToken::Identifier("thing".into()),
+                                                                                        LT::Identifier("mobj_t".into()),
+                                                                                        LT::Punctuator(Pr::Star),
+                                                                                        LT::Identifier("thing".into()),
                                                                                     ]
                                                                                     .into(),
                                                                                     ast: None,
@@ -264,9 +264,9 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                                                                 specifiers: [].into(),
                                                                                 declarators: [DeclaratorWithInit {
                                                                                     declarator: [
-                                                                                        LexedToken::Identifier("line_t".into()),
-                                                                                        LexedToken::Punctuator("*".into()),
-                                                                                        LexedToken::Identifier("line".into()),
+                                                                                        LT::Identifier("line_t".into()),
+                                                                                        LT::Punctuator(Pr::Star),
+                                                                                        LT::Identifier("line".into()),
                                                                                     ]
                                                                                     .into(),
                                                                                     ast: None,
@@ -303,7 +303,7 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                                             let declarators = declarator
                                                                 .into_iter()
                                                                 .map(|x| match x {
-                                                                    LexedToken::Identifier(s) => s,
+                                                                    LT::Identifier(s) => s,
                                                                     _ => panic!("Unknown declarator: {x:?}"),
                                                                 })
                                                                 .collect::<Vec<_>>();
@@ -330,55 +330,55 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                                         dbg!(&ast);
                                                         dbg!(&declarator);
                                                         let cmds = [
-                                                            LexedToken::Identifier("ticcmd_t".into()),
-                                                            LexedToken::Identifier("cmds".into()),
-                                                            LexedToken::Punctuator("[".into()),
-                                                            LexedToken::Identifier("NET_MAXPLAYERS".into()),
-                                                            LexedToken::Punctuator("]".into()),
+                                                            LT::Identifier("ticcmd_t".into()),
+                                                            LT::Identifier("cmds".into()),
+                                                            LT::Punctuator(Pr::LBracket),
+                                                            LT::Identifier("NET_MAXPLAYERS".into()),
+                                                            LT::Punctuator(Pr::RBracket),
                                                         ];
                                                         let ingame = [
-                                                            LexedToken::Identifier("boolean".into()),
-                                                            LexedToken::Identifier("ingame".into()),
-                                                            LexedToken::Punctuator("[".into()),
-                                                            LexedToken::Identifier("NET_MAXPLAYERS".into()),
-                                                            LexedToken::Punctuator("]".into()),
+                                                            LT::Identifier("boolean".into()),
+                                                            LT::Identifier("ingame".into()),
+                                                            LT::Punctuator(Pr::LBracket),
+                                                            LT::Identifier("NET_MAXPLAYERS".into()),
+                                                            LT::Punctuator(Pr::RBracket),
                                                         ];
                                                         let process_events = [
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Punctuator("*".into()),
-                                                            LexedToken::Identifier("ProcessEvents".into()),
-                                                            LexedToken::Punctuator(")".into()),
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Punctuator(")".into()),
+                                                            LT::Punctuator(Pr::LParen),
+                                                            LT::Punctuator(Pr::Star),
+                                                            LT::Identifier("ProcessEvents".into()),
+                                                            LT::Punctuator(Pr::RParen),
+                                                            LT::Punctuator(Pr::LParen),
+                                                            LT::Punctuator(Pr::RParen),
                                                         ];
                                                         let build_ticcmd = [
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Punctuator("*".into()),
-                                                            LexedToken::Identifier("BuildTiccmd".into()),
-                                                            LexedToken::Punctuator(")".into()),
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Identifier("ticcmd_t".into()),
-                                                            LexedToken::Punctuator("*".into()),
-                                                            LexedToken::Identifier("cmd".into()),
-                                                            LexedToken::Punctuator(",".into()),
-                                                            LexedToken::Keyword(Keyword::Int),
-                                                            LexedToken::Identifier("maketic".into()),
-                                                            LexedToken::Punctuator(")".into()),
+                                                            LT::Punctuator(Pr::LParen),
+                                                            LT::Punctuator(Pr::Star),
+                                                            LT::Identifier("BuildTiccmd".into()),
+                                                            LT::Punctuator(Pr::RParen),
+                                                            LT::Punctuator(Pr::LParen),
+                                                            LT::Identifier("ticcmd_t".into()),
+                                                            LT::Punctuator(Pr::Star),
+                                                            LT::Identifier("cmd".into()),
+                                                            LT::Punctuator(Pr::Comma),
+                                                            LT::Keyword(Keyword::Int),
+                                                            LT::Identifier("maketic".into()),
+                                                            LT::Punctuator(Pr::RParen),
                                                         ];
                                                         let run_tic = [
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Punctuator("*".into()),
-                                                            LexedToken::Identifier("RunTic".into()),
-                                                            LexedToken::Punctuator(")".into()),
-                                                            LexedToken::Punctuator("(".into()),
-                                                            LexedToken::Identifier("ticcmd_t".into()),
-                                                            LexedToken::Punctuator("*".into()),
-                                                            LexedToken::Identifier("cmds".into()),
-                                                            LexedToken::Punctuator(",".into()),
-                                                            LexedToken::Identifier("boolean".into()),
-                                                            LexedToken::Punctuator("*".into()),
-                                                            LexedToken::Identifier("ingame".into()),
-                                                            LexedToken::Punctuator(")".into()),
+                                                            LT::Punctuator(Pr::LParen),
+                                                            LT::Punctuator(Pr::Star),
+                                                            LT::Identifier("RunTic".into()),
+                                                            LT::Punctuator(Pr::RParen),
+                                                            LT::Punctuator(Pr::LParen),
+                                                            LT::Identifier("ticcmd_t".into()),
+                                                            LT::Punctuator(Pr::Star),
+                                                            LT::Identifier("cmds".into()),
+                                                            LT::Punctuator(Pr::Comma),
+                                                            LT::Identifier("boolean".into()),
+                                                            LT::Punctuator(Pr::Star),
+                                                            LT::Identifier("ingame".into()),
+                                                            LT::Punctuator(Pr::RParen),
                                                         ];
                                                         if declarator == cmds {
                                                         } else if declarator == ingame {
@@ -389,70 +389,64 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                                             match declarator.as_slice() {
                                                                 [] => panic!("Empty declarator"),
                                                                 [
-                                                                    LexedToken::Punctuator(open),
-                                                                    LexedToken::Punctuator(pointer),
-                                                                    LexedToken::Identifier(x),
-                                                                    LexedToken::Punctuator(close),
-                                                                    LexedToken::Punctuator(p3),
-                                                                    LexedToken::Punctuator(p4),
-                                                                ] if open == "(" && pointer == "*" && close == ")" && p3 == "(" && p4 == ")" => {}
-                                                                [LexedToken::Identifier(s)] => {}
-                                                                [LexedToken::Identifier(s1), LexedToken::Identifier(s2)] => {}
-                                                                [LexedToken::Punctuator(p), LexedToken::Identifier(s)] if p == "*" => {}
-                                                                [LexedToken::Identifier(t), LexedToken::Punctuator(p), LexedToken::Identifier(s)]
-                                                                    if p == "*" => {}
+                                                                    LT::Punctuator(Pr::LParen),
+                                                                    LT::Punctuator(Pr::Star),
+                                                                    LT::Identifier(x),
+                                                                    LT::Punctuator(Pr::RParen),
+                                                                    LT::Punctuator(Pr::LParen),
+                                                                    LT::Punctuator(Pr::RParen),
+                                                                ] => {}
+                                                                [LT::Identifier(s)] => {}
+                                                                [LT::Identifier(s1), LT::Identifier(s2)] => {}
+                                                                [LT::Punctuator(p), LT::Identifier(s)] if *p == Pr::Star => {}
+                                                                [LT::Identifier(t), LT::Punctuator(p), LT::Identifier(s)] if *p == Pr::Star => {}
+                                                                [LT::Punctuator(Pr::Star), LT::Punctuator(Pr::Star), LT::Identifier(s)] => {}
+                                                                [LT::Identifier(t), LT::Punctuator(p1), LT::Punctuator(p2), LT::Identifier(s)]
+                                                                    if *p1 == Pr::Star && *p2 == Pr::Star => {}
                                                                 [
-                                                                    LexedToken::Punctuator(p1),
-                                                                    LexedToken::Punctuator(p2),
-                                                                    LexedToken::Identifier(s),
-                                                                ] if p1 == "*" && p2 == "*" => {}
+                                                                    LT::Identifier(array),
+                                                                    LT::Punctuator(open),
+                                                                    LT::Identifier(length),
+                                                                    LT::Punctuator(close),
+                                                                ] if *open == Pr::LBracket && *close == Pr::RBracket => {}
                                                                 [
-                                                                    LexedToken::Identifier(t),
-                                                                    LexedToken::Punctuator(p1),
-                                                                    LexedToken::Punctuator(p2),
-                                                                    LexedToken::Identifier(s),
-                                                                ] if p1 == "*" && p2 == "*" => {}
+                                                                    LT::Identifier(r#type),
+                                                                    LT::Identifier(array),
+                                                                    LT::Punctuator(open),
+                                                                    LT::Identifier(length),
+                                                                    LT::Punctuator(close),
+                                                                ] if *open == Pr::LBracket && *close == Pr::RBracket => {}
                                                                 [
-                                                                    LexedToken::Identifier(array),
-                                                                    LexedToken::Punctuator(open),
-                                                                    LexedToken::Identifier(length),
-                                                                    LexedToken::Punctuator(close),
-                                                                ] if open == "[" && close == "]" => {}
+                                                                    LT::Identifier(array),
+                                                                    LT::Punctuator(open),
+                                                                    LT::IntegerLiteral { value, suffix: None },
+                                                                    LT::Punctuator(close),
+                                                                ] if *open == Pr::LBracket && *close == Pr::RBracket => {}
                                                                 [
-                                                                    LexedToken::Identifier(r#type),
-                                                                    LexedToken::Identifier(array),
-                                                                    LexedToken::Punctuator(open),
-                                                                    LexedToken::Identifier(length),
-                                                                    LexedToken::Punctuator(close),
-                                                                ] if open == "[" && close == "]" => {}
+                                                                    LT::Punctuator(p),
+                                                                    LT::Identifier(array),
+                                                                    LT::Punctuator(open),
+                                                                    LT::Identifier(length),
+                                                                    LT::Punctuator(close),
+                                                                ] if *p == Pr::Star && *open == Pr::LBracket && *close == Pr::RBracket => {}
                                                                 [
-                                                                    LexedToken::Identifier(array),
-                                                                    LexedToken::Punctuator(open),
-                                                                    LexedToken::IntegerLiteral { value, suffix: None },
-                                                                    LexedToken::Punctuator(close),
-                                                                ] if open == "[" && close == "]" => {}
+                                                                    LT::Identifier(array),
+                                                                    LT::Punctuator(open),
+                                                                    LT::IntegerLiteral { value: v1, suffix: None },
+                                                                    LT::Punctuator(close),
+                                                                    LT::Punctuator(open2),
+                                                                    LT::IntegerLiteral { value: v2, suffix: None },
+                                                                    LT::Punctuator(close2),
+                                                                ] if *open == Pr::LBracket
+                                                                    && *close == Pr::RBracket
+                                                                    && *open2 == Pr::LBracket
+                                                                    && *close2 == Pr::RBracket => {}
                                                                 [
-                                                                    LexedToken::Punctuator(p),
-                                                                    LexedToken::Identifier(array),
-                                                                    LexedToken::Punctuator(open),
-                                                                    LexedToken::Identifier(length),
-                                                                    LexedToken::Punctuator(close),
-                                                                ] if p == "*" && open == "[" && close == "]" => {}
-                                                                [
-                                                                    LexedToken::Identifier(array),
-                                                                    LexedToken::Punctuator(open),
-                                                                    LexedToken::IntegerLiteral { value: v1, suffix: None },
-                                                                    LexedToken::Punctuator(close),
-                                                                    LexedToken::Punctuator(open2),
-                                                                    LexedToken::IntegerLiteral { value: v2, suffix: None },
-                                                                    LexedToken::Punctuator(close2),
-                                                                ] if open == "[" && close == "]" && open2 == "[" && close2 == "]" => {}
-                                                                [
-                                                                    LexedToken::Identifier(r#type),
-                                                                    LexedToken::Identifier(name),
-                                                                    LexedToken::Punctuator(colon),
-                                                                    LexedToken::IntegerLiteral { value: v, suffix: None },
-                                                                ] if colon == ":" => {}
+                                                                    LT::Identifier(r#type),
+                                                                    LT::Identifier(name),
+                                                                    LT::Punctuator(colon),
+                                                                    LT::IntegerLiteral { value: v, suffix: None },
+                                                                ] if *colon == Pr::Colon => {}
                                                                 x => {
                                                                     if !std::fs::exists("a.txt").unwrap() {
                                                                         std::fs::File::create("a.txt").unwrap();

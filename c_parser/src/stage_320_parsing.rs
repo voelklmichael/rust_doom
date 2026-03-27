@@ -1,6 +1,6 @@
 //! Structured preprocessor directives after stage 300 (`#include`, `#define`).
 
-use crate::stage_200_lexing::LexedToken;
+use crate::stage_200_lexing::{LexedToken, Punctuator};
 use crate::stage_300_parsing::{ExternalDecl, FunctionBody, TranslationUnit};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -34,10 +34,7 @@ pub enum PreprocessorDirective {
 pub enum ExternalDecl320 {
     Preprocessor(PreprocessorDirective),
     Declaration(Vec<LexedToken>),
-    FunctionDefinition {
-        signature_tokens: Vec<LexedToken>,
-        body: FunctionBody,
-    },
+    FunctionDefinition { signature_tokens: Vec<LexedToken>, body: FunctionBody },
     Comment(String),
 }
 
@@ -48,17 +45,9 @@ pub(crate) fn parsing_stage_320(tu: TranslationUnit) -> TranslationUnit320 {
     TranslationUnit320(
         tu.0.into_iter()
             .map(|d| match d {
-                ExternalDecl::Preprocessor(tokens) => {
-                    ExternalDecl320::Preprocessor(parse_preprocessor_directive(tokens))
-                }
+                ExternalDecl::Preprocessor(tokens) => ExternalDecl320::Preprocessor(parse_preprocessor_directive(tokens)),
                 ExternalDecl::Declaration(t) => ExternalDecl320::Declaration(t),
-                ExternalDecl::FunctionDefinition {
-                    signature_tokens,
-                    body,
-                } => ExternalDecl320::FunctionDefinition {
-                    signature_tokens,
-                    body,
-                },
+                ExternalDecl::FunctionDefinition { signature_tokens, body } => ExternalDecl320::FunctionDefinition { signature_tokens, body },
                 ExternalDecl::Comment(s) => ExternalDecl320::Comment(s),
             })
             .collect(),
@@ -69,8 +58,8 @@ fn is_comment(t: &LexedToken) -> bool {
     matches!(t, LexedToken::LineComment(_) | LexedToken::BlockComment(_))
 }
 
-fn is_punct(t: &LexedToken, s: &str) -> bool {
-    matches!(t, LexedToken::Punctuator(p) if p == s)
+fn is_punct(t: &LexedToken, p: Punctuator) -> bool {
+    matches!(t, LexedToken::Punctuator(x) if *x == p)
 }
 
 fn skip_comments(tokens: &[LexedToken], mut i: usize) -> usize {
@@ -102,23 +91,17 @@ fn parse_include(tokens: &[LexedToken], mut i: usize) -> Option<PreprocessorDire
     i = skip_comments(tokens, i);
     let t = tokens.get(i)?;
     match t {
-        LexedToken::StringLiteral(path) => Some(PreprocessorDirective::Include(
-            IncludeDirective::Quoted(path.clone()),
-        )),
-        LexedToken::Punctuator(p) if p == "<" => {
+        LexedToken::StringLiteral(path) => Some(PreprocessorDirective::Include(IncludeDirective::Quoted(path.clone()))),
+        LexedToken::Punctuator(Punctuator::Less) => {
             let mut parts = Vec::new();
             i += 1;
             while i < tokens.len() {
-                if let LexedToken::Punctuator(p) = &tokens[i]
-                    && p == ">"
-                {
+                if let LexedToken::Punctuator(Punctuator::Greater) = &tokens[i] {
                     let path = parts.join("");
                     if path.is_empty() {
                         return None;
                     }
-                    return Some(PreprocessorDirective::Include(IncludeDirective::System(
-                        path,
-                    )));
+                    return Some(PreprocessorDirective::Include(IncludeDirective::System(path)));
                 }
                 parts.push(token_to_path_fragment(&tokens[i])?);
                 i += 1;
@@ -132,7 +115,7 @@ fn parse_include(tokens: &[LexedToken], mut i: usize) -> Option<PreprocessorDire
 fn token_to_path_fragment(t: &LexedToken) -> Option<String> {
     match t {
         LexedToken::Identifier(s) => Some(s.clone()),
-        LexedToken::Punctuator(p) if matches!(p.as_str(), "." | "/" | "-" | "_") => Some(p.clone()),
+        LexedToken::Punctuator(p) if matches!(*p, Punctuator::Dot | Punctuator::Slash | Punctuator::Minus) => Some(p.as_str().to_string()),
         LexedToken::IntegerLiteral { value, .. } => Some(value.clone()),
         _ => None,
     }
@@ -162,7 +145,7 @@ fn parse_define(tokens: &[LexedToken], mut i: usize) -> Option<PreprocessorDirec
     i = skip_comments(tokens, i);
 
     if i < tokens.len()
-        && is_punct(&tokens[i], "(")
+        && is_punct(&tokens[i], Punctuator::LParen)
         && let Some((params, after)) = try_parse_function_like_params(tokens, i)
     {
         let replacement = tokens[after..].to_vec();
@@ -184,11 +167,8 @@ fn parse_define(tokens: &[LexedToken], mut i: usize) -> Option<PreprocessorDirec
 /// If `tokens[i]` is `(`, treat as function-like only when the parenthesised segment is a
 /// comma-separated list of identifiers (and optional `...`); otherwise `None` so the caller
 /// keeps object-like parsing (e.g. `#define foo (x)`).
-fn try_parse_function_like_params(
-    tokens: &[LexedToken],
-    open_idx: usize,
-) -> Option<(Vec<String>, usize)> {
-    if !is_punct(tokens.get(open_idx)?, "(") {
+fn try_parse_function_like_params(tokens: &[LexedToken], open_idx: usize) -> Option<(Vec<String>, usize)> {
+    if !is_punct(tokens.get(open_idx)?, Punctuator::LParen) {
         return None;
     }
     let close = matching_paren_close(tokens, open_idx)?;
@@ -202,8 +182,8 @@ fn matching_paren_close(tokens: &[LexedToken], open_idx: usize) -> Option<usize>
     let mut i = open_idx + 1;
     while i < tokens.len() {
         match &tokens[i] {
-            LexedToken::Punctuator(s) if s == "(" => depth += 1,
-            LexedToken::Punctuator(s) if s == ")" => {
+            LexedToken::Punctuator(Punctuator::LParen) => depth += 1,
+            LexedToken::Punctuator(Punctuator::RParen) => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(i);
@@ -232,7 +212,7 @@ fn parse_parameter_list_tokens(inner: &[LexedToken]) -> Option<Vec<String>> {
                 out.push(s.clone());
                 i += 1;
             }
-            LexedToken::Punctuator(p) if p == "..." => {
+            LexedToken::Punctuator(Punctuator::Ellipsis) => {
                 out.push("...".to_string());
                 i += 1;
             }
@@ -242,7 +222,7 @@ fn parse_parameter_list_tokens(inner: &[LexedToken]) -> Option<Vec<String>> {
         if i >= inner.len() {
             break;
         }
-        if is_punct(&inner[i], ",") {
+        if is_punct(&inner[i], Punctuator::Comma) {
             i += 1;
             continue;
         }

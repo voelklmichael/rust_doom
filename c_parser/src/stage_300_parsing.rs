@@ -1,7 +1,7 @@
 //! Translation-unit parser: preprocessor lines, declarations ending in `;`, and function
 //! definitions. Function bodies are not parsed—only stored as raw tokens.
 
-use crate::stage_200_lexing::LexedToken;
+use crate::stage_200_lexing::{LexedToken, Punctuator};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FunctionBody(pub Vec<LexedToken>);
@@ -95,12 +95,10 @@ fn preprocessor_end_exclusive(tokens: &[LexedToken], start: usize) -> usize {
             }
             match &tokens[i] {
                 LexedToken::StringLiteral(_) => return i + 1,
-                LexedToken::Punctuator(p) if p == "<" => {
+                LexedToken::Punctuator(Punctuator::Less) => {
                     i += 1;
                     while i < tokens.len() {
-                        if let LexedToken::Punctuator(p) = &tokens[i]
-                            && p == ">"
-                        {
+                        if let LexedToken::Punctuator(Punctuator::Greater) = &tokens[i] {
                             return i + 1;
                         }
                         i += 1;
@@ -124,13 +122,13 @@ fn scan_pp_directive_line_tail(tokens: &[LexedToken], mut i: usize) -> usize {
         match &tokens[i] {
             LexedToken::Hash if paren == 0 && bracket == 0 && brace == 0 => return i,
             LexedToken::Newline if paren == 0 && bracket == 0 && brace == 0 => return i,
-            LexedToken::Punctuator(s) => match s.as_str() {
-                "(" => paren += 1,
-                ")" => paren -= 1,
-                "[" => bracket += 1,
-                "]" => bracket -= 1,
-                "{" => brace += 1,
-                "}" => brace -= 1,
+            LexedToken::Punctuator(p) => match p {
+                Punctuator::LParen => paren += 1,
+                Punctuator::RParen => paren -= 1,
+                Punctuator::LBracket => bracket += 1,
+                Punctuator::RBracket => bracket -= 1,
+                Punctuator::LBrace => brace += 1,
+                Punctuator::RBrace => brace -= 1,
                 _ => {}
             },
             _ => {}
@@ -149,7 +147,7 @@ fn define_directive_end_exclusive(tokens: &[LexedToken], mut i: usize) -> usize 
     i += 1;
     i = skip_pp_comments(tokens, i);
     if i < tokens.len()
-        && is_punct(&tokens[i], "(")
+        && is_punct(&tokens[i], Punctuator::LParen)
         && let Some(close) = matching_paren_close_pp(tokens, i)
     {
         let inner = &tokens[i + 1..close];
@@ -166,8 +164,8 @@ fn matching_paren_close_pp(tokens: &[LexedToken], open_idx: usize) -> Option<usi
     let mut j = open_idx + 1;
     while j < tokens.len() {
         match &tokens[j] {
-            LexedToken::Punctuator(s) if s == "(" => depth += 1,
-            LexedToken::Punctuator(s) if s == ")" => {
+            LexedToken::Punctuator(Punctuator::LParen) => depth += 1,
+            LexedToken::Punctuator(Punctuator::RParen) => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(j);
@@ -199,14 +197,14 @@ fn define_parameter_list_ok(inner: &[LexedToken]) -> bool {
         }
         match &inner[i] {
             LexedToken::Identifier(_) => i += 1,
-            LexedToken::Punctuator(p) if p == "..." => i += 1,
+            LexedToken::Punctuator(Punctuator::Ellipsis) => i += 1,
             _ => return false,
         }
         i = skip_define_inner_comments(inner, i);
         if i >= inner.len() {
             break;
         }
-        if is_punct(&inner[i], ",") {
+        if is_punct(&inner[i], Punctuator::Comma) {
             i += 1;
             continue;
         }
@@ -226,8 +224,8 @@ fn comment_payload(t: &LexedToken) -> Option<String> {
     }
 }
 
-fn is_punct(t: &LexedToken, s: &str) -> bool {
-    matches!(t, LexedToken::Punctuator(p) if p == s)
+fn is_punct(t: &LexedToken, p: Punctuator) -> bool {
+    matches!(t, LexedToken::Punctuator(x) if *x == p)
 }
 
 /// Index of the last non-comment token at or before `j` (inclusive).
@@ -246,18 +244,18 @@ fn prev_significant(tokens: &[LexedToken], j: usize) -> Option<usize> {
 
 /// Tokens inside the outer `{` … `}`; `open_brace` is the index of `{`. Returns index past closing `}`.
 fn extract_function_body(tokens: &[LexedToken], open_brace: usize) -> (FunctionBody, usize) {
-    debug_assert!(is_punct(&tokens[open_brace], "{"));
+    debug_assert!(is_punct(&tokens[open_brace], Punctuator::LBrace));
     let mut depth = 1usize;
     let mut i = open_brace + 1;
     let mut inner = Vec::new();
 
     while i < tokens.len() && depth > 0 {
         match &tokens[i] {
-            LexedToken::Punctuator(s) if s == "{" => {
+            LexedToken::Punctuator(Punctuator::LBrace) => {
                 depth += 1;
                 inner.push(tokens[i].clone());
             }
-            LexedToken::Punctuator(s) if s == "}" => {
+            LexedToken::Punctuator(Punctuator::RBrace) => {
                 depth -= 1;
                 if depth > 0 {
                     inner.push(tokens[i].clone());
@@ -281,33 +279,27 @@ fn parse_declaration_or_function(tokens: &[LexedToken], start: usize) -> (Extern
         let t = &tokens[i];
 
         // Function definition: `) {` at depth 0 (after `)`), where `{` opens the body.
-        if is_punct(t, "{")
+        if is_punct(t, Punctuator::LBrace)
             && paren == 0
             && brace == 0
             && bracket == 0
             && let Some(pidx) = prev_significant(tokens, i.saturating_sub(1))
-            && is_punct(&tokens[pidx], ")")
+            && is_punct(&tokens[pidx], Punctuator::RParen)
         {
             let signature_tokens = tokens[start..i].to_vec();
             let (body, after_body) = extract_function_body(tokens, i);
-            return (
-                ExternalDecl::FunctionDefinition {
-                    signature_tokens,
-                    body,
-                },
-                after_body,
-            );
+            return (ExternalDecl::FunctionDefinition { signature_tokens, body }, after_body);
         }
 
-        if let LexedToken::Punctuator(s) = t {
-            match s.as_str() {
-                "(" => paren += 1,
-                ")" => paren -= 1,
-                "[" => bracket += 1,
-                "]" => bracket -= 1,
-                "{" => brace += 1,
-                "}" => brace -= 1,
-                ";" if paren == 0 && brace == 0 && bracket == 0 => {
+        if let LexedToken::Punctuator(p) = t {
+            match p {
+                Punctuator::LParen => paren += 1,
+                Punctuator::RParen => paren -= 1,
+                Punctuator::LBracket => bracket += 1,
+                Punctuator::RBracket => bracket -= 1,
+                Punctuator::LBrace => brace += 1,
+                Punctuator::RBrace => brace -= 1,
+                Punctuator::Semicolon if paren == 0 && brace == 0 && bracket == 0 => {
                     let decl = tokens[start..=i].to_vec();
                     return (ExternalDecl::Declaration(decl), i + 1);
                 }
@@ -336,23 +328,13 @@ mod tests {
         assert_eq!(tu.0.len(), 2);
         match &tu.0[0] {
             ExternalDecl::Declaration(d) => {
-                assert!(
-                    d.iter()
-                        .any(|t| matches!(t, LexedToken::Keyword(Keyword::Int)))
-                );
+                assert!(d.iter().any(|t| matches!(t, LexedToken::Keyword(Keyword::Int))));
             }
             _ => panic!("expected declaration"),
         }
         match &tu.0[1] {
-            ExternalDecl::FunctionDefinition {
-                signature_tokens,
-                body,
-            } => {
-                assert!(
-                    signature_tokens
-                        .iter()
-                        .any(|t| matches!(t, LexedToken::Identifier(s) if s == "foo"))
-                );
+            ExternalDecl::FunctionDefinition { signature_tokens, body } => {
+                assert!(signature_tokens.iter().any(|t| matches!(t, LexedToken::Identifier(s) if s == "foo")));
                 assert!(!body.0.is_empty());
             }
             _ => panic!("expected function"),

@@ -1,3 +1,119 @@
+/// Every punctuator this lexer can emit (C operators, brackets, and digraphs).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Punctuator {
+    Ellipsis,
+    GreaterGreaterEqual,
+    LessLessEqual,
+    PercentColonPercentColon,
+    Arrow,
+    PlusPlus,
+    MinusMinus,
+    LessLess,
+    GreaterGreater,
+    AmpAmp,
+    PipePipe,
+    LessEqual,
+    GreaterEqual,
+    EqualEqual,
+    BangEqual,
+    PlusEqual,
+    MinusEqual,
+    StarEqual,
+    SlashEqual,
+    PercentEqual,
+    AmpEqual,
+    PipeEqual,
+    CaretEqual,
+    LessColon,
+    ColonGreater,
+    LessPercent,
+    PercentGreater,
+    PercentColon,
+    LBracket,
+    RBracket,
+    LParen,
+    RParen,
+    LBrace,
+    RBrace,
+    Dot,
+    Minus,
+    Plus,
+    Star,
+    Amp,
+    Slash,
+    Percent,
+    Less,
+    Greater,
+    Caret,
+    Pipe,
+    Bang,
+    Question,
+    Colon,
+    Semicolon,
+    Comma,
+    Equal,
+    Tilde,
+}
+
+impl Punctuator {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Ellipsis => "...",
+            Self::GreaterGreaterEqual => ">>=",
+            Self::LessLessEqual => "<<=",
+            Self::PercentColonPercentColon => "%:%:",
+            Self::Arrow => "->",
+            Self::PlusPlus => "++",
+            Self::MinusMinus => "--",
+            Self::LessLess => "<<",
+            Self::GreaterGreater => ">>",
+            Self::AmpAmp => "&&",
+            Self::PipePipe => "||",
+            Self::LessEqual => "<=",
+            Self::GreaterEqual => ">=",
+            Self::EqualEqual => "==",
+            Self::BangEqual => "!=",
+            Self::PlusEqual => "+=",
+            Self::MinusEqual => "-=",
+            Self::StarEqual => "*=",
+            Self::SlashEqual => "/=",
+            Self::PercentEqual => "%=",
+            Self::AmpEqual => "&=",
+            Self::PipeEqual => "|=",
+            Self::CaretEqual => "^=",
+            Self::LessColon => "<:",
+            Self::ColonGreater => ":>",
+            Self::LessPercent => "<%",
+            Self::PercentGreater => "%>",
+            Self::PercentColon => "%:",
+            Self::LBracket => "[",
+            Self::RBracket => "]",
+            Self::LParen => "(",
+            Self::RParen => ")",
+            Self::LBrace => "{",
+            Self::RBrace => "}",
+            Self::Dot => ".",
+            Self::Minus => "-",
+            Self::Plus => "+",
+            Self::Star => "*",
+            Self::Amp => "&",
+            Self::Slash => "/",
+            Self::Percent => "%",
+            Self::Less => "<",
+            Self::Greater => ">",
+            Self::Caret => "^",
+            Self::Pipe => "|",
+            Self::Bang => "!",
+            Self::Question => "?",
+            Self::Colon => ":",
+            Self::Semicolon => ";",
+            Self::Comma => ",",
+            Self::Equal => "=",
+            Self::Tilde => "~",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum LexedToken {
     // Keywords
@@ -19,7 +135,7 @@ pub enum LexedToken {
     StringLiteral(String),
 
     // Operators and punctuators (single and multi-char)
-    Punctuator(String),
+    Punctuator(Punctuator),
 
     // Preprocessor
     Hash,
@@ -105,9 +221,36 @@ const KEYWORDS: &[(&str, Keyword)] = &[
     ("while", Keyword::While),
 ];
 
-const PUNCTUATORS: &[&str] = &[
-    "...", ">>=", "<<=", "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "==", "!=", "<=", ">=",
-    "->", "++", "--", "<<", ">>", "&&", "||", "<:", ":>", "<%", "%>", "%:", "%:%:",
+/// Longest match first (`%:%:` before `%:`).
+const MULTI_PUNCTUATORS: &[(Punctuator, &str)] = &[
+    (Punctuator::PercentColonPercentColon, "%:%:"),
+    (Punctuator::Ellipsis, "..."),
+    (Punctuator::GreaterGreaterEqual, ">>="),
+    (Punctuator::LessLessEqual, "<<="),
+    (Punctuator::PlusEqual, "+="),
+    (Punctuator::MinusEqual, "-="),
+    (Punctuator::StarEqual, "*="),
+    (Punctuator::SlashEqual, "/="),
+    (Punctuator::PercentEqual, "%="),
+    (Punctuator::AmpEqual, "&="),
+    (Punctuator::PipeEqual, "|="),
+    (Punctuator::CaretEqual, "^="),
+    (Punctuator::EqualEqual, "=="),
+    (Punctuator::BangEqual, "!="),
+    (Punctuator::LessEqual, "<="),
+    (Punctuator::GreaterEqual, ">="),
+    (Punctuator::Arrow, "->"),
+    (Punctuator::PlusPlus, "++"),
+    (Punctuator::MinusMinus, "--"),
+    (Punctuator::LessLess, "<<"),
+    (Punctuator::GreaterGreater, ">>"),
+    (Punctuator::AmpAmp, "&&"),
+    (Punctuator::PipePipe, "||"),
+    (Punctuator::LessColon, "<:"),
+    (Punctuator::ColonGreater, ":>"),
+    (Punctuator::LessPercent, "<%"),
+    (Punctuator::PercentGreater, "%>"),
+    (Punctuator::PercentColon, "%:"),
 ];
 
 pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
@@ -232,10 +375,10 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
 
         // Multi-char punctuator (try longest first)
         let mut found = false;
-        for p in PUNCTUATORS {
-            if i + p.len() <= bytes.len() && &bytes[i..i + p.len()] == p.as_bytes() {
-                tokens.push(LexedToken::Punctuator(p.to_string()));
-                i += p.len();
+        for &(punct, s) in MULTI_PUNCTUATORS {
+            if i + s.len() <= bytes.len() && &bytes[i..i + s.len()] == s.as_bytes() {
+                tokens.push(LexedToken::Punctuator(punct));
+                i += s.len();
                 found = true;
                 break;
             }
@@ -245,8 +388,8 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
         }
 
         // Single-char punctuator
-        if is_punctuator(bytes[i]) {
-            tokens.push(LexedToken::Punctuator((bytes[i] as char).to_string()));
+        if let Some(p) = single_char_punctuator(bytes[i]) {
+            tokens.push(LexedToken::Punctuator(p));
             i += 1;
             continue;
         }
@@ -404,33 +547,34 @@ fn is_ident_continue(b: u8) -> bool {
     (b as char).is_alphanumeric() || b == b'_'
 }
 
-fn is_punctuator(b: u8) -> bool {
-    matches!(
-        b,
-        b'[' | b']'
-            | b'('
-            | b')'
-            | b'{'
-            | b'}'
-            | b'.'
-            | b'-'
-            | b'+'
-            | b'*'
-            | b'&'
-            | b'/'
-            | b'%'
-            | b'<'
-            | b'>'
-            | b'^'
-            | b'|'
-            | b'!'
-            | b'?'
-            | b':'
-            | b';'
-            | b','
-            | b'='
-            | b'~'
-    )
+fn single_char_punctuator(b: u8) -> Option<Punctuator> {
+    Some(match b {
+        b'[' => Punctuator::LBracket,
+        b']' => Punctuator::RBracket,
+        b'(' => Punctuator::LParen,
+        b')' => Punctuator::RParen,
+        b'{' => Punctuator::LBrace,
+        b'}' => Punctuator::RBrace,
+        b'.' => Punctuator::Dot,
+        b'-' => Punctuator::Minus,
+        b'+' => Punctuator::Plus,
+        b'*' => Punctuator::Star,
+        b'&' => Punctuator::Amp,
+        b'/' => Punctuator::Slash,
+        b'%' => Punctuator::Percent,
+        b'<' => Punctuator::Less,
+        b'>' => Punctuator::Greater,
+        b'^' => Punctuator::Caret,
+        b'|' => Punctuator::Pipe,
+        b'!' => Punctuator::Bang,
+        b'?' => Punctuator::Question,
+        b':' => Punctuator::Colon,
+        b';' => Punctuator::Semicolon,
+        b',' => Punctuator::Comma,
+        b'=' => Punctuator::Equal,
+        b'~' => Punctuator::Tilde,
+        _ => return None,
+    })
 }
 
 #[cfg(test)]
@@ -445,12 +589,12 @@ mod tests {
             vec![
                 LexedToken::Keyword(Keyword::Int),
                 LexedToken::Identifier("x".to_string()),
-                LexedToken::Punctuator("=".to_string()),
+                LexedToken::Punctuator(Punctuator::Equal),
                 LexedToken::IntegerLiteral {
                     value: "1".to_string(),
                     suffix: None
                 },
-                LexedToken::Punctuator(";".to_string()),
+                LexedToken::Punctuator(Punctuator::Semicolon),
             ]
         );
     }
@@ -469,7 +613,7 @@ mod tests {
             vec![
                 LexedToken::Keyword(Keyword::Int),
                 LexedToken::Identifier("x".to_string()),
-                LexedToken::Punctuator(";".to_string()),
+                LexedToken::Punctuator(Punctuator::Semicolon),
                 LexedToken::LineComment(" comment".to_string()),
                 LexedToken::Newline,
                 LexedToken::Keyword(Keyword::Return),
@@ -477,7 +621,7 @@ mod tests {
                     value: "0".to_string(),
                     suffix: None
                 },
-                LexedToken::Punctuator(";".to_string()),
+                LexedToken::Punctuator(Punctuator::Semicolon),
             ]
         );
     }

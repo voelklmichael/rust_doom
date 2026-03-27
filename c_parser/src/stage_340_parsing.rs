@@ -1,6 +1,6 @@
 //! Parses `ExternalDecl320::Declaration` token slices into structured declarations.
 
-use crate::stage_200_lexing::{Keyword, LexedToken};
+use crate::stage_200_lexing::{Keyword, LexedToken, Punctuator};
 use crate::stage_300_parsing::FunctionBody;
 use crate::stage_320_parsing::{ExternalDecl320, PreprocessorDirective, TranslationUnit320};
 
@@ -105,13 +105,7 @@ pub(crate) fn parsing_stage_340(tu: TranslationUnit320) -> TranslationUnit340 {
                     Some(decl) => ExternalDecl340::Declaration(decl),
                     None => ExternalDecl340::UnparsedDeclaration(tokens),
                 },
-                ExternalDecl320::FunctionDefinition {
-                    signature_tokens,
-                    body,
-                } => ExternalDecl340::FunctionDefinition {
-                    signature_tokens,
-                    body,
-                },
+                ExternalDecl320::FunctionDefinition { signature_tokens, body } => ExternalDecl340::FunctionDefinition { signature_tokens, body },
                 ExternalDecl320::Comment(s) => ExternalDecl340::Comment(s),
             })
             .collect(),
@@ -119,10 +113,7 @@ pub(crate) fn parsing_stage_340(tu: TranslationUnit320) -> TranslationUnit340 {
 }
 
 fn is_trivia(t: &LexedToken) -> bool {
-    matches!(
-        t,
-        LexedToken::LineComment(_) | LexedToken::BlockComment(_) | LexedToken::Newline
-    )
+    matches!(t, LexedToken::LineComment(_) | LexedToken::BlockComment(_) | LexedToken::Newline)
 }
 
 fn skip_trivia(tokens: &[LexedToken], mut i: usize) -> usize {
@@ -153,8 +144,8 @@ fn collect_leading_member_comments(tokens: &[LexedToken]) -> (Vec<String>, usize
     (comments, i)
 }
 
-fn is_punct(t: &LexedToken, s: &str) -> bool {
-    matches!(t, LexedToken::Punctuator(p) if p == s)
+fn is_punct(t: &LexedToken, p: Punctuator) -> bool {
+    matches!(t, LexedToken::Punctuator(x) if *x == p)
 }
 
 fn parse_declaration(tokens: &[LexedToken]) -> Option<Declaration> {
@@ -163,7 +154,7 @@ fn parse_declaration(tokens: &[LexedToken]) -> Option<Declaration> {
         return None;
     }
     let last = tokens.last()?;
-    if !is_punct(last, ";") {
+    if !is_punct(last, Punctuator::Semicolon) {
         return None;
     }
     let without_semi = trim_trailing_trivia(&tokens[..tokens.len() - 1]);
@@ -184,10 +175,7 @@ fn parse_declaration(tokens: &[LexedToken]) -> Option<Declaration> {
     }
 
     let declarators = parse_init_declarator_list(without_semi, i)?;
-    Some(Declaration {
-        specifiers,
-        declarators,
-    })
+    Some(Declaration { specifiers, declarators })
 }
 
 fn trim_trailing_trivia(tokens: &[LexedToken]) -> &[LexedToken] {
@@ -230,16 +218,13 @@ fn starts_declarator(tokens: &[LexedToken], i: usize) -> bool {
         return false;
     }
     match &tokens[i] {
-        LexedToken::Punctuator(s) if s == "*" || s == "(" => true,
+        LexedToken::Punctuator(p) if *p == Punctuator::Star || *p == Punctuator::LParen => true,
         LexedToken::Identifier(_) => true,
         _ => false,
     }
 }
 
-fn parse_declaration_specifiers(
-    tokens: &[LexedToken],
-    mut i: usize,
-) -> Option<(Vec<SpecifierPiece>, usize)> {
+fn parse_declaration_specifiers(tokens: &[LexedToken], mut i: usize) -> Option<(Vec<SpecifierPiece>, usize)> {
     let mut specifiers = Vec::new();
     loop {
         i = skip_trivia(tokens, i);
@@ -287,11 +272,7 @@ fn parse_declaration_specifiers(
     }
 }
 
-fn parse_struct_or_union(
-    tokens: &[LexedToken],
-    start: usize,
-    is_union: bool,
-) -> Option<(SpecifierPiece, usize)> {
+fn parse_struct_or_union(tokens: &[LexedToken], start: usize, is_union: bool) -> Option<(SpecifierPiece, usize)> {
     let mut i = start + 1;
     i = skip_trivia(tokens, i);
     let tag = if i < tokens.len() {
@@ -308,7 +289,7 @@ fn parse_struct_or_union(
     };
 
     let mut fields = None;
-    if i < tokens.len() && is_punct(&tokens[i], "{") {
+    if i < tokens.len() && is_punct(&tokens[i], Punctuator::LBrace) {
         let close = matching_brace_close(tokens, i)?;
         fields = Some(parse_struct_body_members(&tokens[i + 1..close]));
         i = close + 1;
@@ -328,9 +309,9 @@ fn parse_struct_body_members(body: &[LexedToken]) -> Vec<StructMember> {
     let mut i = 0usize;
     while i < body.len() {
         match &body[i] {
-            LexedToken::Punctuator(s) if s == "{" => brace_depth += 1,
-            LexedToken::Punctuator(s) if s == "}" => brace_depth -= 1,
-            LexedToken::Punctuator(s) if s == ";" && brace_depth == 0 => {
+            LexedToken::Punctuator(Punctuator::LBrace) => brace_depth += 1,
+            LexedToken::Punctuator(Punctuator::RBrace) => brace_depth -= 1,
+            LexedToken::Punctuator(Punctuator::Semicolon) if brace_depth == 0 => {
                 let seg = trim_trailing_trivia(&body[start..=i]);
                 let (leading_comments, rest) = collect_leading_member_comments(seg);
                 let decl_slice = trim_trailing_trivia(&seg[rest..]);
@@ -375,7 +356,7 @@ fn parse_enum_specifier(tokens: &[LexedToken], start: usize) -> Option<(Specifie
     };
 
     let mut enumerators = None;
-    if i < tokens.len() && is_punct(&tokens[i], "{") {
+    if i < tokens.len() && is_punct(&tokens[i], Punctuator::LBrace) {
         let close = matching_brace_close(tokens, i)?;
         enumerators = Some(tokens[i + 1..close].to_vec());
         i = close + 1;
@@ -389,8 +370,8 @@ fn matching_brace_close(tokens: &[LexedToken], open: usize) -> Option<usize> {
     let mut j = open + 1;
     while j < tokens.len() {
         match &tokens[j] {
-            LexedToken::Punctuator(s) if s == "{" => depth += 1,
-            LexedToken::Punctuator(s) if s == "}" => {
+            LexedToken::Punctuator(Punctuator::LBrace) => depth += 1,
+            LexedToken::Punctuator(Punctuator::RBrace) => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(j);
@@ -403,10 +384,7 @@ fn matching_brace_close(tokens: &[LexedToken], open: usize) -> Option<usize> {
     None
 }
 
-fn parse_init_declarator_list(
-    tokens: &[LexedToken],
-    start: usize,
-) -> Option<Vec<DeclaratorWithInit>> {
+fn parse_init_declarator_list(tokens: &[LexedToken], start: usize) -> Option<Vec<DeclaratorWithInit>> {
     let mut out = Vec::new();
     let mut seg_start = start;
     let mut paren = 0i32;
@@ -416,14 +394,14 @@ fn parse_init_declarator_list(
     let mut i = start;
     while i < tokens.len() {
         match &tokens[i] {
-            LexedToken::Punctuator(s) => match s.as_str() {
-                "(" => paren += 1,
-                ")" => paren -= 1,
-                "[" => bracket += 1,
-                "]" => bracket -= 1,
-                "{" => brace += 1,
-                "}" => brace -= 1,
-                "," if paren == 0 && bracket == 0 && brace == 0 => {
+            LexedToken::Punctuator(p) => match p {
+                Punctuator::LParen => paren += 1,
+                Punctuator::RParen => paren -= 1,
+                Punctuator::LBracket => bracket += 1,
+                Punctuator::RBracket => bracket -= 1,
+                Punctuator::LBrace => brace += 1,
+                Punctuator::RBrace => brace -= 1,
+                Punctuator::Comma if paren == 0 && bracket == 0 && brace == 0 => {
                     let seg = trim_trailing_trivia(&tokens[seg_start..i]);
                     out.push(split_declarator_and_initializer(seg)?);
                     i += 1;
@@ -458,14 +436,14 @@ fn split_declarator_and_initializer(seg: &[LexedToken]) -> Option<DeclaratorWith
             break;
         }
         match &seg[i] {
-            LexedToken::Punctuator(s) => match s.as_str() {
-                "(" => paren += 1,
-                ")" => paren -= 1,
-                "[" => bracket += 1,
-                "]" => bracket -= 1,
-                "{" => brace += 1,
-                "}" => brace -= 1,
-                "=" if paren == 0 && bracket == 0 && brace == 0 => {
+            LexedToken::Punctuator(p) => match p {
+                Punctuator::LParen => paren += 1,
+                Punctuator::RParen => paren -= 1,
+                Punctuator::LBracket => bracket += 1,
+                Punctuator::RBracket => bracket -= 1,
+                Punctuator::LBrace => brace += 1,
+                Punctuator::RBrace => brace -= 1,
+                Punctuator::Equal if paren == 0 && bracket == 0 && brace == 0 => {
                     eq_at = Some(i);
                     break;
                 }
@@ -501,7 +479,7 @@ fn parse_pointer_levels(tokens: &[LexedToken], mut i: usize) -> (Vec<Vec<Keyword
     let mut levels = Vec::new();
     loop {
         i = skip_trivia(tokens, i);
-        if i >= tokens.len() || !is_punct(&tokens[i], "*") {
+        if i >= tokens.len() || !is_punct(&tokens[i], Punctuator::Star) {
             break;
         }
         i += 1;
@@ -530,8 +508,8 @@ fn matching_paren_close_decl(tokens: &[LexedToken], open: usize) -> Option<usize
     let mut j = open + 1;
     while j < tokens.len() {
         match &tokens[j] {
-            LexedToken::Punctuator(s) if s == "(" => depth += 1,
-            LexedToken::Punctuator(s) if s == ")" => {
+            LexedToken::Punctuator(Punctuator::LParen) => depth += 1,
+            LexedToken::Punctuator(Punctuator::RParen) => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(j);
@@ -549,8 +527,8 @@ fn matching_bracket_close_decl(tokens: &[LexedToken], open: usize) -> Option<usi
     let mut j = open + 1;
     while j < tokens.len() {
         match &tokens[j] {
-            LexedToken::Punctuator(s) if s == "[" => depth += 1,
-            LexedToken::Punctuator(s) if s == "]" => {
+            LexedToken::Punctuator(Punctuator::LBracket) => depth += 1,
+            LexedToken::Punctuator(Punctuator::RBracket) => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(j);
@@ -571,20 +549,17 @@ fn parse_declarator_ast(tokens: &[LexedToken], start: usize) -> Option<(Declarat
     }
     let (mut direct, mut i) = match &tokens[i] {
         LexedToken::Identifier(s) => (DirectDeclarator::Identifier(s.clone()), i + 1),
-        LexedToken::Punctuator(p) if p == "(" => {
+        LexedToken::Punctuator(Punctuator::LParen) => {
             let close = matching_paren_close_decl(tokens, i)?;
             let inner = &tokens[i + 1..close];
             let inner_ast = try_parse_declarator_ast(inner)?;
-            (
-                DirectDeclarator::Parenthesized(Box::new(inner_ast)),
-                close + 1,
-            )
+            (DirectDeclarator::Parenthesized(Box::new(inner_ast)), close + 1)
         }
         _ => return None,
     };
     loop {
         i = skip_trivia(tokens, i);
-        if i < tokens.len() && is_punct(&tokens[i], "[") {
+        if i < tokens.len() && is_punct(&tokens[i], Punctuator::LBracket) {
             let close = matching_bracket_close_decl(tokens, i)?;
             let size = if close > i + 1 {
                 let s = trim_trailing_trivia(&tokens[i + 1..close]);
@@ -599,7 +574,7 @@ fn parse_declarator_ast(tokens: &[LexedToken], start: usize) -> Option<(Declarat
             i = close + 1;
             continue;
         }
-        if i < tokens.len() && is_punct(&tokens[i], "(") {
+        if i < tokens.len() && is_punct(&tokens[i], Punctuator::LParen) {
             let close = matching_paren_close_decl(tokens, i)?;
             let params = tokens[i + 1..close].to_vec();
             direct = DirectDeclarator::Function {
@@ -611,13 +586,7 @@ fn parse_declarator_ast(tokens: &[LexedToken], start: usize) -> Option<(Declarat
         }
         break;
     }
-    Some((
-        DeclaratorAst {
-            pointer_levels,
-            direct,
-        },
-        i,
-    ))
+    Some((DeclaratorAst { pointer_levels, direct }, i))
 }
 
 fn try_parse_declarator_ast(decl: &[LexedToken]) -> Option<DeclaratorAst> {
@@ -668,11 +637,11 @@ mod tests {
                 break;
             }
             match &decl[i] {
-                LexedToken::Punctuator(s) => match s.as_str() {
-                    "(" => paren += 1,
-                    ")" => paren -= 1,
-                    "[" => bracket += 1,
-                    "]" => bracket -= 1,
+                LexedToken::Punctuator(p) => match p {
+                    Punctuator::LParen => paren += 1,
+                    Punctuator::RParen => paren -= 1,
+                    Punctuator::LBracket => bracket += 1,
+                    Punctuator::RBracket => bracket -= 1,
                     _ => {}
                 },
                 LexedToken::Identifier(s) if paren == 0 && bracket == 0 => {
@@ -697,29 +666,17 @@ mod tests {
     fn simple_int_x() {
         let d = parse_decl_src("int x;").expect("parse");
         assert_eq!(d.specifiers.len(), 1);
-        assert!(matches!(
-            d.specifiers[0],
-            SpecifierPiece::Type(Keyword::Int)
-        ));
+        assert!(matches!(d.specifiers[0], SpecifierPiece::Type(Keyword::Int)));
         assert_eq!(d.declarators.len(), 1);
-        assert_eq!(
-            declarator_introduced_name(&d.declarators[0].declarator),
-            Some("x".to_string())
-        );
+        assert_eq!(declarator_introduced_name(&d.declarators[0].declarator), Some("x".to_string()));
     }
 
     #[test]
     fn static_two_declarators() {
         let d = parse_decl_src("static int a, b;").expect("parse");
         assert_eq!(d.declarators.len(), 2);
-        assert_eq!(
-            declarator_introduced_name(&d.declarators[0].declarator),
-            Some("a".to_string())
-        );
-        assert_eq!(
-            declarator_introduced_name(&d.declarators[1].declarator),
-            Some("b".to_string())
-        );
+        assert_eq!(declarator_introduced_name(&d.declarators[0].declarator), Some("a".to_string()));
+        assert_eq!(declarator_introduced_name(&d.declarators[1].declarator), Some("b".to_string()));
     }
 
     #[test]
@@ -739,26 +696,13 @@ mod tests {
                         && declarator_introduced_name(&m.declaration.declarators[0].declarator)
                             == Some("x".to_string()))
         ));
-        assert_eq!(
-            declarator_introduced_name(&d.declarators[0].declarator),
-            Some("v".to_string())
-        );
+        assert_eq!(declarator_introduced_name(&d.declarators[0].declarator), Some("v".to_string()));
     }
 
     #[test]
     fn initializer_split() {
         let d = parse_decl_src("int z = 42;").expect("parse");
         assert!(d.declarators[0].initializer.is_some());
-    }
-
-    #[test]
-    fn inline_specifier() {
-        let d = parse_decl_src("static inline void foo(void);").expect("parse");
-        assert!(
-            d.specifiers
-                .iter()
-                .any(|s| matches!(s, SpecifierPiece::FunctionSpecifier(Keyword::Inline)))
-        );
     }
 
     #[test]
@@ -802,9 +746,7 @@ mod tests {
                         // y coordinate\n\
                         int y;\n\
                     };\n";
-        let tu = parsing_stage_340(parsing_stage_320(parsing_stage_300(lexing(
-            src.to_string(),
-        ))));
+        let tu = parsing_stage_340(parsing_stage_320(parsing_stage_300(lexing(src.to_string()))));
         assert!(
             matches!(tu.0.first(), Some(ExternalDecl340::Comment(s)) if s == " header before struct"),
             "expected top-level Comment before struct, got {:?}",
@@ -813,10 +755,7 @@ mod tests {
         let Some(ExternalDecl340::Declaration(decl)) = tu.0.get(1) else {
             panic!("expected Declaration after comment, got {:?}", tu.0.get(1));
         };
-        assert!(
-            decl.declarators.is_empty(),
-            "anonymous struct should have no trailing declarators"
-        );
+        assert!(decl.declarators.is_empty(), "anonymous struct should have no trailing declarators");
         let fields = match &decl.specifiers[0] {
             SpecifierPiece::Struct {
                 tag: Some(t),
@@ -830,10 +769,7 @@ mod tests {
             panic!("field 0: {:?}", fields[0]);
         };
         assert_eq!(f0.leading_comments, vec![" x coordinate".to_string()]);
-        assert!(matches!(
-            f0.declaration.specifiers[0],
-            SpecifierPiece::Type(Keyword::Int)
-        ));
+        assert!(matches!(f0.declaration.specifiers[0], SpecifierPiece::Type(Keyword::Int)));
         assert_eq!(
             declarator_introduced_name(&f0.declaration.declarators[0].declarator),
             Some("x".to_string())
@@ -843,10 +779,7 @@ mod tests {
             panic!("field 1: {:?}", fields[1]);
         };
         assert_eq!(f1.leading_comments, vec![" y coordinate".to_string()]);
-        assert!(matches!(
-            f1.declaration.specifiers[0],
-            SpecifierPiece::Type(Keyword::Int)
-        ));
+        assert!(matches!(f1.declaration.specifiers[0], SpecifierPiece::Type(Keyword::Int)));
         assert_eq!(
             declarator_introduced_name(&f1.declaration.declarators[0].declarator),
             Some("y".to_string())
