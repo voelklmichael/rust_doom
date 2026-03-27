@@ -121,9 +121,81 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                         fields,
                                     });
                                 }
-                                crate::stage_340_parsing::SpecifierPiece::Union { tag, fields } => {}
-                                crate::stage_340_parsing::SpecifierPiece::Enum { tag, enumerators } => {}
-                                crate::stage_340_parsing::SpecifierPiece::TypedefName(name) => {}
+                                crate::stage_340_parsing::SpecifierPiece::Union { tag, fields } => {
+                                    assert!(kind.is_none());
+                                    let fields = fields
+                                        .unwrap_or_default()
+                                        .into_iter()
+                                        .map(|x| match x {
+                                            StructMember::Declaration(declaration) => simplify_struct_field(declaration),
+                                            StructMember::Unparsed(tokens) => {
+                                                panic!("Unparsed: {tokens:?}")
+                                            }
+                                        })
+                                        .collect::<Vec<_>>();
+
+                                    kind = Some(Kind::Union {
+                                        global_variable_name: tag,
+                                        fields,
+                                    });
+                                }
+                                crate::stage_340_parsing::SpecifierPiece::Enum { tag, enumerators } => {
+                                    assert!(tag.is_none());
+                                    assert!(kind.is_none());
+
+                                    let mut lines = Vec::new();
+                                    {
+                                        let mut current_line = Vec::new();
+                                        for entry in enumerators.unwrap() {
+                                            match entry {
+                                                LT::Newline => {
+                                                    continue;
+                                                }
+                                                LT::Punctuator(Pr::Comma) => {
+                                                    if !current_line.is_empty() {
+                                                        lines.push(std::mem::take(&mut current_line));
+                                                    }
+                                                    continue;
+                                                }
+                                                _ => current_line.push(entry),
+                                            }
+                                        }
+                                        if !current_line.is_empty() {
+                                            lines.push(current_line);
+                                        }
+                                    }
+
+                                    let mut variants = Vec::new();
+
+                                    for mut line in lines {
+                                        let mut comments = Vec::new();
+                                        line.retain(|x| {
+                                            if let LT::LineComment(s) = x {
+                                                comments.push(s.clone());
+                                                false
+                                            } else {
+                                                true
+                                            }
+                                        });
+                                        let LT::Identifier(tag) = line.remove(0) else {
+                                            panic!("Expected identifier")
+                                        };
+                                        let value = if let Some(x) = line.get(0) {
+                                            assert_eq!(x, &LT::Punctuator(Pr::Equal));
+                                            line.remove(0);
+                                            assert!(!line.is_empty());
+                                            line
+                                        } else {
+                                            Default::default()
+                                        };
+                                        variants.push(EnumVariant { tag, comments, value });
+                                    }
+                                    kind = Some(Kind::Enum { variants });
+                                }
+                                crate::stage_340_parsing::SpecifierPiece::TypedefName(name) => {
+                                    dbg!(&name);
+                                    continue;
+                                }
                             }
                         }
 
@@ -232,14 +304,27 @@ impl From<PrimitiveType> for TypeName {
     }
 }
 pub struct StructFields {
-    comments: Vec<String>,
     r#type: TypeName,
     field_names: Vec<String>,
+    comments: Vec<String>,
+}
+
+struct EnumVariant {
+    tag: String,
+    comments: Vec<String>,
+    value: Vec<LT>,
 }
 enum Kind {
     Struct {
         global_variable_name: Option<String>,
         fields: Vec<StructFields>, //empty means:
+    },
+    Union {
+        global_variable_name: Option<String>,
+        fields: Vec<StructFields>,
+    },
+    Enum {
+        variants: Vec<EnumVariant>,
     },
 }
 
@@ -479,33 +564,25 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
         //dbg!(&tag);
     }
 
-    dbg!(&r#type);
-    dbg!(&declarators);
     use DeclaratorHelper2 as DH2;
     let (r#type, field_names) = if let Some(r#type) = r#type {
         match declarators {
             DH2::FunctionPointer { name } => (TypeName::FunctionPointerNoArguments { returns: Box::new(r#type) }, vec![name]),
-            DH2::Identifier2 { name1, name2 } => todo!(),
             DH2::Identifier { name } => (r#type, vec![name]),
             DH2::Pointer { name } => (TypeName::Pointer(Box::new(r#type)), vec![name]),
-            DH2::TypedPointer { r#type, name } => todo!(),
             DH2::DoublePointer2 { name } => (TypeName::Pointer(Box::new(TypeName::Pointer(Box::new(r#type)))), vec![name]),
-            DH2::TypeDoublePointer { r#type, name } => todo!(),
             DH2::Array { array, length } => (TypeName::Array(Box::new(r#type), ArrayLength::String(length)), vec![array]),
-            DH2::TypedArray { r#type, array, length } => todo!(),
             DH2::ArrayInteger { array, value } => (TypeName::Array(Box::new(r#type), ArrayLength::Integer(value)), vec![array]),
             DH2::ArrayOfArrayInteger { array, length1, length2 } => {
                 let inner = TypeName::Array(Box::new(r#type), ArrayLength::Integer(length1));
                 let outer = TypeName::Array(Box::new(inner), ArrayLength::Integer(length2));
                 (outer, vec![array])
             }
-            DH2::BitField { r#type, name, value } => todo!(),
             DH2::ArrayPointer { array, length } => (
                 TypeName::Pointer(Box::new(TypeName::Array(Box::new(r#type), ArrayLength::String(length)))),
                 vec![array],
             ),
             DH2::MultipleNamesPossibleWithType(items) => {
-                dbg!(&items, &r#type);
                 let field_names = items
                     .into_iter()
                     .map(|x| {
@@ -522,33 +599,25 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
                 },
                 vec![],
             ),
+            x => panic!("Unexpcted type declarator: {:?}: {x:?}", r#type),
         }
     } else {
         match declarators {
-            DH2::FunctionPointer { name } => todo!(),
             DH2::Identifier2 { name1, name2 } => (TypeName::Defined(name1), vec![name2]),
-            DH2::Identifier { name } => todo!(),
-            DH2::Pointer { name } => todo!(),
             DH2::TypedPointer { r#type, name } => (TypeName::Pointer(Box::new(TypeName::Defined(r#type))), vec![name]),
-            DH2::DoublePointer2 { name } => todo!(),
             DH2::TypeDoublePointer { r#type, name } => (
                 TypeName::Pointer(Box::new(TypeName::Pointer(Box::new(TypeName::Defined(r#type))))),
                 vec![name],
             ),
-            DH2::Array { array, length } => todo!(),
             DH2::TypedArray { r#type, array, length } => (
                 TypeName::Array(Box::new(TypeName::Defined(r#type)), ArrayLength::String(length)),
                 vec![array],
             ),
-            DH2::ArrayInteger { array, value } => todo!(),
-            DH2::ArrayOfArrayInteger { array, length1, length2 } => todo!(),
             DH2::BitField { r#type, name, value } => {
                 leading_comments.push(format!("bit field: {} {name}:{value}", r#type));
                 (TypeName::Defined(r#type), vec![name])
             }
-            DH2::ArrayPointer { array, length } => todo!(),
             DH2::MultipleNamesPossibleWithType(mut items) => {
-                dbg!(&items);
                 let mut field_names = Vec::new();
                 let [r#type, field] = items.remove(0).try_into().unwrap();
                 field_names.extend(items.into_iter().map(|x| {
@@ -559,6 +628,7 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
                 (TypeName::Defined(r#type), field_names)
             }
             DH2::Unparsed(lexed_tokens) => (TypeName::Unparsed { r#type: None, lexed_tokens }, vec![]),
+            x => panic!("Unexpcted untype declarator:{x:?}"),
         }
     };
 

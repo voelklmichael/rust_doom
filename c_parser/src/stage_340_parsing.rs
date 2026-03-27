@@ -435,22 +435,19 @@ fn split_declarator_and_initializer(seg: &[LexedToken]) -> Option<DeclaratorWith
         if i >= seg.len() {
             break;
         }
-        match &seg[i] {
-            LexedToken::Punctuator(p) => match p {
-                Punctuator::LParen => paren += 1,
-                Punctuator::RParen => paren -= 1,
-                Punctuator::LBracket => bracket += 1,
-                Punctuator::RBracket => bracket -= 1,
-                Punctuator::LBrace => brace += 1,
-                Punctuator::RBrace => brace -= 1,
-                Punctuator::Equal if paren == 0 && bracket == 0 && brace == 0 => {
-                    eq_at = Some(i);
-                    break;
-                }
-                _ => {}
-            },
+        if let LexedToken::Punctuator(p) = &seg[i] { match p {
+            Punctuator::LParen => paren += 1,
+            Punctuator::RParen => paren -= 1,
+            Punctuator::LBracket => bracket += 1,
+            Punctuator::RBracket => bracket -= 1,
+            Punctuator::LBrace => brace += 1,
+            Punctuator::RBrace => brace -= 1,
+            Punctuator::Equal if paren == 0 && bracket == 0 && brace == 0 => {
+                eq_at = Some(i);
+                break;
+            }
             _ => {}
-        }
+        } }
         i += 1;
     }
 

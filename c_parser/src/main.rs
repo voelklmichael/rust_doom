@@ -17,8 +17,8 @@ fn main() {
         let content = std::fs::read_to_string(file).unwrap();
 
         dbg!(&name);
-        let ast = include_lex_parse(&content);
-        contents.push((name, ast));
+        include_lex_parse(&content);
+        contents.push((name, ()));
     }
 
     dbg!(contents.len());
