@@ -601,7 +601,7 @@ fn try_parse_declarator_ast(decl: &[LexedToken]) -> Option<DeclaratorAst> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::stage_200_lexing::lexing;
+    use crate::stage_200_lexing::{Keyword, LexedToken, Punctuator, lexing};
     use crate::stage_300_parsing::parsing_stage_300;
     use crate::stage_320_parsing::parsing_stage_320;
 
@@ -779,6 +779,59 @@ mod tests {
         assert_eq!(
             declarator_introduced_name(&f1.declaration.declarators[0].declarator),
             Some("y".to_string())
+        );
+    }
+
+    /// Excerpt from `doomgeneric/wi_stuff.c` (`WI_initStats`): function definition with a non-empty body.
+    #[test]
+    fn wi_init_stats_function_from_wi_stuff() {
+        let src = "void WI_initStats(void)\n\
+                    {\n\
+                        state = StatCount;\n\
+                        acceleratestage = 0;\n\
+                        sp_state = 1;\n\
+                        cnt_kills[0] = cnt_items[0] = cnt_secret[0] = -1;\n\
+                        cnt_time = cnt_par = -1;\n\
+                        cnt_pause = TICRATE;\n\
+                    \n\
+                        WI_initAnimatedBack();\n\
+                    }";
+        let tu = parsing_stage_340(parsing_stage_320(parsing_stage_300(lexing(src.to_string()))));
+        assert_eq!(tu.0.len(), 1, "expected a single top-level item (the function), got {:?}", tu.0);
+        let ExternalDecl340::FunctionDefinition { signature_tokens, body } = &tu.0[0] else {
+            panic!("expected FunctionDefinition, got {:?}", tu.0[0]);
+        };
+
+        assert!(
+            matches!(
+                signature_tokens.as_slice(),
+                [
+                    LexedToken::Keyword(Keyword::Void),
+                    LexedToken::Identifier(name),
+                    LexedToken::Punctuator(Punctuator::LParen),
+                    LexedToken::Keyword(Keyword::Void),
+                    LexedToken::Punctuator(Punctuator::RParen),
+                    LexedToken::Newline,
+                ] if name == "WI_initStats"
+            ),
+            "signature tokens: {:?}",
+            signature_tokens
+        );
+
+        assert!(!body.0.is_empty(), "body should retain statement tokens");
+        assert!(
+            body.0.iter().any(|t| matches!(t, LexedToken::Identifier(s) if s == "state")),
+            "body should reference `state`"
+        );
+        assert!(
+            body.0.iter().any(|t| matches!(t, LexedToken::Identifier(s) if s == "StatCount")),
+            "body should reference `StatCount`"
+        );
+        assert!(
+            body.0
+                .iter()
+                .any(|t| matches!(t, LexedToken::Identifier(s) if s == "WI_initAnimatedBack")),
+            "body should call `WI_initAnimatedBack`"
         );
     }
 }

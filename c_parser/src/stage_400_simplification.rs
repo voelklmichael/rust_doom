@@ -10,6 +10,7 @@ pub enum ExternalDecl400 {
     Comment(String),
     PPInclude(crate::stage_320_parsing::IncludeDirective),
     PPDefine(crate::stage_320_parsing::DefineDirective),
+    Declaration(Declaration400),
 }
 pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
     TranslationUnit400(
@@ -25,185 +26,299 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                             todo!("Other: {lexed_tokens:?}")
                         }
                     },
-                    ExternalDecl340::Declaration(Declaration { specifiers, declarators }) => {
+                    ExternalDecl340::Declaration(Declaration { specifiers, mut declarators }) => {
                         let mut storage = None;
                         let mut is_typedef = false;
                         let mut is_const = false;
                         let mut r#type = None;
-                        let mut is_unsigned = false;
 
-                        let mut kind = None;
-                        for specifier in specifiers {
-                            match specifier {
-                                crate::stage_340_parsing::SpecifierPiece::Storage(keyword) => {
-                                    let s = match keyword {
-                                        Keyword::Static => Storage::Static,
-                                        Keyword::Extern => Storage::Extern,
-                                        Keyword::Typedef => {
-                                            assert!(!is_typedef);
-                                            is_typedef = true;
-                                            continue;
-                                        }
-                                        x => panic!("Unknown storage: {x:?}"),
-                                    };
-                                    assert!(storage.is_none());
-                                    storage = Some(s);
-                                }
-                                crate::stage_340_parsing::SpecifierPiece::Qualifier(keyword) => match keyword {
-                                    Keyword::Const => {
-                                        assert!(!is_const);
-                                        is_const = true;
+                        let kind = {
+                            let mut is_unsigned = false;
+                            let mut kind = None;
+                            for specifier in specifiers {
+                                match specifier {
+                                    crate::stage_340_parsing::SpecifierPiece::Storage(keyword) => {
+                                        let s = match keyword {
+                                            Keyword::Static => Storage::Static,
+                                            Keyword::Extern => Storage::Extern,
+                                            Keyword::Typedef => {
+                                                assert!(!is_typedef);
+                                                is_typedef = true;
+                                                continue;
+                                            }
+                                            x => panic!("Unknown storage: {x:?}"),
+                                        };
+                                        assert!(storage.is_none());
+                                        storage = Some(s);
                                     }
-                                    x => panic!("Unknown qualifier: {x:?}"),
-                                },
-                                crate::stage_340_parsing::SpecifierPiece::Type(keyword) => {
-                                    let t = match keyword {
-                                        Keyword::Unsigned => {
-                                            assert!(!is_unsigned);
-                                            is_unsigned = true;
-                                            continue;
+                                    crate::stage_340_parsing::SpecifierPiece::Qualifier(keyword) => match keyword {
+                                        Keyword::Const => {
+                                            assert!(!is_const);
+                                            is_const = true;
                                         }
-                                        Keyword::Void => {
-                                            assert!(!is_unsigned);
-                                            PrimitiveType::Void
-                                        }
-                                        Keyword::Int => {
-                                            if is_unsigned {
-                                                PrimitiveType::UInt
-                                            } else {
-                                                PrimitiveType::Int
+                                        x => panic!("Unknown qualifier: {x:?}"),
+                                    },
+                                    crate::stage_340_parsing::SpecifierPiece::Type(keyword) => {
+                                        let t = match keyword {
+                                            Keyword::Unsigned => {
+                                                assert!(!is_unsigned);
+                                                is_unsigned = true;
+                                                continue;
                                             }
-                                        }
-                                        Keyword::Char => {
-                                            if is_unsigned {
-                                                PrimitiveType::UChar
-                                            } else {
-                                                PrimitiveType::Char
+                                            Keyword::Void => {
+                                                assert!(!is_unsigned);
+                                                PrimitiveType::Void
                                             }
-                                        }
-                                        Keyword::Short => {
-                                            if is_unsigned {
-                                                PrimitiveType::UShort
-                                            } else {
-                                                PrimitiveType::Short
-                                            }
-                                        }
-                                        Keyword::Long => {
-                                            assert!(!is_unsigned);
-                                            PrimitiveType::Long
-                                        }
-                                        Keyword::Float => {
-                                            assert!(!is_unsigned);
-                                            PrimitiveType::Float
-                                        }
-                                        x => {
-                                            panic!("Unknown type: {x:?}");
-                                        }
-                                    };
-                                    assert!(r#type.is_none());
-                                    r#type = Some(t);
-                                }
-                                crate::stage_340_parsing::SpecifierPiece::Struct { tag, fields } => {
-                                    assert!(kind.is_none());
-                                    let fields = fields
-                                        .unwrap_or_default()
-                                        .into_iter()
-                                        .map(|x| match x {
-                                            StructMember::Declaration(declaration) => simplify_struct_field(declaration),
-                                            StructMember::Unparsed(tokens) => {
-                                                panic!("Unparsed: {tokens:?}")
-                                            }
-                                        })
-                                        .collect::<Vec<_>>();
-
-                                    kind = Some(Kind::Struct {
-                                        global_variable_name: tag,
-                                        fields,
-                                    });
-                                }
-                                crate::stage_340_parsing::SpecifierPiece::Union { tag, fields } => {
-                                    assert!(kind.is_none());
-                                    let fields = fields
-                                        .unwrap_or_default()
-                                        .into_iter()
-                                        .map(|x| match x {
-                                            StructMember::Declaration(declaration) => simplify_struct_field(declaration),
-                                            StructMember::Unparsed(tokens) => {
-                                                panic!("Unparsed: {tokens:?}")
-                                            }
-                                        })
-                                        .collect::<Vec<_>>();
-
-                                    kind = Some(Kind::Union {
-                                        global_variable_name: tag,
-                                        fields,
-                                    });
-                                }
-                                crate::stage_340_parsing::SpecifierPiece::Enum { tag, enumerators } => {
-                                    assert!(tag.is_none());
-                                    assert!(kind.is_none());
-
-                                    let mut lines = Vec::new();
-                                    {
-                                        let mut current_line = Vec::new();
-                                        for entry in enumerators.unwrap() {
-                                            match entry {
-                                                LT::Newline => {
-                                                    continue;
+                                            Keyword::Int => {
+                                                if is_unsigned {
+                                                    PrimitiveType::UInt
+                                                } else {
+                                                    PrimitiveType::Int
                                                 }
-                                                LT::Punctuator(Pr::Comma) => {
-                                                    if !current_line.is_empty() {
-                                                        lines.push(std::mem::take(&mut current_line));
-                                                    }
-                                                    continue;
-                                                }
-                                                _ => current_line.push(entry),
                                             }
-                                        }
-                                        if !current_line.is_empty() {
-                                            lines.push(current_line);
-                                        }
+                                            Keyword::Char => {
+                                                if is_unsigned {
+                                                    PrimitiveType::UChar
+                                                } else {
+                                                    PrimitiveType::Char
+                                                }
+                                            }
+                                            Keyword::Short => {
+                                                if is_unsigned {
+                                                    PrimitiveType::UShort
+                                                } else {
+                                                    PrimitiveType::Short
+                                                }
+                                            }
+                                            Keyword::Long => {
+                                                assert!(!is_unsigned);
+                                                PrimitiveType::Long
+                                            }
+                                            Keyword::Float => {
+                                                assert!(!is_unsigned);
+                                                PrimitiveType::Float
+                                            }
+                                            x => {
+                                                panic!("Unknown type: {x:?}");
+                                            }
+                                        };
+                                        assert!(r#type.is_none());
+                                        r#type = Some(t);
                                     }
+                                    crate::stage_340_parsing::SpecifierPiece::Struct { tag, fields } => {
+                                        assert!(kind.is_none());
+                                        let fields = fields
+                                            .unwrap_or_default()
+                                            .into_iter()
+                                            .map(|x| match x {
+                                                StructMember::Declaration(declaration) => simplify_struct_field(declaration),
+                                                StructMember::Unparsed(tokens) => {
+                                                    panic!("Unparsed: {tokens:?}")
+                                                }
+                                            })
+                                            .collect::<Vec<_>>();
 
-                                    let mut variants = Vec::new();
-
-                                    for mut line in lines {
-                                        let mut comments = Vec::new();
-                                        line.retain(|x| {
-                                            if let LT::LineComment(s) = x {
-                                                comments.push(s.clone());
-                                                false
-                                            } else {
-                                                true
-                                            }
+                                        kind = Some(Kind::Struct {
+                                            global_variable_name: tag,
+                                            fields,
                                         });
-                                        let LT::Identifier(tag) = line.remove(0) else {
-                                            panic!("Expected identifier")
-                                        };
-                                        let value = if let Some(x) = line.get(0) {
-                                            assert_eq!(x, &LT::Punctuator(Pr::Equal));
-                                            line.remove(0);
-                                            assert!(!line.is_empty());
-                                            line
-                                        } else {
-                                            Default::default()
-                                        };
-                                        variants.push(EnumVariant { tag, comments, value });
                                     }
-                                    kind = Some(Kind::Enum { variants });
+                                    crate::stage_340_parsing::SpecifierPiece::Union { tag, fields } => {
+                                        assert!(kind.is_none());
+                                        let fields = fields
+                                            .unwrap_or_default()
+                                            .into_iter()
+                                            .map(|x| match x {
+                                                StructMember::Declaration(declaration) => simplify_struct_field(declaration),
+                                                StructMember::Unparsed(tokens) => {
+                                                    panic!("Unparsed: {tokens:?}")
+                                                }
+                                            })
+                                            .collect::<Vec<_>>();
+
+                                        kind = Some(Kind::Union {
+                                            global_variable_name: tag,
+                                            fields,
+                                        });
+                                    }
+                                    crate::stage_340_parsing::SpecifierPiece::Enum { tag, enumerators } => {
+                                        assert!(tag.is_none());
+                                        assert!(kind.is_none());
+
+                                        let mut lines = Vec::new();
+                                        {
+                                            let mut current_line = Vec::new();
+                                            for entry in enumerators.unwrap() {
+                                                match entry {
+                                                    LT::Newline => {
+                                                        continue;
+                                                    }
+                                                    LT::Punctuator(Pr::Comma) => {
+                                                        if !current_line.is_empty() {
+                                                            lines.push(std::mem::take(&mut current_line));
+                                                        }
+                                                        continue;
+                                                    }
+                                                    _ => current_line.push(entry),
+                                                }
+                                            }
+                                            if !current_line.is_empty() {
+                                                lines.push(current_line);
+                                            }
+                                        }
+
+                                        let mut variants = Vec::new();
+
+                                        for mut line in lines {
+                                            let mut comments = Vec::new();
+                                            line.retain(|x| {
+                                                if let LT::LineComment(s) = x {
+                                                    comments.push(s.clone());
+                                                    false
+                                                } else {
+                                                    true
+                                                }
+                                            });
+                                            let LT::Identifier(tag) = line.remove(0) else {
+                                                panic!("Expected identifier")
+                                            };
+                                            let value = if let Some(x) = line.get(0) {
+                                                assert_eq!(x, &LT::Punctuator(Pr::Equal));
+                                                line.remove(0);
+                                                assert!(!line.is_empty());
+                                                line
+                                            } else {
+                                                Default::default()
+                                            };
+                                            variants.push(EnumVariant { tag, comments, value });
+                                        }
+                                        kind = Some(Kind::Enum { variants });
+                                    }
                                 }
                             }
-                        }
 
-                        return None;
-                        //todo!("Declaration: {decl:?}")
+                            kind
+                        };
+
+                        let storage = storage;
+                        let is_typedef = is_typedef;
+                        let is_const = is_const;
+                        let r#type = r#type;
+                        let declaration = if let Some(kind) = kind {
+                            let type_definition = if declarators.is_empty() {
+                                None
+                            } else {
+                                let [declarator]: [_; 1] = declarators.try_into().unwrap();
+                                let DeclaratorWithInit {
+                                    mut declarator,
+                                    ast: _,
+                                    initializer,
+                                } = declarator;
+                                let initializer = {
+                                    if let Some(initializer) = initializer {
+                                        parse_initializer(initializer)
+                                    } else {
+                                        Default::default()
+                                    }
+                                };
+                                let is_packaged = {
+                                    if Some(&LT::Identifier("PACKEDATTR".into())) == declarator.get(0) {
+                                        declarator.remove(0);
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                };
+                                let LT::Identifier(type_name) = declarator.remove(0) else {
+                                    panic!("Expected identifier")
+                                };
+                                let array = {
+                                    if let Some(LT::Punctuator(Pr::RBracket)) = declarator.pop() {
+                                        assert_eq!(declarator.remove(0), LT::Punctuator(Pr::LBracket));
+                                        if let Some(LT::Identifier(array)) = declarator.pop() {
+                                            assert!(declarator.is_empty());
+                                            TypeDefinitionArray::ArrayWithLength(array)
+                                        } else {
+                                            TypeDefinitionArray::ArrayWithoutLength
+                                        }
+                                    } else {
+                                        TypeDefinitionArray::NoArray
+                                    }
+                                };
+
+                                Some(TypeDefinition {
+                                    type_name,
+                                    array,
+                                    initializer,
+                                    is_packaged,
+                                })
+                            };
+                            Declaration400::Type {
+                                kind,
+                                type_definition,
+                                storage,
+                                is_typedef,
+                                is_const,
+                                r#type,
+                            }
+                        } else {
+                            if declarators.len() > 1 {
+                                let mut declarators = {
+                                    declarators
+                                        .into_iter()
+                                        .map(
+                                            |DeclaratorWithInit {
+                                                 declarator,
+                                                 ast: _,
+                                                 initializer,
+                                             }| {
+                                                assert!(initializer.is_none());
+                                                declarator
+                                                    .into_iter()
+                                                    .map(|x| match x {
+                                                        LT::Identifier(s) => s,
+                                                        _ => panic!("Unknown declarator: {x:?}"),
+                                                    })
+                                                    .collect::<Vec<_>>()
+                                            },
+                                        )
+                                        .collect::<Vec<_>>()
+                                };
+                                let mut first = declarators.remove(0);
+                                let mut variables = declarators
+                                    .into_iter()
+                                    .map(|x| {
+                                        let [x] = x.try_into().unwrap();
+                                        x
+                                    })
+                                    .collect::<Vec<_>>();
+                                variables.insert(0, first.pop().unwrap());
+                                assert!(first.len() <= 1);
+                                let r#type = match (first.pop(), r#type) {
+                                    (None, None) => panic!("No type and no declarator"),
+                                    (None, Some(r#type)) => TypeName::Primitive(r#type),
+                                    (Some(r#type), None) => TypeName::Defined(r#type),
+                                    (Some(_), Some(_)) => panic!("Multiple types and declarators"),
+                                };
+                            } else {
+                                let DeclaratorWithInit {
+                                    declarator,
+                                    ast: _,
+                                    initializer,
+                                } = declarators.pop().unwrap();
+                                dbg!(&declarator);
+                            }
+
+                            return None;
+                        };
+                        ExternalDecl400::Declaration(declaration)
                     }
                     ExternalDecl340::FunctionDefinition { signature_tokens, body } => {
                         return None;
                         //println!("FunctionDefinition: {signature_tokens:?} {body:?}")
                     }
                     ExternalDecl340::UnparsedDeclaration(lexed_tokens) => {
-                        todo!("UnparsedDeclaration: {lexed_tokens:?}")
+                        panic!("This never occurs: UnparsedDeclaration: {lexed_tokens:?}")
                     }
                 })
             })
@@ -211,12 +326,96 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
     )
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum Declaration400 {
+    Type {
+        kind: Kind,
+        type_definition: Option<TypeDefinition>,
+        r#type: Option<PrimitiveType>,
+        is_typedef: bool,
+        storage: Option<Storage>,
+        is_const: bool,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum TypeDefinitionArray {
+    NoArray,
+    ArrayWithoutLength,
+    ArrayWithLength(String),
+}
+#[derive(Debug, Clone, PartialEq)]
+struct TypeDefinition {
+    type_name: String,
+    array: TypeDefinitionArray,
+    initializer: Vec<Vec<Vec<LineItems>>>,
+    is_packaged: bool,
+}
+#[derive(Debug, Clone, PartialEq)]
+enum LineItems {
+    Identifier(String),
+    StringLiteral(String),
+    IntegerLiteral { value: usize },
+}
+fn parse_initializer(mut initializer: Vec<LT>) -> Vec<Vec<Vec<LineItems>>> {
+    assert_eq!(initializer.remove(0), LT::Punctuator(Pr::LBrace));
+    assert_eq!(initializer.pop().unwrap(), LT::Punctuator(Pr::RBrace));
+
+    let mut lines = Vec::new();
+    let mut current_line = Vec::new();
+    let mut current_item = Vec::new();
+
+    let mut line_ending = false;
+    for token in initializer {
+        match token {
+            LT::Newline => continue,
+            LT::Punctuator(Pr::LBrace) => {
+                assert!(current_line.is_empty());
+            }
+            LT::Punctuator(Pr::RBrace) => {
+                assert!(!current_line.is_empty());
+                lines.push(std::mem::take(&mut current_line));
+                line_ending = true;
+                continue;
+            }
+            LT::Punctuator(Pr::Comma) => {
+                if line_ending {
+                    line_ending = false;
+                    continue;
+                }
+                assert!(!current_item.is_empty());
+                current_line.push(std::mem::take(&mut current_item));
+            }
+            LT::Identifier(s) => current_item.push(LineItems::Identifier(s)),
+            LT::StringLiteral(s) => current_item.push(LineItems::StringLiteral(s)),
+            LT::IntegerLiteral { value, suffix } => {
+                assert!(suffix.is_none());
+                let value = value.parse::<usize>().unwrap();
+                current_item.push(LineItems::IntegerLiteral { value })
+            }
+            x => panic!("Unknown token: {x:?}"),
+        }
+        if line_ending {
+            panic!("Line ending");
+        }
+    }
+    if !current_item.is_empty() {
+        current_line.push(current_item);
+    }
+    if !current_line.is_empty() {
+        lines.push(current_line);
+    }
+
+    lines
+}
+
+#[derive(Debug, Clone, PartialEq)]
 enum Storage {
     Static,
     Extern,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 enum PrimitiveType {
     Void,
     UChar,
@@ -279,12 +478,12 @@ impl PrimitiveType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 enum ArrayLength {
     String(String),
     Integer(usize),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 enum TypeName {
     Primitive(PrimitiveType),
     Defined(String),
@@ -299,17 +498,20 @@ impl From<PrimitiveType> for TypeName {
         TypeName::Primitive(value)
     }
 }
+#[derive(Debug, Clone, PartialEq)]
 pub struct StructFields {
     r#type: TypeName,
     field_names: Vec<String>,
     comments: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
 struct EnumVariant {
     tag: String,
     comments: Vec<String>,
     value: Vec<LT>,
 }
+#[derive(Debug, Clone, PartialEq)]
 enum Kind {
     Struct {
         global_variable_name: Option<String>,
