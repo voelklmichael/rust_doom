@@ -31,10 +31,7 @@ pub enum IncludeDirective {
 #[derive(Debug, PartialEq)]
 pub enum DirectiveToken {
     NonDirective(String),
-    IfDirective {
-        kind: IfDirectiveKind,
-        arguments: String,
-    },
+    IfDirective { kind: IfDirectiveKind, arguments: String },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -104,10 +101,7 @@ fn if_directives_lexing(content: &str) -> Vec<DirectiveToken> {
             i += 1;
         }
 
-        let line = String::from_utf8(bytes[directive_start..i].to_vec())
-            .unwrap()
-            .trim()
-            .to_string();
+        let line = String::from_utf8(bytes[directive_start..i].to_vec()).unwrap().trim().to_string();
         let mut parts = line.split_ascii_whitespace();
         let directive = parts.next().unwrap();
         let kind = match directive {
@@ -136,10 +130,7 @@ fn if_directives_lexing(content: &str) -> Vec<DirectiveToken> {
         previous_start = i;
     }
 
-    let remaining = String::from_utf8(bytes[previous_start..].to_vec())
-        .unwrap()
-        .trim()
-        .to_string();
+    let remaining = String::from_utf8(bytes[previous_start..].to_vec()).unwrap().trim().to_string();
     if !remaining.is_empty() {
         tokens.push(DirectiveToken::NonDirective(remaining));
     }
@@ -176,8 +167,7 @@ fn parse_tokens(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Directiv
                 }
                 IfDirectiveKind::IfDef => {
                     let symbol = arguments.clone();
-                    let (then_branch, else_branch, rest) =
-                        parse_conditional_block(&tokens[i + 1..]);
+                    let (then_branch, else_branch, rest) = parse_conditional_block(&tokens[i + 1..]);
                     ast.push(IncludeDirective::IfDef {
                         symbol,
                         then_branch,
@@ -187,8 +177,7 @@ fn parse_tokens(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Directiv
                 }
                 IfDirectiveKind::IfNDef => {
                     let symbol = arguments.clone();
-                    let (then_branch, else_branch, rest) =
-                        parse_conditional_block(&tokens[i + 1..]);
+                    let (then_branch, else_branch, rest) = parse_conditional_block(&tokens[i + 1..]);
                     ast.push(IncludeDirective::IfNDef {
                         symbol,
                         then_branch,
@@ -249,9 +238,7 @@ fn parse_nested_block(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Di
 }
 
 /// Parse tokens until #else, #elif, or #endif at depth 0. Returns (directives_in_branch, rest).
-fn parse_until_else_elif_endif(
-    tokens: &[DirectiveToken],
-) -> (Vec<IncludeDirective>, &[DirectiveToken]) {
+fn parse_until_else_elif_endif(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[DirectiveToken]) {
     let mut branch = Vec::new();
     let mut depth = 0;
     let mut i = 0;
@@ -292,13 +279,7 @@ fn parse_until_else_elif_endif(
 
 /// Parse #elif/#else/#endif tail. Returns (elif_branches, else_branch, rest_after_endif).
 #[allow(clippy::type_complexity)]
-fn parse_elif_else_tail(
-    tokens: &[DirectiveToken],
-) -> (
-    Vec<(String, Vec<IncludeDirective>)>,
-    Option<Vec<IncludeDirective>>,
-    &[DirectiveToken],
-) {
+fn parse_elif_else_tail(tokens: &[DirectiveToken]) -> (Vec<(String, Vec<IncludeDirective>)>, Option<Vec<IncludeDirective>>, &[DirectiveToken]) {
     let mut elif_branches = Vec::new();
     let mut rest = tokens;
 
@@ -366,13 +347,7 @@ fn parse_until_endif(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, &[Dir
 }
 
 /// Parse #ifdef/#ifndef block (then branch, optional else, until #endif).
-fn parse_conditional_block(
-    tokens: &[DirectiveToken],
-) -> (
-    Vec<IncludeDirective>,
-    Option<Vec<IncludeDirective>>,
-    &[DirectiveToken],
-) {
+fn parse_conditional_block(tokens: &[DirectiveToken]) -> (Vec<IncludeDirective>, Option<Vec<IncludeDirective>>, &[DirectiveToken]) {
     let (then_branch, rest) = parse_until_else_elif_endif(tokens);
 
     if rest.is_empty() {
@@ -380,12 +355,10 @@ fn parse_conditional_block(
     }
     match &rest[0] {
         DirectiveToken::IfDirective {
-            kind: IfDirectiveKind::Else,
-            ..
+            kind: IfDirectiveKind::Else, ..
         }
         | DirectiveToken::IfDirective {
-            kind: IfDirectiveKind::Elif,
-            ..
+            kind: IfDirectiveKind::Elif, ..
         } => {
             let (else_branch, after) = parse_until_endif(&rest[1..]);
             (then_branch, Some(else_branch), after)

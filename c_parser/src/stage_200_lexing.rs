@@ -315,8 +315,7 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
                             b'x' if i + 2 < bytes.len() => {
                                 let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or("0");
                                 i += 2;
-                                char::from_u32(u32::from_str_radix(hex, 16).unwrap_or(0))
-                                    .unwrap_or('\0')
+                                char::from_u32(u32::from_str_radix(hex, 16).unwrap_or(0)).unwrap_or('\0')
                             }
                             _ => bytes[i] as char,
                         };
@@ -410,27 +409,17 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
         }
 
         // Numeric literal
-        if bytes[i].is_ascii_digit()
-            || (bytes[i] == b'.' && i + 1 < bytes.len() && bytes[i + 1].is_ascii_digit())
-        {
+        if bytes[i].is_ascii_digit() || (bytes[i] == b'.' && i + 1 < bytes.len() && bytes[i + 1].is_ascii_digit()) {
             let start = i;
 
             // Hex: 0x or 0X
-            if i + 2 < bytes.len()
-                && bytes[i] == b'0'
-                && (bytes[i + 1] == b'x' || bytes[i + 1] == b'X')
-            {
+            if i + 2 < bytes.len() && bytes[i] == b'0' && (bytes[i + 1] == b'x' || bytes[i + 1] == b'X') {
                 i += 2;
                 while i < bytes.len() && bytes[i].is_ascii_hexdigit() {
                     i += 1;
                 }
                 let suffix_start = i;
-                while i < bytes.len()
-                    && (bytes[i] == b'u'
-                        || bytes[i] == b'U'
-                        || bytes[i] == b'l'
-                        || bytes[i] == b'L')
-                {
+                while i < bytes.len() && (bytes[i] == b'u' || bytes[i] == b'U' || bytes[i] == b'l' || bytes[i] == b'L') {
                     i += 1;
                 }
                 let value = String::from_utf8(bytes[start..suffix_start].to_vec()).unwrap();
@@ -444,22 +433,13 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
             }
 
             // Octal: 0[0-7]*
-            if bytes[i] == b'0'
-                && i + 1 < bytes.len()
-                && (bytes[i + 1] as char).is_ascii_digit()
-                && bytes[i + 1] < b'8'
-            {
+            if bytes[i] == b'0' && i + 1 < bytes.len() && (bytes[i + 1] as char).is_ascii_digit() && bytes[i + 1] < b'8' {
                 i += 1;
                 while i < bytes.len() && bytes[i] >= b'0' && bytes[i] <= b'7' {
                     i += 1;
                 }
                 let suffix_start = i;
-                while i < bytes.len()
-                    && (bytes[i] == b'u'
-                        || bytes[i] == b'U'
-                        || bytes[i] == b'l'
-                        || bytes[i] == b'L')
-                {
+                while i < bytes.len() && (bytes[i] == b'u' || bytes[i] == b'U' || bytes[i] == b'l' || bytes[i] == b'L') {
                     i += 1;
                 }
                 let value = String::from_utf8(bytes[start..suffix_start].to_vec()).unwrap();
@@ -497,9 +477,7 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
                 }
             }
 
-            if i < bytes.len()
-                && (bytes[i] == b'f' || bytes[i] == b'F' || bytes[i] == b'l' || bytes[i] == b'L')
-            {
+            if i < bytes.len() && (bytes[i] == b'f' || bytes[i] == b'F' || bytes[i] == b'l' || bytes[i] == b'L') {
                 is_float = true;
                 i += 1;
             }
@@ -512,12 +490,7 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
                 });
             } else {
                 let suffix_start = i;
-                while i < bytes.len()
-                    && (bytes[i] == b'u'
-                        || bytes[i] == b'U'
-                        || bytes[i] == b'l'
-                        || bytes[i] == b'L')
-                {
+                while i < bytes.len() && (bytes[i] == b'u' || bytes[i] == b'U' || bytes[i] == b'l' || bytes[i] == b'L') {
                     i += 1;
                 }
                 let suffix = if suffix_start < i {
@@ -530,10 +503,7 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
             continue;
         }
 
-        panic!(
-            "Unknown character: {}",
-            str::from_utf8(&bytes[i..i + 100]).unwrap()
-        );
+        panic!("Unknown character: {}", str::from_utf8(&bytes[i..i + 100]).unwrap());
     }
 
     tokens

@@ -152,11 +152,7 @@ pub fn if_directives_whitelist(ast: Vec<IncludeDirective>) -> String {
 }
 
 fn check_condition(condition: &str) -> bool {
-    let condition = condition
-        .split_once("//")
-        .map(|x| x.0)
-        .unwrap_or(condition)
-        .trim();
+    let condition = condition.split_once("//").map(|x| x.0).unwrap_or(condition).trim();
     /// Features from the migration plan that should be included (code kept).
     const FEATURE_WHITELIST: &[&str] = &[
         "SYS_LITTLE_ENDIAN",

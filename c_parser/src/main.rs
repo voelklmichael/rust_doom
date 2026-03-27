@@ -7,11 +7,8 @@ mod stage_340_parsing;
 mod stage_400_simplification;
 
 fn main() {
-    let dir = std::path::Path::new("doomgeneric");
-    let mut files = std::fs::read_dir(dir)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .collect::<Vec<_>>();
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../doomgeneric");
+    let mut files = std::fs::read_dir(dir).unwrap().map(|entry| entry.unwrap().path()).collect::<Vec<_>>();
     files.sort();
 
     let mut contents = Vec::with_capacity(files.len());
