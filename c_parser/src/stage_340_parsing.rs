@@ -23,8 +23,6 @@ pub enum SpecifierPiece {
         /// Tokens between `{` and `}` when a definition is present.
         enumerators: Option<Vec<LexedToken>>,
     },
-    /// Type name from a `typedef` (or other alias) in specifier position.
-    TypedefName(String),
 }
 
 /// One declaration inside a `struct` / `union` body, with any `//` / `/* */` tokens before it.
@@ -264,8 +262,7 @@ fn parse_declaration_specifiers(tokens: &[LexedToken], mut i: usize) -> Option<(
                 i = ni;
             }
             LexedToken::Identifier(name) => {
-                specifiers.push(SpecifierPiece::TypedefName(name.clone()));
-                i += 1;
+                panic!("This never occurs: {name:?}")
             }
             _ => return None,
         }
@@ -435,19 +432,21 @@ fn split_declarator_and_initializer(seg: &[LexedToken]) -> Option<DeclaratorWith
         if i >= seg.len() {
             break;
         }
-        if let LexedToken::Punctuator(p) = &seg[i] { match p {
-            Punctuator::LParen => paren += 1,
-            Punctuator::RParen => paren -= 1,
-            Punctuator::LBracket => bracket += 1,
-            Punctuator::RBracket => bracket -= 1,
-            Punctuator::LBrace => brace += 1,
-            Punctuator::RBrace => brace -= 1,
-            Punctuator::Equal if paren == 0 && bracket == 0 && brace == 0 => {
-                eq_at = Some(i);
-                break;
+        if let LexedToken::Punctuator(p) = &seg[i] {
+            match p {
+                Punctuator::LParen => paren += 1,
+                Punctuator::RParen => paren -= 1,
+                Punctuator::LBracket => bracket += 1,
+                Punctuator::RBracket => bracket -= 1,
+                Punctuator::LBrace => brace += 1,
+                Punctuator::RBrace => brace -= 1,
+                Punctuator::Equal if paren == 0 && bracket == 0 && brace == 0 => {
+                    eq_at = Some(i);
+                    break;
+                }
+                _ => {}
             }
-            _ => {}
-        } }
+        }
         i += 1;
     }
 

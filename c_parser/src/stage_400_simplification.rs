@@ -192,10 +192,6 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                     }
                                     kind = Some(Kind::Enum { variants });
                                 }
-                                crate::stage_340_parsing::SpecifierPiece::TypedefName(name) => {
-                                    dbg!(&name);
-                                    continue;
-                                }
                             }
                         }
 
