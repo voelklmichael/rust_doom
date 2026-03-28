@@ -15,7 +15,7 @@ pub enum ExternalDecl400 {
 pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
     TranslationUnit400(
         tu.0.into_iter()
-            .filter_map(|d| {
+            .filter_map(|d| -> Option<ExternalDecl400> {
                 Some(match d {
                     ExternalDecl340::Comment(s) => ExternalDecl400::Comment(s),
                     ExternalDecl340::Preprocessor(p) => match p {
@@ -227,7 +227,7 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                     }
                                 };
                                 let is_packaged = {
-                                    if Some(&LT::Identifier("PACKEDATTR".into())) == declarator.get(0) {
+                                    if Some(&LT::Identifier("PACKEDATTR".into())) == declarator.first() {
                                         declarator.remove(0);
                                         true
                                     } else {
@@ -283,7 +283,109 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                         };
                         ExternalDecl400::Declaration(declaration)
                     }
-                    ExternalDecl340::FunctionDefinition { signature_tokens, body } => {
+                    ExternalDecl340::FunctionDefinition { mut signature_tokens, body } => {
+                        let mut before_parens = Vec::new();
+                        signature_tokens.retain(|x| x != &LT::Newline);
+                        loop {
+                            let t = signature_tokens.remove(0);
+                            if t == LT::Punctuator(Pr::LParen) {
+                                break;
+                            } else {
+                                before_parens.push(t);
+                            }
+                        }
+                        let LT::Identifier(function_name) = before_parens.pop().unwrap() else {
+                            panic!("Expected identifier")
+                        };
+                        let mut is_static = false;
+                        let mut primitive_type = None;
+                        let mut type_name = None;
+                        let mut pointer_level = 0;
+                        let mut is_unsigned = false;
+                        let mut is_const = false;
+                        let mut is_inline = false;
+                        for t in before_parens {
+                            use Keyword as KW;
+                            match t {
+                                LT::Punctuator(Pr::Star) => {
+                                    pointer_level += 1;
+                                }
+                                LT::Identifier(name) => {
+                                    assert!(type_name.is_none());
+                                    type_name = Some(name);
+                                }
+                                LT::Keyword(KW::Inline) => {
+                                    assert!(!is_inline);
+                                    is_inline = true
+                                }
+                                LT::Keyword(KW::Static) => {
+                                    assert!(!is_static);
+                                    is_static = true
+                                }
+                                LT::Keyword(KW::Const) => {
+                                    assert!(!is_const);
+                                    is_const = true
+                                }
+                                LT::Keyword(KW::Unsigned) => {
+                                    assert!(!is_unsigned);
+                                    is_unsigned = true;
+                                }
+                                LT::Keyword(KW::Void) => {
+                                    assert!(primitive_type.is_none());
+                                    primitive_type = Some(PrimitiveType::Void);
+                                }
+                                LT::Keyword(KW::Char) => {
+                                    assert!(primitive_type.is_none());
+                                    primitive_type = Some(PrimitiveType::Char);
+                                }
+                                LT::Keyword(KW::Long) => {
+                                    assert!(primitive_type.is_none());
+                                    primitive_type = Some(PrimitiveType::Long);
+                                }
+                                LT::Keyword(KW::Float) => {
+                                    assert!(primitive_type.is_none());
+                                    primitive_type = Some(PrimitiveType::Float);
+                                }
+                                LT::Keyword(KW::Double) => {
+                                    assert!(primitive_type.is_none());
+                                    primitive_type = Some(PrimitiveType::Double);
+                                }
+                                LT::Keyword(KW::Int) => {
+                                    assert!(primitive_type.is_none());
+                                    primitive_type = Some(PrimitiveType::Int);
+                                }
+                                LT::Keyword(KW::Short) => {
+                                    assert!(primitive_type.is_none());
+                                    primitive_type = Some(PrimitiveType::Short);
+                                }
+                                x => {
+                                    panic!("Unexpected token: {x:?}");
+                                }
+                            }
+                        }
+
+                        let mut return_type = {
+                            match (primitive_type, type_name) {
+                                (None, None) => panic!("Neither primitive nor type name are present"),
+                                (None, Some(type_name)) => {
+                                    assert!(!is_unsigned);
+                                    TypeName::Defined(type_name)
+                                }
+                                (Some(primitve), None) => TypeName::Primitive(primitve),
+                                (Some(_), Some(_)) => panic!("Both primitive type and type name are present"),
+                            }
+                        };
+                        while pointer_level > 0 {
+                            pointer_level -= 1;
+                            return_type = TypeName::Pointer(Box::new(return_type));
+                        }
+                        assert_eq!(LT::Punctuator(Pr::RParen), signature_tokens.pop().unwrap());
+                        // let _ = std::fs::OpenOptions::new()
+                        //     .append(true)
+                        //     .open("a.txt")
+                        //     .unwrap()
+                        //     .write(format!("{}\n", &serde_json::to_string(&signature_tokens).unwrap()).as_bytes());
+
                         return None;
                         //println!("FunctionDefinition: {signature_tokens:?} {body:?}")
                     }
@@ -418,6 +520,7 @@ pub enum PrimitiveType {
     Int,
     Long,
     Float,
+    Double,
 }
 impl PrimitiveType {
     fn from_keyword(keyword: Keyword, is_signed: bool, is_unsigned: bool) -> Self {

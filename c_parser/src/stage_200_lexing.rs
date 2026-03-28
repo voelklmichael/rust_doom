@@ -1,5 +1,5 @@
 /// Every punctuator this lexer can emit (C operators, brackets, and digraphs).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize)]
 pub enum Punctuator {
     Ellipsis,
     GreaterGreaterEqual,
@@ -114,7 +114,7 @@ impl Punctuator {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub enum LexedToken {
     // Keywords
     Keyword(Keyword),
@@ -148,7 +148,7 @@ pub enum LexedToken {
     BlockComment(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub enum Keyword {
     Auto,
     Break,
