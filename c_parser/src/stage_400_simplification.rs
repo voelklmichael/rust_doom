@@ -268,7 +268,8 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                             }
                         } else {
                             let mut leading_comments = Vec::new();
-                            let (r#type, variables) = combine_type_declarators(&mut leading_comments, declarators, r#type.map(TypeName::Primitive));
+                            let (r#type, variables, initializer) =
+                                combine_type_declarators(&mut leading_comments, declarators, r#type.map(TypeName::Primitive));
 
                             Declaration400::GlobalVariable {
                                 r#type,
@@ -277,6 +278,7 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                 is_typedef,
                                 storage,
                                 is_const,
+                                initializer,
                             }
                         };
                         ExternalDecl400::Declaration(declaration)
@@ -295,7 +297,7 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Declaration400 {
+pub enum Declaration400 {
     Type {
         kind: Kind,
         type_definition: Option<TypeDefinition>,
@@ -311,24 +313,25 @@ enum Declaration400 {
         storage: Option<Storage>,
         is_const: bool,
         leading_comments: Vec<String>,
+        initializer: Vec<LineItem>,
     },
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum TypeDefinitionArray {
+pub enum TypeDefinitionArray {
     NoArray,
     ArrayWithoutLength,
     ArrayWithLength(String),
 }
 #[derive(Debug, Clone, PartialEq)]
-struct TypeDefinition {
+pub struct TypeDefinition {
     type_name: String,
     array: TypeDefinitionArray,
     initializer: Vec<LineItem>,
     is_packaged: bool,
 }
 #[derive(Debug, Clone, PartialEq)]
-enum LineItem {
+pub enum LineItem {
     Identifier(String),
     StringLiteral(String),
     IntegerLiteral {
@@ -396,13 +399,13 @@ fn parse_initializer(mut initializer: Vec<LT>) -> Vec<LineItem> {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum Storage {
+pub enum Storage {
     Static,
     Extern,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum PrimitiveType {
+pub enum PrimitiveType {
     Void,
     UChar,
     SChar,
@@ -465,12 +468,12 @@ impl PrimitiveType {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-enum ArrayLength {
+pub enum ArrayLength {
     String(String),
     Integer(usize),
 }
 #[derive(Debug, Clone, PartialEq)]
-enum TypeName {
+pub enum TypeName {
     Primitive(PrimitiveType),
     Defined(String),
     DefinedOnceInAllOfDoom(String),
@@ -492,13 +495,13 @@ pub struct StructFields {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct EnumVariant {
+pub struct EnumVariant {
     tag: String,
     comments: Vec<String>,
     value: Vec<LT>,
 }
 #[derive(Debug, Clone, PartialEq)]
-enum Kind {
+pub enum Kind {
     Struct {
         global_variable_name: Option<String>,
         fields: Vec<StructFields>, //empty means:
@@ -621,8 +624,9 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
         r#type
     };
 
-    let (r#type, field_names) = combine_type_declarators(&mut leading_comments, declarators, r#type);
+    let (r#type, field_names, initializer) = combine_type_declarators(&mut leading_comments, declarators, r#type);
 
+    assert!(initializer.is_empty());
     //dbg!(&declarators);
     StructFields {
         comments: leading_comments,
@@ -635,8 +639,8 @@ fn combine_type_declarators(
     leading_comments: &mut Vec<String>,
     declarators: Vec<DeclaratorWithInit>,
     r#type: Option<TypeName>,
-) -> (TypeName, Vec<String>) {
-    let declarators = extract_declarators(declarators);
+) -> (TypeName, Vec<String>, Vec<LineItem>) {
+    let (declarators, initializer) = extract_declarators(declarators);
 
     use DeclaratorHelper2 as DH2;
     let (r#type, field_names) = if let Some(r#type) = r#type {
@@ -705,10 +709,10 @@ fn combine_type_declarators(
             x => panic!("Unexpcted untype declarator:{x:?}"),
         }
     };
-    (r#type, field_names)
+    (r#type, field_names, initializer)
 }
 
-fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHelper2 {
+fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> (DeclaratorHelper2, Vec<LineItem>) {
     if declarators.len() > 1 {
         let mut declarators_parsed = Vec::new();
         for DeclaratorWithInit {
@@ -736,7 +740,7 @@ fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHe
             }
             declarators_parsed.push(declarators);
         }
-        DeclaratorHelper2::MultipleNamesPossibleWithType(declarators_parsed)
+        (DeclaratorHelper2::MultipleNamesPossibleWithType(declarators_parsed), Default::default())
     } else if let Some(DeclaratorWithInit {
         declarator,
         ast: _,
@@ -751,7 +755,7 @@ fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHe
             }
         };
         // assert!(initializer.is_none());
-        match declarator.as_slice() {
+        let declarator = match declarator.as_slice() {
             [] => panic!("Empty declarator"),
             [
                 LT::Punctuator(Pr::LParen),
@@ -839,7 +843,8 @@ fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHe
                 value: *v,
             },
             x => DeclaratorHelper2::Unparsed(x.to_vec()),
-        }
+        };
+        (declarator, initializer)
     } else {
         panic!("No declarators");
     }
