@@ -26,7 +26,7 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                             todo!("Other: {lexed_tokens:?}")
                         }
                     },
-                    ExternalDecl340::Declaration(Declaration { specifiers, mut declarators }) => {
+                    ExternalDecl340::Declaration(Declaration { specifiers, declarators }) => {
                         let mut storage = None;
                         let mut is_typedef = false;
                         let mut is_const = false;
@@ -182,7 +182,7 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                             let LT::Identifier(tag) = line.remove(0) else {
                                                 panic!("Expected identifier")
                                             };
-                                            let value = if let Some(x) = line.get(0) {
+                                            let value = if let Some(x) = line.first() {
                                                 assert_eq!(x, &LT::Punctuator(Pr::Equal));
                                                 line.remove(0);
                                                 assert!(!line.is_empty());
@@ -262,54 +262,17 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                 r#type,
                             }
                         } else {
-                            if declarators.len() > 1 {
-                                let mut declarators = {
-                                    declarators
-                                        .into_iter()
-                                        .map(
-                                            |DeclaratorWithInit {
-                                                 declarator,
-                                                 ast: _,
-                                                 initializer,
-                                             }| {
-                                                assert!(initializer.is_none());
-                                                declarator
-                                                    .into_iter()
-                                                    .map(|x| match x {
-                                                        LT::Identifier(s) => s,
-                                                        _ => panic!("Unknown declarator: {x:?}"),
-                                                    })
-                                                    .collect::<Vec<_>>()
-                                            },
-                                        )
-                                        .collect::<Vec<_>>()
-                                };
-                                let mut first = declarators.remove(0);
-                                let mut variables = declarators
-                                    .into_iter()
-                                    .map(|x| {
-                                        let [x] = x.try_into().unwrap();
-                                        x
-                                    })
-                                    .collect::<Vec<_>>();
-                                variables.insert(0, first.pop().unwrap());
-                                assert!(first.len() <= 1);
-                                let r#type = match (first.pop(), r#type) {
-                                    (None, None) => panic!("No type and no declarator"),
-                                    (None, Some(r#type)) => TypeName::Primitive(r#type),
-                                    (Some(r#type), None) => TypeName::Defined(r#type),
-                                    (Some(_), Some(_)) => panic!("Multiple types and declarators"),
-                                };
-                            } else {
-                                let DeclaratorWithInit {
-                                    declarator,
-                                    ast: _,
-                                    initializer,
-                                } = declarators.pop().unwrap();
-                                dbg!(&declarator);
-                            }
+                            let mut leading_comments = Vec::new();
+                            let (r#type, variables) = combine_type_declarators(&mut leading_comments, declarators, r#type.map(TypeName::Primitive));
 
-                            return None;
+                            Declaration400::GlobalVariable {
+                                r#type,
+                                variables,
+                                leading_comments,
+                                is_typedef,
+                                storage,
+                                is_const,
+                            }
                         };
                         ExternalDecl400::Declaration(declaration)
                     }
@@ -336,6 +299,14 @@ enum Declaration400 {
         storage: Option<Storage>,
         is_const: bool,
     },
+    GlobalVariable {
+        r#type: TypeName,
+        variables: Vec<String>,
+        is_typedef: bool,
+        storage: Option<Storage>,
+        is_const: bool,
+        leading_comments: Vec<String>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -348,65 +319,78 @@ enum TypeDefinitionArray {
 struct TypeDefinition {
     type_name: String,
     array: TypeDefinitionArray,
-    initializer: Vec<Vec<Vec<LineItems>>>,
+    initializer: Vec<LineItem>,
     is_packaged: bool,
 }
 #[derive(Debug, Clone, PartialEq)]
-enum LineItems {
+enum LineItem {
     Identifier(String),
     StringLiteral(String),
     IntegerLiteral { value: usize },
+    Minus,
+    Plus,
+    Divide,
+    Multiply,
+    Braced(Vec<LineItem>),
+    Comma,
+    LParen,
+    RParen,
+    Dot,
+    Comment(String),
 }
-fn parse_initializer(mut initializer: Vec<LT>) -> Vec<Vec<Vec<LineItems>>> {
-    assert_eq!(initializer.remove(0), LT::Punctuator(Pr::LBrace));
-    assert_eq!(initializer.pop().unwrap(), LT::Punctuator(Pr::RBrace));
-
-    let mut lines = Vec::new();
-    let mut current_line = Vec::new();
-    let mut current_item = Vec::new();
-
-    let mut line_ending = false;
-    for token in initializer {
-        match token {
-            LT::Newline => continue,
-            LT::Punctuator(Pr::LBrace) => {
-                assert!(current_line.is_empty());
+fn parse_initializer(mut initializer: Vec<LT>) -> Vec<LineItem> {
+    fn parse_items(initializer: &mut Vec<LT>) -> Vec<LineItem> {
+        let mut items = Vec::new();
+        loop {
+            if initializer.is_empty() {
+                return items;
             }
-            LT::Punctuator(Pr::RBrace) => {
-                assert!(!current_line.is_empty());
-                lines.push(std::mem::take(&mut current_line));
-                line_ending = true;
-                continue;
-            }
-            LT::Punctuator(Pr::Comma) => {
-                if line_ending {
-                    line_ending = false;
-                    continue;
+            let current = initializer.remove(0);
+            match current {
+                LT::Newline => continue,
+                LT::Punctuator(Pr::RBrace) => {
+                    return items;
                 }
-                assert!(!current_item.is_empty());
-                current_line.push(std::mem::take(&mut current_item));
+                LT::Punctuator(Pr::LBrace) => {
+                    let line = parse_items(initializer);
+                    items.push(LineItem::Braced(line));
+                }
+                LT::IntegerLiteral { value, suffix } => {
+                    assert!(suffix.is_none());
+                    dbg!(&value);
+                    items.push(LineItem::IntegerLiteral {
+                        value: value.parse().unwrap(),
+                    });
+                }
+                LT::StringLiteral(s) => {
+                    items.push(LineItem::StringLiteral(s));
+                }
+                LT::Identifier(s) => {
+                    items.push(LineItem::Identifier(s));
+                }
+                LT::Punctuator(x) => {
+                    let item = match x {
+                        Pr::Minus => LineItem::Minus,
+                        Pr::Plus => LineItem::Plus,
+                        Pr::Slash => LineItem::Divide,
+                        Pr::Star => LineItem::Multiply,
+                        Pr::Comma => LineItem::Comma,
+                        Pr::LParen => LineItem::LParen,
+                        Pr::RParen => LineItem::RParen,
+                        Pr::Dot => LineItem::Dot,
+                        _ => panic!("Unknown punctuator: {x:?}"),
+                    };
+                    items.push(item);
+                }
+                LT::LineComment(s) | LT::BlockComment(s) => {
+                    items.push(LineItem::Comment(s));
+                }
+                x => panic!("Unknown token: {x:?}"),
             }
-            LT::Identifier(s) => current_item.push(LineItems::Identifier(s)),
-            LT::StringLiteral(s) => current_item.push(LineItems::StringLiteral(s)),
-            LT::IntegerLiteral { value, suffix } => {
-                assert!(suffix.is_none());
-                let value = value.parse::<usize>().unwrap();
-                current_item.push(LineItems::IntegerLiteral { value })
-            }
-            x => panic!("Unknown token: {x:?}"),
         }
-        if line_ending {
-            panic!("Line ending");
-        }
-    }
-    if !current_item.is_empty() {
-        current_line.push(current_item);
-    }
-    if !current_line.is_empty() {
-        lines.push(current_line);
     }
 
-    lines
+    parse_items(&mut initializer)
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -526,12 +510,30 @@ enum Kind {
     },
 }
 
+#[derive(Debug)]
+enum DeclaratorHelper2 {
+    FunctionPointer { name: String },
+    Identifier2 { name1: String, name2: String },
+    Identifier { name: String },
+    Pointer { name: String },
+    TypedPointer { r#type: String, name: String },
+    DoublePointer2 { name: String },
+    TypeDoublePointer { r#type: String, name: String },
+    Array { array: String, length: String },
+    TypedArray { r#type: String, array: String, length: String },
+    ArrayInteger { array: String, value: usize },
+    ArrayOfArrayInteger { array: String, length1: usize, length2: usize },
+    BitField { r#type: String, name: String, value: usize },
+    ArrayPointer { array: String, length: String },
+    MultipleNamesPossibleWithType(Vec<Vec<String>>),
+    Unparsed(Vec<LT>),
+}
 fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFields {
     let StructMemberDeclaration {
         mut leading_comments,
         declaration,
     } = *declaration;
-    let Declaration { specifiers, mut declarators } = declaration;
+    let Declaration { specifiers, declarators } = declaration;
     let r#type = {
         let mut r#type = None;
         let mut is_signed = false;
@@ -610,157 +612,23 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
         }
         r#type
     };
-    #[derive(Debug)]
-    enum DeclaratorHelper2 {
-        FunctionPointer { name: String },
-        Identifier2 { name1: String, name2: String },
-        Identifier { name: String },
-        Pointer { name: String },
-        TypedPointer { r#type: String, name: String },
-        DoublePointer2 { name: String },
-        TypeDoublePointer { r#type: String, name: String },
-        Array { array: String, length: String },
-        TypedArray { r#type: String, array: String, length: String },
-        ArrayInteger { array: String, value: usize },
-        ArrayOfArrayInteger { array: String, length1: usize, length2: usize },
-        BitField { r#type: String, name: String, value: usize },
-        ArrayPointer { array: String, length: String },
-        MultipleNamesPossibleWithType(Vec<Vec<String>>),
-        Unparsed(Vec<LT>),
-    }
-    let declarators = {
-        if declarators.len() > 1 {
-            let mut declarators_parsed = Vec::new();
-            for DeclaratorWithInit {
-                declarator,
-                ast,
-                initializer,
-            } in declarators
-            {
-                assert!(initializer.is_none());
-                let declarators = declarator
-                    .into_iter()
-                    .map(|x| match x {
-                        LT::Identifier(s) => s,
-                        _ => panic!("Unknown declarator: {x:?}"),
-                    })
-                    .collect::<Vec<_>>();
-                if let Some(ast) = ast {
-                    assert!(ast.pointer_levels.is_empty());
-                    match ast.direct {
-                        crate::stage_340_parsing::DirectDeclarator::Identifier(s) => {
-                            assert_eq!(&declarators, &[s]);
-                        }
-                        _ => panic!("Unknown direct declarator: {ast:?}"),
-                    }
-                }
-                declarators_parsed.push(declarators);
-            }
-            DeclaratorHelper2::MultipleNamesPossibleWithType(declarators_parsed)
-        } else if let Some(DeclaratorWithInit {
-            declarator,
-            ast,
-            initializer,
-        }) = declarators.pop()
-        {
-            assert!(initializer.is_none());
-            match declarator.as_slice() {
-                [] => panic!("Empty declarator"),
-                [
-                    LT::Punctuator(Pr::LParen),
-                    LT::Punctuator(Pr::Star),
-                    LT::Identifier(x),
-                    LT::Punctuator(Pr::RParen),
-                    LT::Punctuator(Pr::LParen),
-                    LT::Punctuator(Pr::RParen),
-                ] => DeclaratorHelper2::FunctionPointer { name: x.to_string() },
-                [LT::Identifier(s)] => DeclaratorHelper2::Identifier { name: s.to_string() },
-                [LT::Identifier(s1), LT::Identifier(s2)] => DeclaratorHelper2::Identifier2 {
-                    name1: s1.to_string(),
-                    name2: s2.to_string(),
-                },
-                [LT::Punctuator(p), LT::Identifier(s)] if *p == Pr::Star => DeclaratorHelper2::Pointer { name: s.to_string() },
-                [LT::Identifier(t), LT::Punctuator(Pr::Star), LT::Identifier(s)] => DeclaratorHelper2::TypedPointer {
-                    r#type: t.to_string(),
-                    name: s.to_string(),
-                },
-                [LT::Punctuator(Pr::Star), LT::Punctuator(Pr::Star), LT::Identifier(s)] => DeclaratorHelper2::DoublePointer2 { name: s.to_string() },
-                [LT::Identifier(t), LT::Punctuator(Pr::Star), LT::Punctuator(Pr::Star), LT::Identifier(s)] => DeclaratorHelper2::TypeDoublePointer {
-                    r#type: t.to_string(),
-                    name: s.to_string(),
-                },
-                [
-                    LT::Identifier(array),
-                    LT::Punctuator(Pr::LBracket),
-                    LT::Identifier(length),
-                    LT::Punctuator(Pr::RBracket),
-                ] => DeclaratorHelper2::Array {
-                    array: array.to_string(),
-                    length: length.to_string(),
-                },
-                [
-                    LT::Identifier(r#type),
-                    LT::Identifier(array),
-                    LT::Punctuator(Pr::LBracket),
-                    LT::Identifier(length),
-                    LT::Punctuator(Pr::RBracket),
-                ] => DeclaratorHelper2::TypedArray {
-                    r#type: r#type.to_string(),
-                    array: array.to_string(),
-                    length: length.to_string(),
-                },
-                [
-                    LT::Identifier(array),
-                    LT::Punctuator(Pr::LBracket),
-                    LT::IntegerLiteral { value, suffix: None },
-                    LT::Punctuator(Pr::RBracket),
-                ] => DeclaratorHelper2::ArrayInteger {
-                    array: array.to_string(),
-                    value: value.parse::<usize>().unwrap(),
-                },
-                [
-                    LT::Punctuator(Pr::Star),
-                    LT::Identifier(array),
-                    LT::Punctuator(Pr::LBracket),
-                    LT::Identifier(length),
-                    LT::Punctuator(Pr::RBracket),
-                ] => DeclaratorHelper2::ArrayPointer {
-                    array: array.to_string(),
-                    length: length.to_string(),
-                },
-                [
-                    LT::Identifier(array),
-                    LT::Punctuator(Pr::LBracket),
-                    LT::IntegerLiteral { value: v1, suffix: None },
-                    LT::Punctuator(Pr::RBracket),
-                    LT::Punctuator(Pr::LBracket),
-                    LT::IntegerLiteral { value: v2, suffix: None },
-                    LT::Punctuator(Pr::RBracket),
-                ] => DeclaratorHelper2::ArrayOfArrayInteger {
-                    array: array.to_string(),
-                    length1: v1.parse::<usize>().unwrap(),
-                    length2: v2.parse::<usize>().unwrap(),
-                },
-                [
-                    LT::Identifier(r#type),
-                    LT::Identifier(name),
-                    LT::Punctuator(Pr::Colon),
-                    LT::IntegerLiteral { value: v, suffix: None },
-                ] => DeclaratorHelper2::BitField {
-                    r#type: r#type.to_string(),
-                    name: name.to_string(),
-                    value: v.parse::<usize>().unwrap(),
-                },
-                x => DeclaratorHelper2::Unparsed(x.to_vec()),
-            }
-        } else {
-            panic!("No declarators");
-        }
-    };
 
-    if r#type.is_none() {
-        //dbg!(&tag);
+    let (r#type, field_names) = combine_type_declarators(&mut leading_comments, declarators, r#type);
+
+    //dbg!(&declarators);
+    StructFields {
+        comments: leading_comments,
+        r#type, //declaration,
+        field_names,
     }
+}
+
+fn combine_type_declarators(
+    leading_comments: &mut Vec<String>,
+    declarators: Vec<DeclaratorWithInit>,
+    r#type: Option<TypeName>,
+) -> (TypeName, Vec<String>) {
+    let declarators = extract_declarators(declarators);
 
     use DeclaratorHelper2 as DH2;
     let (r#type, field_names) = if let Some(r#type) = r#type {
@@ -829,11 +697,142 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
             x => panic!("Unexpcted untype declarator:{x:?}"),
         }
     };
+    (r#type, field_names)
+}
 
-    //dbg!(&declarators);
-    StructFields {
-        comments: leading_comments,
-        r#type, //declaration,
-        field_names,
+fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHelper2 {
+    if declarators.len() > 1 {
+        let mut declarators_parsed = Vec::new();
+        for DeclaratorWithInit {
+            declarator,
+            ast,
+            initializer,
+        } in declarators
+        {
+            assert!(initializer.is_none());
+            let declarators = declarator
+                .into_iter()
+                .map(|x| match x {
+                    LT::Identifier(s) => s,
+                    _ => panic!("Unknown declarator: {x:?}"),
+                })
+                .collect::<Vec<_>>();
+            if let Some(ast) = ast {
+                assert!(ast.pointer_levels.is_empty());
+                match ast.direct {
+                    crate::stage_340_parsing::DirectDeclarator::Identifier(s) => {
+                        assert_eq!(&declarators, &[s]);
+                    }
+                    _ => panic!("Unknown direct declarator: {ast:?}"),
+                }
+            }
+            declarators_parsed.push(declarators);
+        }
+        DeclaratorHelper2::MultipleNamesPossibleWithType(declarators_parsed)
+    } else if let Some(DeclaratorWithInit {
+        declarator,
+        ast: _,
+        initializer,
+    }) = declarators.pop()
+    {
+        let initializer = {
+            if let Some(initializer) = initializer {
+                parse_initializer(initializer)
+            } else {
+                Default::default()
+            }
+        };
+        // assert!(initializer.is_none());
+        match declarator.as_slice() {
+            [] => panic!("Empty declarator"),
+            [
+                LT::Punctuator(Pr::LParen),
+                LT::Punctuator(Pr::Star),
+                LT::Identifier(x),
+                LT::Punctuator(Pr::RParen),
+                LT::Punctuator(Pr::LParen),
+                LT::Punctuator(Pr::RParen),
+            ] => DeclaratorHelper2::FunctionPointer { name: x.to_string() },
+            [LT::Identifier(s)] => DeclaratorHelper2::Identifier { name: s.to_string() },
+            [LT::Identifier(s1), LT::Identifier(s2)] => DeclaratorHelper2::Identifier2 {
+                name1: s1.to_string(),
+                name2: s2.to_string(),
+            },
+            [LT::Punctuator(p), LT::Identifier(s)] if *p == Pr::Star => DeclaratorHelper2::Pointer { name: s.to_string() },
+            [LT::Identifier(t), LT::Punctuator(Pr::Star), LT::Identifier(s)] => DeclaratorHelper2::TypedPointer {
+                r#type: t.to_string(),
+                name: s.to_string(),
+            },
+            [LT::Punctuator(Pr::Star), LT::Punctuator(Pr::Star), LT::Identifier(s)] => DeclaratorHelper2::DoublePointer2 { name: s.to_string() },
+            [LT::Identifier(t), LT::Punctuator(Pr::Star), LT::Punctuator(Pr::Star), LT::Identifier(s)] => DeclaratorHelper2::TypeDoublePointer {
+                r#type: t.to_string(),
+                name: s.to_string(),
+            },
+            [
+                LT::Identifier(array),
+                LT::Punctuator(Pr::LBracket),
+                LT::Identifier(length),
+                LT::Punctuator(Pr::RBracket),
+            ] => DeclaratorHelper2::Array {
+                array: array.to_string(),
+                length: length.to_string(),
+            },
+            [
+                LT::Identifier(r#type),
+                LT::Identifier(array),
+                LT::Punctuator(Pr::LBracket),
+                LT::Identifier(length),
+                LT::Punctuator(Pr::RBracket),
+            ] => DeclaratorHelper2::TypedArray {
+                r#type: r#type.to_string(),
+                array: array.to_string(),
+                length: length.to_string(),
+            },
+            [
+                LT::Identifier(array),
+                LT::Punctuator(Pr::LBracket),
+                LT::IntegerLiteral { value, suffix: None },
+                LT::Punctuator(Pr::RBracket),
+            ] => DeclaratorHelper2::ArrayInteger {
+                array: array.to_string(),
+                value: value.parse::<usize>().unwrap(),
+            },
+            [
+                LT::Punctuator(Pr::Star),
+                LT::Identifier(array),
+                LT::Punctuator(Pr::LBracket),
+                LT::Identifier(length),
+                LT::Punctuator(Pr::RBracket),
+            ] => DeclaratorHelper2::ArrayPointer {
+                array: array.to_string(),
+                length: length.to_string(),
+            },
+            [
+                LT::Identifier(array),
+                LT::Punctuator(Pr::LBracket),
+                LT::IntegerLiteral { value: v1, suffix: None },
+                LT::Punctuator(Pr::RBracket),
+                LT::Punctuator(Pr::LBracket),
+                LT::IntegerLiteral { value: v2, suffix: None },
+                LT::Punctuator(Pr::RBracket),
+            ] => DeclaratorHelper2::ArrayOfArrayInteger {
+                array: array.to_string(),
+                length1: v1.parse::<usize>().unwrap(),
+                length2: v2.parse::<usize>().unwrap(),
+            },
+            [
+                LT::Identifier(r#type),
+                LT::Identifier(name),
+                LT::Punctuator(Pr::Colon),
+                LT::IntegerLiteral { value: v, suffix: None },
+            ] => DeclaratorHelper2::BitField {
+                r#type: r#type.to_string(),
+                name: name.to_string(),
+                value: v.parse::<usize>().unwrap(),
+            },
+            x => DeclaratorHelper2::Unparsed(x.to_vec()),
+        }
+    } else {
+        panic!("No declarators");
     }
 }
