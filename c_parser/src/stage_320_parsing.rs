@@ -116,7 +116,7 @@ fn token_to_path_fragment(t: &LexedToken) -> Option<String> {
     match t {
         LexedToken::Identifier(s) => Some(s.clone()),
         LexedToken::Punctuator(p) if matches!(*p, Punctuator::Dot | Punctuator::Slash | Punctuator::Minus) => Some(p.as_str().to_string()),
-        LexedToken::IntegerLiteral { value, .. } => Some(value.clone()),
+        LexedToken::IntegerLiteral { value, .. } => Some(value.to_string()),
         _ => None,
     }
 }

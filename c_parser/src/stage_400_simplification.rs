@@ -197,6 +197,11 @@ pub fn simplification(tu: TranslationUnit340) -> TranslationUnit400 {
                                 }
                             }
 
+                            // `unsigned` / `signed` as the only type specifier defaults to `int` (C).
+                            if is_unsigned && r#type.is_none() {
+                                r#type = Some(PrimitiveType::UInt);
+                            }
+
                             kind
                         };
 
@@ -326,16 +331,18 @@ struct TypeDefinition {
 enum LineItem {
     Identifier(String),
     StringLiteral(String),
-    IntegerLiteral { value: usize },
-    Minus,
-    Plus,
-    Divide,
-    Multiply,
+    IntegerLiteral {
+        value: usize,
+    },
+    FloatLiteral {
+        value: String,
+        suffix: Option<String>,
+    },
+    CharLiteral(String),
+    Keyword(Keyword),
+    /// Any punctuator except `{` / `}`, which become `Braced` nesting.
+    Punctuator(Pr),
     Braced(Vec<LineItem>),
-    Comma,
-    LParen,
-    RParen,
-    Dot,
     Comment(String),
 }
 fn parse_initializer(mut initializer: Vec<LT>) -> Vec<LineItem> {
@@ -357,10 +364,16 @@ fn parse_initializer(mut initializer: Vec<LT>) -> Vec<LineItem> {
                 }
                 LT::IntegerLiteral { value, suffix } => {
                     assert!(suffix.is_none());
-                    dbg!(&value);
-                    items.push(LineItem::IntegerLiteral {
-                        value: value.parse().unwrap(),
-                    });
+                    items.push(LineItem::IntegerLiteral { value });
+                }
+                LT::FloatLiteral { value, suffix } => {
+                    items.push(LineItem::FloatLiteral { value, suffix });
+                }
+                LT::CharLiteral(s) => {
+                    items.push(LineItem::CharLiteral(s));
+                }
+                LT::Keyword(k) => {
+                    items.push(LineItem::Keyword(k));
                 }
                 LT::StringLiteral(s) => {
                     items.push(LineItem::StringLiteral(s));
@@ -369,18 +382,7 @@ fn parse_initializer(mut initializer: Vec<LT>) -> Vec<LineItem> {
                     items.push(LineItem::Identifier(s));
                 }
                 LT::Punctuator(x) => {
-                    let item = match x {
-                        Pr::Minus => LineItem::Minus,
-                        Pr::Plus => LineItem::Plus,
-                        Pr::Slash => LineItem::Divide,
-                        Pr::Star => LineItem::Multiply,
-                        Pr::Comma => LineItem::Comma,
-                        Pr::LParen => LineItem::LParen,
-                        Pr::RParen => LineItem::RParen,
-                        Pr::Dot => LineItem::Dot,
-                        _ => panic!("Unknown punctuator: {x:?}"),
-                    };
-                    items.push(item);
+                    items.push(LineItem::Punctuator(x));
                 }
                 LT::LineComment(s) | LT::BlockComment(s) => {
                     items.push(LineItem::Comment(s));
@@ -554,7 +556,7 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
                             is_unsigned = true;
                             continue;
                         }
-                        x => PrimitiveType::from_keyword(x, is_signed, false),
+                        x => PrimitiveType::from_keyword(x, is_signed, is_unsigned),
                     }
                 }
                 .into(),
@@ -606,6 +608,12 @@ fn simplify_struct_field(declaration: Box<StructMemberDeclaration>) -> StructFie
             };
             assert!(r#type.is_none());
             r#type = Some(t);
+        }
+        if is_unsigned && r#type.is_none() {
+            r#type = Some(TypeName::Primitive(PrimitiveType::UInt));
+        }
+        if is_signed && r#type.is_none() {
+            r#type = Some(TypeName::Primitive(PrimitiveType::SInt));
         }
         if is_signed || is_unsigned {
             assert!(r#type.is_some());
@@ -795,7 +803,7 @@ fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHe
                 LT::Punctuator(Pr::RBracket),
             ] => DeclaratorHelper2::ArrayInteger {
                 array: array.to_string(),
-                value: value.parse::<usize>().unwrap(),
+                value: *value,
             },
             [
                 LT::Punctuator(Pr::Star),
@@ -817,8 +825,8 @@ fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHe
                 LT::Punctuator(Pr::RBracket),
             ] => DeclaratorHelper2::ArrayOfArrayInteger {
                 array: array.to_string(),
-                length1: v1.parse::<usize>().unwrap(),
-                length2: v2.parse::<usize>().unwrap(),
+                length1: *v1,
+                length2: *v2,
             },
             [
                 LT::Identifier(r#type),
@@ -828,7 +836,7 @@ fn extract_declarators(mut declarators: Vec<DeclaratorWithInit>) -> DeclaratorHe
             ] => DeclaratorHelper2::BitField {
                 r#type: r#type.to_string(),
                 name: name.to_string(),
-                value: v.parse::<usize>().unwrap(),
+                value: *v,
             },
             x => DeclaratorHelper2::Unparsed(x.to_vec()),
         }

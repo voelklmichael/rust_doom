@@ -122,9 +122,9 @@ pub enum LexedToken {
     // Identifiers
     Identifier(String),
 
-    // Literals
+    // Literals (numeric value only; `-1` lexes as `Minus` + `IntegerLiteral(1)`.)
     IntegerLiteral {
-        value: String,
+        value: usize,
         suffix: Option<String>,
     },
     FloatLiteral {
@@ -422,7 +422,8 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
                 while i < bytes.len() && (bytes[i] == b'u' || bytes[i] == b'U' || bytes[i] == b'l' || bytes[i] == b'L') {
                     i += 1;
                 }
-                let value = String::from_utf8(bytes[start..suffix_start].to_vec()).unwrap();
+                let value_str = std::str::from_utf8(&bytes[start..suffix_start]).unwrap();
+                let value = integer_literal_value(value_str);
                 let suffix = if suffix_start < i {
                     Some(String::from_utf8(bytes[suffix_start..i].to_vec()).unwrap())
                 } else {
@@ -442,7 +443,8 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
                 while i < bytes.len() && (bytes[i] == b'u' || bytes[i] == b'U' || bytes[i] == b'l' || bytes[i] == b'L') {
                     i += 1;
                 }
-                let value = String::from_utf8(bytes[start..suffix_start].to_vec()).unwrap();
+                let value_str = std::str::from_utf8(&bytes[start..suffix_start]).unwrap();
+                let value = integer_literal_value(value_str);
                 let suffix = if suffix_start < i {
                     Some(String::from_utf8(bytes[suffix_start..i].to_vec()).unwrap())
                 } else {
@@ -498,6 +500,8 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
                 } else {
                     None
                 };
+                let value_str = std::str::from_utf8(&bytes[start..suffix_start]).unwrap();
+                let value = integer_literal_value(value_str);
                 tokens.push(LexedToken::IntegerLiteral { value, suffix });
             }
             continue;
@@ -507,6 +511,19 @@ pub(crate) fn lexing(whitelisted: String) -> Vec<LexedToken> {
     }
 
     tokens
+}
+
+/// Parse C integer literal text: decimal, `0…` octal, or `0x` / `0X` hex (suffix not included).
+fn integer_literal_value(span: &str) -> usize {
+    let b = span.as_bytes();
+    if b.len() >= 3 && b[0] == b'0' && (b[1] == b'x' || b[1] == b'X') {
+        usize::from_str_radix(&span[2..], 16).unwrap_or_else(|e| panic!("invalid hex integer literal {span:?}: {e}"))
+    } else if b.len() > 1 && b[0] == b'0' {
+        usize::from_str_radix(span, 8).unwrap_or_else(|e| panic!("invalid octal integer literal {span:?}: {e}"))
+    } else {
+        span.parse::<usize>()
+            .unwrap_or_else(|e| panic!("invalid decimal integer literal {span:?}: {e}"))
+    }
 }
 
 fn is_ident_start(b: u8) -> bool {
@@ -560,10 +577,7 @@ mod tests {
                 LexedToken::Keyword(Keyword::Int),
                 LexedToken::Identifier("x".to_string()),
                 LexedToken::Punctuator(Punctuator::Equal),
-                LexedToken::IntegerLiteral {
-                    value: "1".to_string(),
-                    suffix: None
-                },
+                LexedToken::IntegerLiteral { value: 1, suffix: None },
                 LexedToken::Punctuator(Punctuator::Semicolon),
             ]
         );
@@ -587,10 +601,7 @@ mod tests {
                 LexedToken::LineComment(" comment".to_string()),
                 LexedToken::Newline,
                 LexedToken::Keyword(Keyword::Return),
-                LexedToken::IntegerLiteral {
-                    value: "0".to_string(),
-                    suffix: None
-                },
+                LexedToken::IntegerLiteral { value: 0, suffix: None },
                 LexedToken::Punctuator(Punctuator::Semicolon),
             ]
         );
